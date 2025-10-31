@@ -349,7 +349,7 @@ export default function MyTasks() {
           </CardContent>
         </Card>
       ) : viewMode === 'cards' ? (
-        <div className="grid gap-6">
+        <div className="space-y-6 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
           {groupedTasks.map((group) => (
             <Card key={group.elementId} className="overflow-hidden">
               <CardHeader className="bg-muted/50">
@@ -363,7 +363,7 @@ export default function MyTasks() {
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="w-full">
-                  <div className="flex gap-4 p-4 overflow-x-auto">
+                  <div className="flex gap-4 p-4 overflow-x-auto min-h-[200px] max-h-[calc(100vh-320px)]">
                     {group.tasks.map((task) => {
                       const taskOverdue = isOverdue(task.due_date, task.status);
                       return (
@@ -450,8 +450,9 @@ export default function MyTasks() {
           ))}
         </div>
       ) : viewMode === 'list' ? (
-        <Card>
-          <CardContent className="p-0">
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+          <Card>
+            <CardContent className="p-0">
             {groupedTasks.map((group) => (
               <div key={group.elementId} className="border-b last:border-b-0">
                 <div className="bg-muted/50 px-4 py-2 font-semibold text-sm flex items-center justify-between">
@@ -537,6 +538,7 @@ export default function MyTasks() {
             ))}
           </CardContent>
         </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {['todo', 'in_progress', 'done'].map((status) => {
@@ -554,7 +556,7 @@ export default function MyTasks() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <ScrollArea className="h-[600px] pr-4">
+                  <ScrollArea className="h-[calc(100vh-360px)] pr-4">
                     {statusTasks.map((task) => {
                       const taskOverdue = isOverdue(task.due_date, task.status);
                       return (
