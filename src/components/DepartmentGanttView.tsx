@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Gantt, Task as GanttTask, ViewMode } from 'gantt-task-react';
 import 'gantt-task-react/dist/index.css';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,8 +33,8 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
-  const leftScrollRef = useState<HTMLDivElement | null>(null)[0];
-  const rightScrollRef = useState<HTMLDivElement | null>(null)[0];
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const convertToGanttTasks = () => {
@@ -219,13 +219,11 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
             <div 
               className="w-[400px] border-r shrink-0 overflow-y-auto"
               onScroll={(e) => {
-                if (rightScrollRef) {
-                  rightScrollRef.scrollTop = e.currentTarget.scrollTop;
+                if (rightScrollRef.current) {
+                  rightScrollRef.current.scrollTop = e.currentTarget.scrollTop;
                 }
               }}
-              ref={(ref) => {
-                if (ref) (leftScrollRef as any) = ref;
-              }}
+              ref={leftScrollRef}
             >
               <div>
                 {tasks.map((task) => {
@@ -253,13 +251,11 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
             <div 
               className="flex-1 overflow-auto"
               onScroll={(e) => {
-                if (leftScrollRef) {
-                  leftScrollRef.scrollTop = e.currentTarget.scrollTop;
+                if (leftScrollRef.current) {
+                  leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
                 }
               }}
-              ref={(ref) => {
-                if (ref) (rightScrollRef as any) = ref;
-              }}
+              ref={rightScrollRef}
             >
               <div className="min-w-max">
                 <Gantt
