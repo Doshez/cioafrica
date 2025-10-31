@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface Task {
   id: string;
@@ -17,6 +18,7 @@ interface Task {
   due_date: string;
   assignee_department_id: string;
   description?: string;
+  progress_percentage?: number;
 }
 
 interface DepartmentGanttViewProps {
@@ -138,6 +140,42 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
     }
   };
 
+  const handleProgressUpdate = async (taskId: string, progress: number) => {
+    try {
+      const updateData: any = { 
+        progress_percentage: progress
+      };
+
+      // Auto-complete when reaching 100%
+      if (progress >= 100) {
+        updateData.status = 'completed';
+        updateData.completed_at = new Date().toISOString();
+      } else if (progress > 0) {
+        updateData.status = 'in_progress';
+      }
+
+      const { error } = await supabase
+        .from('tasks')
+        .update(updateData)
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: progress >= 100 ? 'Task completed!' : 'Progress updated successfully',
+      });
+
+      onTasksUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getTaskProgress = (status: string) => {
     switch (status) {
       case 'completed':
@@ -183,33 +221,53 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
 
       <div className="space-y-3">
         <h4 className="font-semibold">Task Status Management</h4>
-        {tasks.map((task) => (
-          <div key={task.id} className="flex items-center gap-4 p-3 border rounded-lg bg-card">
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center gap-2">
-                <p className="font-medium">{task.title}</p>
-                <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
-                  {task.priority}
-                </Badge>
+        {tasks.map((task) => {
+          const progress = task.progress_percentage ?? getTaskProgress(task.status);
+          return (
+            <div key={task.id} className="flex items-center gap-4 p-3 border rounded-lg bg-card">
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{task.title}</p>
+                  <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
+                    {task.priority}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Progress:</span>
+                  <Progress value={progress} className="flex-1 max-w-[200px]" />
+                  {task.status === 'in_progress' ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={progress}
+                        onChange={(e) => {
+                          const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                          handleProgressUpdate(task.id, value);
+                        }}
+                        className="w-16 h-7 text-xs"
+                      />
+                      <span className="text-xs font-medium">%</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-medium">{progress}%</span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Progress:</span>
-                <Progress value={getTaskProgress(task.status)} className="flex-1 max-w-[200px]" />
-                <span className="text-xs font-medium">{getTaskProgress(task.status)}%</span>
-              </div>
+              <Select value={task.status} onValueChange={(value) => handleStatusUpdate(task.id, value)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todo">Not Started</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={task.status} onValueChange={(value) => handleStatusUpdate(task.id, value)}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todo">Not Started</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
