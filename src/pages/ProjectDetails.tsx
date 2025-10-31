@@ -18,6 +18,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { InteractiveGanttChart } from '@/components/InteractiveGanttChart';
 
 interface Project {
   id: string;
@@ -310,6 +311,9 @@ export default function ProjectDetails() {
           </div>
         )}
       </div>
+
+      {/* Interactive Gantt Chart */}
+      <InteractiveGanttChart projectId={projectId!} />
     </div>
   );
 }
