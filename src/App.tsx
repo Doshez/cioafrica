@@ -11,6 +11,7 @@ import ProjectDetails from "./pages/ProjectDetails";
 import MyTasks from "./pages/MyTasks";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
+import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
             <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
             <Route path="/admin/users" element={<Layout><UserManagement /></Layout>} />
+            <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
