@@ -1,54 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, MoreVertical, Users, Calendar } from 'lucide-react';
+import { Plus, Search, MoreVertical, Users, Calendar, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  start_date: string;
+  end_date: string | null;
+}
 
 export default function Projects() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const projects = [
-    {
-      id: '1',
-      name: 'Connected Africa Summit 2025',
-      description: 'Annual technology conference planning and execution',
-      status: 'active',
-      progress: 65,
-      department: 'Events',
-      owner: 'Sarah Johnson',
-      startDate: '2025-01-15',
-      endDate: '2025-06-30',
-      tasksCount: 48,
-      teamSize: 12,
-    },
-    {
-      id: '2',
-      name: 'Marketing Campaign Q1',
-      description: 'Social media and digital marketing initiatives',
-      status: 'active',
-      progress: 40,
-      department: 'Marketing',
-      owner: 'Michael Chen',
-      startDate: '2025-01-01',
-      endDate: '2025-03-31',
-      tasksCount: 24,
-      teamSize: 6,
-    },
-    {
-      id: '3',
-      name: 'Website Redesign',
-      description: 'Complete overhaul of corporate website',
-      status: 'review',
-      progress: 85,
-      department: 'IT',
-      owner: 'Emily Davis',
-      startDate: '2024-11-01',
-      endDate: '2025-02-28',
-      tasksCount: 32,
-      teamSize: 8,
-    },
-  ];
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, description, status, start_date, end_date')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProjects = projects.filter(project =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    project.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -62,6 +67,14 @@ export default function Projects() {
         return 'bg-muted text-muted-foreground';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -94,62 +107,51 @@ export default function Projects() {
 
       {/* Projects Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => (
-          <Card key={project.id} className="transition-smooth hover:shadow-lg group">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 flex-1">
-                  <CardTitle className="text-xl group-hover:text-primary transition-smooth">
-                    {project.name}
-                  </CardTitle>
-                  <CardDescription className="line-clamp-2">
-                    {project.description}
-                  </CardDescription>
-                </div>
-                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Progress */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">{project.progress}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div
-                    className="gradient-primary h-2 rounded-full transition-smooth"
-                    style={{ width: `${project.progress}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Info Grid */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{project.teamSize} members</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{project.tasksCount} tasks</span>
-                </div>
-              </div>
-
-              {/* Status & Department */}
-              <div className="flex items-center gap-2 pt-2">
-                <Badge variant="outline" className={getStatusColor(project.status)}>
-                  {project.status}
-                </Badge>
-                <Badge variant="outline">
-                  {project.department}
-                </Badge>
-              </div>
+        {filteredProjects.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">
+                {searchQuery ? 'No projects match your search' : 'No projects assigned to you yet'}
+              </p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredProjects.map((project) => (
+            <Card key={project.id} className="transition-smooth hover:shadow-lg group">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 flex-1">
+                    <CardTitle className="text-xl group-hover:text-primary transition-smooth">
+                      {project.name}
+                    </CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {project.description}
+                    </CardDescription>
+                  </div>
+                  <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Status */}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={getStatusColor(project.status)}>
+                    {project.status}
+                  </Badge>
+                </div>
+                
+                {/* Dates */}
+                {project.end_date && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Due: {new Date(project.end_date).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

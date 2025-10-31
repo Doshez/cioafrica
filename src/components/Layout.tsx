@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   FolderKanban, 
-  ListChecks, 
+  CheckSquare, 
   BarChart3, 
   Users, 
   Bell,
@@ -48,8 +48,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: CheckSquare, label: 'My Tasks', path: '/my-tasks' },
     { icon: FolderKanban, label: 'Projects', path: '/projects' },
-    { icon: ListChecks, label: 'Tasks', path: '/tasks' },
     { icon: BarChart3, label: 'Analytics', path: '/analytics' },
     { icon: Users, label: 'Team', path: '/team' },
   ];
