@@ -36,7 +36,7 @@ export default function AdminDashboard() {
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects').select('id', { count: 'exact', head: true }),
         supabase.from('tasks').select('id', { count: 'exact', head: true }),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
+        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'in-progress'),
       ]);
 
       setStats({
