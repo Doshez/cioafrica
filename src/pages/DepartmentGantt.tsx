@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { DepartmentGanttView } from '@/components/DepartmentGanttView';
-import { TasksByUserView } from '@/components/TasksByUserView';
+import { TasksByElementView } from '@/components/TasksByElementView';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { EditElementDialog } from '@/components/EditElementDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ArrowLeft, Plus, Filter, Calendar, Clock, Search } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -52,6 +54,8 @@ interface TaskWithProfile extends Task {
   assignee_name?: string;
   assignee_email?: string;
   assigned_users?: AssignedUser[];
+  element_id?: string;
+  element_name?: string;
 }
 
 interface DepartmentAnalytics {
@@ -77,6 +81,8 @@ export default function DepartmentGantt() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editingElement, setEditingElement] = useState<{ id: string; title: string; description?: string } | null>(null);
 
   useEffect(() => {
     if (departmentId && projectId) {
@@ -122,10 +128,13 @@ export default function DepartmentGantt() {
 
   const fetchTasksAndAnalytics = async () => {
     try {
-      // Fetch tasks
+      // Fetch tasks with element information
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*')
+        .select(`
+          *,
+          element:elements(id, title)
+        `)
         .eq('project_id', projectId)
         .eq('assignee_department_id', departmentId)
         .order('start_date', { ascending: true });
@@ -168,6 +177,8 @@ export default function DepartmentGantt() {
           assigned_users: assignedUsers,
           assignee_name: legacyProfile?.full_name,
           assignee_email: legacyProfile?.email,
+          element_id: (task.element as any)?.id,
+          element_name: (task.element as any)?.title,
         };
       }) || [];
 
@@ -435,12 +446,19 @@ export default function DepartmentGantt() {
             </CardContent>
           </Card>
 
-          {/* Tasks by User Columns */}
+          {/* Tasks by Element Columns */}
           {filteredTasks.length > 0 ? (
-            <TasksByUserView
+            <TasksByElementView
               tasks={filteredTasks}
               onStatusUpdate={handleStatusUpdate}
               onProgressUpdate={handleProgressUpdate}
+              onEditTask={(task) => setEditingTask(task)}
+              onEditElement={(id, name) => {
+                const element = filteredTasks.find(t => t.element_id === id);
+                if (element) {
+                  setEditingElement({ id, title: name, description: element.description });
+                }
+              }}
             />
           ) : (
             <Card>
@@ -464,6 +482,20 @@ export default function DepartmentGantt() {
           />
         </TabsContent>
       </Tabs>
+
+      <EditTaskDialog
+        open={!!editingTask}
+        onOpenChange={(open) => !open && setEditingTask(null)}
+        task={editingTask}
+        onSuccess={fetchTasksAndAnalytics}
+      />
+
+      <EditElementDialog
+        open={!!editingElement}
+        onOpenChange={(open) => !open && setEditingElement(null)}
+        element={editingElement}
+        onSuccess={fetchTasksAndAnalytics}
+      />
     </div>
   );
 }
