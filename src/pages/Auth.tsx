@@ -8,12 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2, LayoutDashboard } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import ChangePasswordDialog from '@/components/ChangePasswordDialog';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -31,12 +34,36 @@ export default function Auth() {
     
     if (error) {
       toast.error(error.message || 'Failed to sign in');
+      setLoading(false);
     } else {
+      // Check if user needs to change password
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('must_change_password')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.must_change_password) {
+          setShowPasswordChange(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       toast.success('Welcome back!', {
         icon: <CheckCircle2 className="h-4 w-4" />
       });
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handlePasswordChangeSuccess = () => {
+    setShowPasswordChange(false);
+    toast.success('Password changed successfully! Redirecting...');
+    navigate('/dashboard');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -56,7 +83,12 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
+    <>
+      <ChangePasswordDialog 
+        open={showPasswordChange} 
+        onSuccess={handlePasswordChangeSuccess}
+      />
+      <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mb-4">
@@ -156,5 +188,6 @@ export default function Auth() {
         </Card>
       </div>
     </div>
+    </>
   );
 }

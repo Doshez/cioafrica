@@ -11,6 +11,7 @@ interface CreateUserRequest {
   email: string;
   full_name: string;
   role: 'admin' | 'project_manager' | 'member' | 'viewer';
+  project_ids?: string[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -26,9 +27,9 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendApiKey);
 
-    const { email, full_name, role }: CreateUserRequest = await req.json();
+    const { email, full_name, role, project_ids = [] }: CreateUserRequest = await req.json();
 
-    console.log(`Creating user: ${email} with role: ${role}`);
+    console.log(`Creating user: ${email} with role: ${role}, projects: ${project_ids.length}`);
 
     // Generate temporary password
     const tempPassword = crypto.randomUUID().slice(0, 12);
@@ -50,6 +51,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("User created in auth:", authData.user.id);
 
+    // Set must_change_password flag in profiles
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', authData.user.id);
+
+    if (profileError) {
+      console.error("Profile update error:", profileError);
+      throw profileError;
+    }
+
+    console.log("Profile updated with password change flag");
+
     // Assign role to user
     const { error: roleError } = await supabase
       .from('user_roles')
@@ -64,6 +78,26 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Role assigned successfully");
+
+    // Assign projects if provided
+    if (project_ids.length > 0) {
+      const projectAssignments = project_ids.map(project_id => ({
+        project_id,
+        user_id: authData.user.id,
+        role: 'viewer', // Default project role for new users
+      }));
+
+      const { error: projectError } = await supabase
+        .from('project_members')
+        .insert(projectAssignments);
+
+      if (projectError) {
+        console.error("Project assignment error:", projectError);
+        throw projectError;
+      }
+
+      console.log(`Assigned ${project_ids.length} projects to user`);
+    }
 
     // Send welcome email with temporary password
     const emailResponse = await resend.emails.send({
@@ -82,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
             <p style="margin: 5px 0;"><strong>Role:</strong> ${role.replace('_', ' ').toUpperCase()}</p>
           </div>
           
-          <p><strong>Important:</strong> Please change your password after your first login for security reasons.</p>
+          <p><strong>Important:</strong> You will be required to change this temporary password when you first log in for security reasons.</p>
           
           <p>Click the button below to sign in:</p>
           <a href="${supabaseUrl.replace('supabase.co', 'lovable.app')}/auth" 

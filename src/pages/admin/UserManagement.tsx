@@ -9,9 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2 } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import EditUserDialog from "@/components/EditUserDialog";
 
 interface User {
   id: string;
@@ -20,18 +23,29 @@ interface User {
   roles: string[];
 }
 
+interface Project {
+  id: string;
+  name: string;
+}
+
 export default function UserManagement() {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<string>("member");
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
+    fetchProjects();
   }, []);
 
   const fetchUsers = async () => {
@@ -63,6 +77,21 @@ export default function UserManagement() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const { data: projectsData, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+
+      setProjects(projectsData || []);
+    } catch (error: any) {
+      console.error('Error fetching projects:', error);
     }
   };
 
@@ -119,6 +148,7 @@ export default function UserManagement() {
           email: newUserEmail,
           full_name: newUserName,
           role: newUserRole,
+          project_ids: selectedProjects,
         },
       });
 
@@ -133,6 +163,7 @@ export default function UserManagement() {
       setNewUserEmail("");
       setNewUserName("");
       setNewUserRole("member");
+      setSelectedProjects([]);
       fetchUsers();
     } catch (error: any) {
       toast({
@@ -142,6 +173,44 @@ export default function UserManagement() {
       });
     } finally {
       setIsCreatingUser(false);
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    try {
+      // First delete user roles
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete project memberships
+      await supabase
+        .from('project_members')
+        .delete()
+        .eq('user_id', userId);
+
+      // Delete profile
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+
+      setDeleteUserId(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -405,6 +474,40 @@ export default function UserManagement() {
                     </AlertDescription>
                   </Alert>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Assign to Projects (Optional)</Label>
+                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
+                    {projects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No projects available</p>
+                    ) : (
+                      projects.map((project) => (
+                        <div key={project.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`project-${project.id}`}
+                            checked={selectedProjects.includes(project.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedProjects([...selectedProjects, project.id]);
+                              } else {
+                                setSelectedProjects(selectedProjects.filter(id => id !== project.id));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`project-${project.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {project.name}
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Selected projects: {selectedProjects.length}
+                  </p>
+                </div>
               </div>
               
               <DialogFooter>
@@ -424,6 +527,34 @@ export default function UserManagement() {
           </Dialog>
         </div>
       </div>
+
+      <EditUserDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        user={editUser}
+        onSuccess={fetchUsers}
+      />
+
+      <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone.
+              All their roles and project assignments will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteUserId && deleteUser(deleteUserId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid gap-4">
         {users.map((user) => (
@@ -447,7 +578,7 @@ export default function UserManagement() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Select
                   onValueChange={(value) => {
                     const hasRole = user.roles.includes(value);
@@ -464,6 +595,27 @@ export default function UserManagement() {
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditUser(user);
+                    setEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteUserId(user.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
               </div>
             </CardContent>
           </Card>
