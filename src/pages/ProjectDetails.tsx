@@ -180,9 +180,19 @@ export default function ProjectDetails() {
     return <div className="p-8">Project not found</div>;
   }
 
+  // Calculate project progress based on completed tasks
+  const completedCount = tasks.filter(t => t.status === 'done').length;
   const projectProgress = tasks.length > 0 
-    ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100)
+    ? Math.round((completedCount / tasks.length) * 100)
     : 0;
+
+  // Debug logging
+  console.log('Project Progress Debug:', {
+    totalTasks: tasks.length,
+    completedTasks: completedCount,
+    progressPercentage: projectProgress,
+    taskStatuses: tasks.map(t => ({ title: t.title, status: t.status }))
+  });
 
   return (
     <div className="p-8 space-y-6">
