@@ -38,7 +38,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
-import { format, eachDayOfInterval, differenceInDays, addDays, isToday } from 'date-fns';
+import { 
+  format, 
+  eachDayOfInterval, 
+  differenceInDays, 
+  addDays, 
+  isToday,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  isSameWeek,
+  isSameMonth,
+  getWeek
+} from 'date-fns';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -469,6 +482,114 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     return weeks;
   }, [visibleDays, filteredTasks]);
 
+  // Group dates for timeline header based on view mode
+  const timelineGroups = useMemo(() => {
+    if (visibleDays.length === 0) return [];
+
+    if (viewMode === 'day') {
+      // Return each day individually
+      return visibleDays.map(date => ({
+        key: format(date, 'yyyy-MM-dd'),
+        label: format(date, 'd'),
+        sublabel: format(date, 'EEE'),
+        dates: [date],
+        isToday: isToday(date)
+      }));
+    } else if (viewMode === 'week') {
+      // Group by weeks
+      const groups: Array<{
+        key: string;
+        label: string;
+        sublabel: string;
+        dates: Date[];
+        isToday: boolean;
+      }> = [];
+      
+      let currentWeekStart: Date | null = null;
+      let currentWeekDates: Date[] = [];
+      
+      visibleDays.forEach((date, idx) => {
+        const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+        
+        if (!currentWeekStart || !isSameWeek(date, currentWeekStart, { weekStartsOn: 1 })) {
+          if (currentWeekDates.length > 0) {
+            const weekEnd = endOfWeek(currentWeekStart!, { weekStartsOn: 1 });
+            groups.push({
+              key: format(currentWeekStart!, 'yyyy-MM-dd'),
+              label: `W${getWeek(currentWeekStart!, { weekStartsOn: 1 })}`,
+              sublabel: `${format(currentWeekStart!, 'MMM d')} - ${format(weekEnd, 'd')}`,
+              dates: currentWeekDates,
+              isToday: currentWeekDates.some(d => isToday(d))
+            });
+          }
+          currentWeekStart = weekStart;
+          currentWeekDates = [date];
+        } else {
+          currentWeekDates.push(date);
+        }
+        
+        // Push last group
+        if (idx === visibleDays.length - 1) {
+          const weekEnd = endOfWeek(currentWeekStart!, { weekStartsOn: 1 });
+          groups.push({
+            key: format(currentWeekStart!, 'yyyy-MM-dd'),
+            label: `W${getWeek(currentWeekStart!, { weekStartsOn: 1 })}`,
+            sublabel: `${format(currentWeekStart!, 'MMM d')} - ${format(weekEnd, 'd')}`,
+            dates: currentWeekDates,
+            isToday: currentWeekDates.some(d => isToday(d))
+          });
+        }
+      });
+      
+      return groups;
+    } else {
+      // Month view - Group by months
+      const groups: Array<{
+        key: string;
+        label: string;
+        sublabel: string;
+        dates: Date[];
+        isToday: boolean;
+      }> = [];
+      
+      let currentMonthStart: Date | null = null;
+      let currentMonthDates: Date[] = [];
+      
+      visibleDays.forEach((date, idx) => {
+        const monthStart = startOfMonth(date);
+        
+        if (!currentMonthStart || !isSameMonth(date, currentMonthStart)) {
+          if (currentMonthDates.length > 0) {
+            groups.push({
+              key: format(currentMonthStart!, 'yyyy-MM'),
+              label: format(currentMonthStart!, 'MMM'),
+              sublabel: format(currentMonthStart!, 'yyyy'),
+              dates: currentMonthDates,
+              isToday: currentMonthDates.some(d => isToday(d))
+            });
+          }
+          currentMonthStart = monthStart;
+          currentMonthDates = [date];
+        } else {
+          currentMonthDates.push(date);
+        }
+        
+        // Push last group
+        if (idx === visibleDays.length - 1) {
+          groups.push({
+            key: format(currentMonthStart!, 'yyyy-MM'),
+            label: format(currentMonthStart!, 'MMM'),
+            sublabel: format(currentMonthStart!, 'yyyy'),
+            dates: currentMonthDates,
+            isToday: currentMonthDates.some(d => isToday(d))
+          });
+        }
+      });
+      
+      return groups;
+    }
+  }, [visibleDays, viewMode]);
+
   if (loading) {
     return (
       <div className="w-full">
@@ -698,34 +819,38 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                 </div>
                 <div className="flex-1 relative min-w-[400px] sm:min-w-[600px]">
                   <div className="flex h-full">
-                    {visibleDays.map((date, idx) => {
-                    const isTodayDate = isToday(date);
-                    return (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.2, delay: idx * 0.01 }}
-                        className={`flex-1 border-r px-1 sm:px-2 py-2 sm:py-3 text-center text-[10px] sm:text-xs ${
-                          isTodayDate ? 'bg-primary/10' : ''
-                        }`}
-                        style={{ minWidth: '30px' }}
-                      >
-                        <div className={`font-semibold ${isTodayDate ? 'text-primary' : 'text-foreground'}`}>
-                          {format(date, 'd')}
-                        </div>
-                        <div className={`hidden sm:block ${isTodayDate ? 'text-primary' : 'text-muted-foreground'}`}>
-                          {format(date, 'EEE')}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                    {timelineGroups.map((group, idx) => {
+                      const width = `${(group.dates.length / visibleDays.length) * 100}%`;
+                      
+                      return (
+                        <motion.div
+                          key={group.key}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.2, delay: idx * 0.01 }}
+                          className={`border-r px-1 sm:px-2 py-2 sm:py-3 text-center text-[10px] sm:text-xs ${
+                            group.isToday ? 'bg-primary/10' : ''
+                          }`}
+                          style={{ 
+                            width: width,
+                            minWidth: viewMode === 'day' ? '30px' : '60px'
+                          }}
+                        >
+                          <div className={`font-semibold ${group.isToday ? 'text-primary' : 'text-foreground'}`}>
+                            {group.label}
+                          </div>
+                          <div className={`hidden sm:block text-[9px] sm:text-[10px] ${group.isToday ? 'text-primary' : 'text-muted-foreground'}`}>
+                            {group.sublabel}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Timeline Body */}
-            <div className="divide-y">
+              {/* Timeline Body */}
+              <div className="divide-y">
               <AnimatePresence>
                 {departments.map((dept, deptIdx) => {
                   const deptTasks = filteredTasks.filter(t => t.assignee_department_id === dept.id);
