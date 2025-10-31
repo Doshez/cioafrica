@@ -6,6 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Calendar, Clock } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
+interface AssignedUser {
+  id: string;
+  name: string;
+  email?: string;
+}
+
 interface TaskWithProfile {
   id: string;
   title: string;
@@ -19,8 +25,7 @@ interface TaskWithProfile {
   progress_percentage?: number;
   estimate_hours?: number;
   logged_hours?: number;
-  assignee_name?: string;
-  assignee_email?: string;
+  assigned_users?: AssignedUser[];
 }
 
 interface TasksByUserViewProps {
@@ -30,19 +35,34 @@ interface TasksByUserViewProps {
 }
 
 export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: TasksByUserViewProps) {
-  // Group tasks by user
+  // Group tasks by user - tasks with multiple assignees appear in multiple columns
   const tasksByUser = tasks.reduce((acc, task) => {
-    const userKey = task.assignee_user_id || 'unassigned';
-    const userName = task.assignee_name || 'Unassigned';
+    const assignedUsers = task.assigned_users || [];
     
-    if (!acc[userKey]) {
-      acc[userKey] = {
-        name: userName,
-        email: task.assignee_email,
-        tasks: []
-      };
+    if (assignedUsers.length === 0) {
+      // Unassigned tasks
+      if (!acc['unassigned']) {
+        acc['unassigned'] = {
+          name: 'Unassigned',
+          email: undefined,
+          tasks: []
+        };
+      }
+      acc['unassigned'].tasks.push(task);
+    } else {
+      // Add task to each assigned user's column
+      assignedUsers.forEach(user => {
+        if (!acc[user.id]) {
+          acc[user.id] = {
+            name: user.name,
+            email: user.email,
+            tasks: []
+          };
+        }
+        acc[user.id].tasks.push(task);
+      });
     }
-    acc[userKey].tasks.push(task);
+    
     return acc;
   }, {} as Record<string, { name: string; email?: string; tasks: TaskWithProfile[] }>);
 
@@ -109,6 +129,17 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
                             {task.priority}
                           </Badge>
                         </div>
+
+                        {/* Assigned Users - Show if multiple */}
+                        {task.assigned_users && task.assigned_users.length > 1 && (
+                          <div className="flex flex-wrap gap-1">
+                            {task.assigned_users.map(user => (
+                              <Badge key={user.id} variant="outline" className="text-xs">
+                                {user.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Description */}
                         {task.description && (

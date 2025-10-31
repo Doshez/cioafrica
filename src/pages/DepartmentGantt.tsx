@@ -42,9 +42,16 @@ interface Task {
   logged_hours?: number;
 }
 
+interface AssignedUser {
+  id: string;
+  name: string;
+  email?: string;
+}
+
 interface TaskWithProfile extends Task {
   assignee_name?: string;
   assignee_email?: string;
+  assigned_users?: AssignedUser[];
 }
 
 interface DepartmentAnalytics {
@@ -125,25 +132,44 @@ export default function DepartmentGantt() {
 
       if (tasksError) throw tasksError;
 
-      // Fetch assignee profiles for tasks that have assignees
-      const tasksWithProfiles: TaskWithProfile[] = await Promise.all(
-        (tasksData || []).map(async (task) => {
-          if (task.assignee_user_id) {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', task.assignee_user_id)
-              .maybeSingle();
-            
-            return {
-              ...task,
-              assignee_name: profileData?.full_name,
-              assignee_email: profileData?.email,
-            };
-          }
-          return task;
-        })
-      );
+      // Fetch task assignments (new multi-user support)
+      const taskIds = tasksData?.map(task => task.id) || [];
+      const { data: assignmentsData } = await supabase
+        .from('task_assignments')
+        .select('task_id, user_id')
+        .in('task_id', taskIds);
+
+      // Fetch all unique user profiles
+      const uniqueUserIds = [...new Set(assignmentsData?.map(a => a.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', uniqueUserIds);
+
+      // Map assignments and profiles to tasks
+      const tasksWithProfiles: TaskWithProfile[] = tasksData?.map(task => {
+        const taskAssignments = assignmentsData?.filter(a => a.task_id === task.id) || [];
+        const assignedUsers = taskAssignments.map(assignment => {
+          const profile = profilesData?.find(p => p.id === assignment.user_id);
+          return {
+            id: assignment.user_id,
+            name: profile?.full_name || 'Unknown',
+            email: profile?.email,
+          };
+        });
+        
+        // Also keep legacy single assignee for backward compatibility
+        const legacyProfile = task.assignee_user_id 
+          ? profilesData?.find(p => p.id === task.assignee_user_id)
+          : null;
+        
+        return {
+          ...task,
+          assigned_users: assignedUsers,
+          assignee_name: legacyProfile?.full_name,
+          assignee_email: legacyProfile?.email,
+        };
+      }) || [];
 
       setTasks(tasksWithProfiles);
 
