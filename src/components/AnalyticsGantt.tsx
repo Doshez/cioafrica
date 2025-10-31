@@ -64,9 +64,9 @@ export function AnalyticsGantt() {
           progress: 0,
           type: "project",
           styles: {
-            backgroundColor: "hsl(var(--primary))",
-            progressColor: "hsl(var(--primary))",
-            progressSelectedColor: "hsl(var(--primary))",
+            backgroundColor: "#3b82f6",
+            progressColor: "#2563eb",
+            progressSelectedColor: "#1d4ed8",
           },
         });
 
@@ -88,9 +88,9 @@ export function AnalyticsGantt() {
               type: "project",
               project: `project-${project.id}`,
               styles: {
-                backgroundColor: "hsl(var(--chart-2))",
-                progressColor: "hsl(var(--chart-2))",
-                progressSelectedColor: "hsl(var(--chart-2))",
+                backgroundColor: "#8b5cf6",
+                progressColor: "#7c3aed",
+                progressSelectedColor: "#6d28d9",
               },
             });
 
@@ -113,9 +113,9 @@ export function AnalyticsGantt() {
                 type: "task",
                 project: `dept-${dept.id}`,
                 styles: {
-                  backgroundColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))",
-                  progressColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--muted))",
-                  progressSelectedColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--muted))",
+                  backgroundColor: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#f59e0b" : "#6b7280",
+                  progressColor: task.status === "completed" ? "#059669" : task.status === "in_progress" ? "#d97706" : "#4b5563",
+                  progressSelectedColor: task.status === "completed" ? "#047857" : task.status === "in_progress" ? "#b45309" : "#374151",
                 },
               });
             });
@@ -142,9 +142,9 @@ export function AnalyticsGantt() {
             type: "task",
             project: `project-${project.id}`,
             styles: {
-              backgroundColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))",
-              progressColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--muted))",
-              progressSelectedColor: task.status === "completed" ? "hsl(var(--chart-3))" : task.status === "in_progress" ? "hsl(var(--chart-4))" : "hsl(var(--muted))",
+              backgroundColor: task.status === "completed" ? "#10b981" : task.status === "in_progress" ? "#f59e0b" : "#6b7280",
+              progressColor: task.status === "completed" ? "#059669" : task.status === "in_progress" ? "#d97706" : "#4b5563",
+              progressSelectedColor: task.status === "completed" ? "#047857" : task.status === "in_progress" ? "#b45309" : "#374151",
             },
           });
         });
