@@ -379,6 +379,7 @@ export type Database = {
           logged_hours: number | null
           parent_task_id: string | null
           priority: string | null
+          progress_percentage: number | null
           project_id: string
           start_date: string | null
           status: string | null
@@ -398,6 +399,7 @@ export type Database = {
           logged_hours?: number | null
           parent_task_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           project_id: string
           start_date?: string | null
           status?: string | null
@@ -417,6 +419,7 @@ export type Database = {
           logged_hours?: number | null
           parent_task_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           project_id?: string
           start_date?: string | null
           status?: string | null
