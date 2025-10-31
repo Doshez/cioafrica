@@ -471,42 +471,46 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-muted rounded w-1/4 mx-auto"></div>
-            <div className="h-64 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="w-full">
+        <Card className="rounded-none border-x-0">
+          <CardContent className="py-12 text-center">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-muted rounded w-1/4 mx-auto"></div>
+              <div className="h-64 bg-muted rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   if (tasks.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">
-          <Calendar className="h-16 w-16 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-semibold">No tasks with dates found</p>
-          <p className="text-sm">Create tasks with start and due dates to see the Gantt chart</p>
-        </CardContent>
-      </Card>
+      <div className="w-full">
+        <Card className="rounded-none border-x-0">
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Calendar className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-semibold">No tasks with dates found</p>
+            <p className="text-sm">Create tasks with start and due dates to see the Gantt chart</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <>
-      <Card className="w-full overflow-hidden" ref={chartRef}>
-        <CardHeader>
+      <Card className="w-full rounded-none border-x-0 overflow-hidden" ref={chartRef}>
+        <CardHeader className="px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4">
             {/* Header Row */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Interactive Gantt Chart
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Calendar className="h-5 w-5 text-primary flex-shrink-0" />
+                <span className="truncate">Interactive Gantt Chart</span>
               </CardTitle>
               
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                 {/* Chart Mode Toggle */}
                 <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/30">
                   <Button
@@ -516,7 +520,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     className="h-8 text-xs gap-1.5"
                   >
                     <GanttChartSquare className="h-3.5 w-3.5" />
-                    Gantt
+                    <span className="hidden sm:inline">Gantt</span>
                   </Button>
                   <Button
                     variant={chartMode === 'analytics' ? 'default' : 'ghost'}
@@ -525,7 +529,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     className="h-8 text-xs gap-1.5"
                   >
                     <BarChart3 className="h-3.5 w-3.5" />
-                    Analytics
+                    <span className="hidden sm:inline">Analytics</span>
                   </Button>
                 </div>
                 {/* View Mode Toggle */}
@@ -534,7 +538,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     variant={viewMode === 'day' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('day')}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs px-2 sm:px-3"
                   >
                     Day
                   </Button>
@@ -542,7 +546,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     variant={viewMode === 'week' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('week')}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs px-2 sm:px-3"
                   >
                     Week
                   </Button>
@@ -550,7 +554,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     variant={viewMode === 'month' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('month')}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs px-2 sm:px-3"
                   >
                     Month
                   </Button>
@@ -587,10 +591,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                       className="h-8 gap-2"
                     >
                       <Download className="h-4 w-4" />
-                      Export
+                      <span className="hidden sm:inline">Export</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="z-50 bg-background">
                     <DropdownMenuItem onClick={handleExportPDF}>
                       <FileText className="h-4 w-4 mr-2" />
                       Export as PDF
@@ -608,14 +612,14 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filters:</span>
+                <span className="text-sm font-medium hidden sm:inline">Filters:</span>
               </div>
               
               <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="w-[180px] h-8">
+                <SelectTrigger className="w-[140px] sm:w-[180px] h-8">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50 bg-background">
                   <SelectItem value="all">All Departments</SelectItem>
                   {departments.map(dept => (
                     <SelectItem key={dept.id} value={dept.id}>
@@ -624,7 +628,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           className="h-3 w-3 rounded-full" 
                           style={{ backgroundColor: getDepartmentColor(dept.id) }}
                         />
-                        {dept.name}
+                        <span className="truncate">{dept.name}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -632,10 +636,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[150px] h-8">
+                <SelectTrigger className="w-[120px] sm:w-[150px] h-8">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50 bg-background">
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="todo">To Do</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
@@ -654,26 +658,26 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   className="h-8 gap-1"
                 >
                   <X className="h-3 w-3" />
-                  Clear
+                  <span className="hidden sm:inline">Clear</span>
                 </Button>
               )}
             </div>
 
             {/* Department Legend with Analytics */}
-            <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30">
-              <span className="text-sm font-medium text-muted-foreground">Departments:</span>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-muted/30">
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Depts:</span>
               {departmentAnalytics.map(analytics => {
                 const dept = departments.find(d => d.id === analytics.departmentId);
                 if (!dept) return null;
                 return (
-                  <div key={dept.id} className="flex items-center gap-2 text-sm">
+                  <div key={dept.id} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                     <div 
-                      className="h-3 w-3 rounded-full shadow-sm" 
+                      className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full shadow-sm flex-shrink-0" 
                       style={{ backgroundColor: getDepartmentColor(dept.id) }}
                     />
-                    <span>{dept.name}</span>
+                    <span className="truncate max-w-[80px] sm:max-w-none">{dept.name}</span>
                     {chartMode === 'analytics' && (
-                      <Badge variant="secondary" className="text-xs h-5">
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-2">
                         {analytics.percentage}%
                       </Badge>
                     )}
@@ -689,10 +693,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             <div className="overflow-x-auto">
               {/* Timeline Header */}
               <div className="flex border-b bg-muted/30 sticky top-0 z-10">
-                <div className="w-48 lg:w-64 border-r px-4 py-3 font-semibold flex-shrink-0 bg-muted/50">
+                <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 font-semibold flex-shrink-0 bg-muted/50 text-xs sm:text-sm">
                   Department / Task
                 </div>
-                <div className="flex-1 relative min-w-[600px]">
+                <div className="flex-1 relative min-w-[400px] sm:min-w-[600px]">
                   <div className="flex h-full">
                     {visibleDays.map((date, idx) => {
                     const isTodayDate = isToday(date);
@@ -702,15 +706,15 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.2, delay: idx * 0.01 }}
-                        className={`flex-1 border-r px-2 py-3 text-center text-xs ${
+                        className={`flex-1 border-r px-1 sm:px-2 py-2 sm:py-3 text-center text-[10px] sm:text-xs ${
                           isTodayDate ? 'bg-primary/10' : ''
                         }`}
-                        style={{ minWidth: '40px' }}
+                        style={{ minWidth: '30px' }}
                       >
                         <div className={`font-semibold ${isTodayDate ? 'text-primary' : 'text-foreground'}`}>
                           {format(date, 'd')}
                         </div>
-                        <div className={isTodayDate ? 'text-primary' : 'text-muted-foreground'}>
+                        <div className={`hidden sm:block ${isTodayDate ? 'text-primary' : 'text-muted-foreground'}`}>
                           {format(date, 'EEE')}
                         </div>
                       </motion.div>
@@ -740,23 +744,23 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     >
                       {/* Department Header */}
                       <div className="flex">
-                        <div className="w-48 lg:w-64 border-r px-4 py-3 flex-shrink-0">
+                        <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 flex-shrink-0">
                           <div className="flex items-center gap-2">
                             <div 
-                              className="h-4 w-4 rounded-full shadow-sm flex-shrink-0" 
+                              className="h-3 w-3 sm:h-4 sm:w-4 rounded-full shadow-sm flex-shrink-0" 
                               style={{ backgroundColor: deptColor }}
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm truncate">
+                              <div className="font-semibold text-xs sm:text-sm truncate">
                                 {dept.name}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
                                 {deptTasks.length} task{deptTasks.length !== 1 ? 's' : ''}
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div className="flex-1 relative min-h-[120px] p-4" style={{ minWidth: '600px' }}>
+                        <div className="flex-1 relative min-h-[100px] sm:min-h-[120px] p-2 sm:p-4" style={{ minWidth: '400px' }}>
                           {/* Timeline Grid */}
                           <div className="absolute inset-0 flex">
                             {visibleDays.map((date, idx) => (
@@ -765,7 +769,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                                 className={`flex-1 border-r border-border/50 ${
                                   isToday(date) ? 'bg-primary/5' : ''
                                 }`}
-                                style={{ minWidth: '40px' }}
+                                style={{ minWidth: '30px' }}
                               />
                             ))}
                           </div>
@@ -788,7 +792,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           <div className="relative space-y-2">
                             <TooltipProvider>
                               {deptTasks.map((task, taskIdx) => {
-                                const position = calculateTaskPosition(task);
+                                 const position = calculateTaskPosition(task);
                                 if (!position) return null;
                                 
                                 const StatusIcon = getStatusIcon(task.status);
@@ -802,11 +806,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                                         transition={{ duration: 0.3, delay: taskIdx * 0.05 }}
                                         whileHover={{ scale: 1.02, zIndex: 50 }}
                                         onClick={() => setSelectedTask(task)}
-                                        className="absolute cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-smooth"
+                                        className="absolute cursor-pointer rounded-md sm:rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-smooth"
                                         style={{
                                           ...position,
-                                          height: '40px',
-                                          top: `${taskIdx * 48}px`,
+                                          height: '32px',
+                                          top: `${taskIdx * 40}px`,
                                           background: `linear-gradient(135deg, ${deptColor}E6, ${deptColor}B3)`
                                         }}
                                       >
@@ -819,26 +823,26 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                                         />
                                         
                                         {/* Task Content */}
-                                        <div className="relative h-full px-3 flex items-center justify-between gap-2 text-white">
-                                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <StatusIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                                            <span className="text-xs font-semibold truncate">
+                                        <div className="relative h-full px-2 sm:px-3 flex items-center justify-between gap-1 sm:gap-2 text-white">
+                                          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                                            <StatusIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                                            <span className="text-[10px] sm:text-xs font-semibold truncate">
                                               {task.title}
                                             </span>
                                           </div>
                                           <Badge 
                                             variant="secondary" 
-                                            className="bg-white/90 text-foreground text-[10px] px-1.5 py-0 h-5 flex-shrink-0"
+                                            className="bg-white/90 text-foreground text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-4 sm:h-5 flex-shrink-0"
                                           >
                                             {task.progress_percentage || 0}%
                                           </Badge>
                                         </div>
                                       </motion.div>
                                     </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs">
+                                    <TooltipContent side="top" className="max-w-xs z-50">
                                       <div className="space-y-2">
                                         <div>
-                                          <p className="font-semibold">{task.title}</p>
+                                          <p className="font-semibold text-sm">{task.title}</p>
                                           <p className="text-xs text-muted-foreground">
                                             {dept.name}
                                           </p>
@@ -877,11 +881,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               {/* Task Count per Week - Bar indicator under timeline */}
               <div className="border-t bg-muted/20">
                 <div className="flex">
-                  <div className="w-48 lg:w-64 border-r px-4 py-3 text-sm font-semibold flex-shrink-0">
+                  <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 text-xs sm:text-sm font-semibold flex-shrink-0">
                     Tasks/Day
                   </div>
-                  <div className="flex-1 relative min-w-[600px] p-2">
-                    <div className="flex h-16 items-end gap-px">
+                  <div className="flex-1 relative min-w-[400px] sm:min-w-[600px] p-2">
+                    <div className="flex h-12 sm:h-16 items-end gap-px">
                       {visibleDays.map((date, idx) => {
                         const dateKey = format(date, 'yyyy-MM-dd');
                         const count = weeklyTaskCounts[dateKey] || 0;
@@ -897,7 +901,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                                   animate={{ height: `${height}%` }}
                                   transition={{ duration: 0.5, delay: idx * 0.02 }}
                                   className="flex-1 bg-primary/60 rounded-t-sm hover:bg-primary cursor-pointer transition-colors"
-                                  style={{ minWidth: '8px' }}
+                                  style={{ minWidth: '6px' }}
                                 />
                               </TooltipTrigger>
                               <TooltipContent>

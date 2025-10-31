@@ -45,28 +45,33 @@ export default function ProjectGanttChartPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="min-h-screen w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={() => navigate(`/projects/${projectId}`)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Gantt Chart</h1>
-            {project && (
-              <p className="text-muted-foreground">{project.name}</p>
-            )}
+      <div className="px-4 sm:px-6 lg:px-8 py-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+        <div className="flex items-center justify-between max-w-full">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => navigate(`/projects/${projectId}`)}
+              className="flex-shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Gantt Chart</h1>
+              {project && (
+                <p className="text-sm text-muted-foreground truncate">{project.name}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Interactive Gantt Chart */}
-      <InteractiveGanttChart projectId={projectId!} />
+      {/* Interactive Gantt Chart - Full Width */}
+      <div className="w-full">
+        <InteractiveGanttChart projectId={projectId!} />
+      </div>
     </div>
   );
 }
