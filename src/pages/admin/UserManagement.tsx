@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EditUserDialog from "@/components/EditUserDialog";
 
 interface User {
@@ -42,6 +44,11 @@ export default function UserManagement() {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
+  // Filter and view states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   useEffect(() => {
     fetchUsers();
@@ -213,6 +220,21 @@ export default function UserManagement() {
       });
     }
   };
+
+  // Filtered users based on search and role filter
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      // Search filter
+      const matchesSearch = searchQuery === "" || 
+        user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Role filter
+      const matchesRole = roleFilter === "all" || user.roles.includes(roleFilter);
+      
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchQuery, roleFilter]);
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -528,6 +550,66 @@ export default function UserManagement() {
         </div>
       </div>
 
+      {/* Filters and Search Bar */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="project_manager">Project Manager</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "table")}>
+              <TabsList>
+                <TabsTrigger value="card">
+                  <LayoutGrid className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="table">
+                  <LayoutList className="h-4 w-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          
+          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Showing {filteredUsers.length} of {users.length} users
+            </span>
+            {(searchQuery || roleFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setRoleFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <EditUserDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
@@ -556,71 +638,167 @@ export default function UserManagement() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="grid gap-4">
-        {users.map((user) => (
-          <Card key={user.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-xl">{user.full_name || user.email}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {user.roles.map((role) => (
-                    <Badge key={role} className={getRoleBadgeColor(role)}>
-                      {role}
-                    </Badge>
-                  ))}
-                  {user.roles.length === 0 && (
-                    <Badge variant="outline">User</Badge>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Select
-                  onValueChange={(value) => {
-                    const hasRole = user.roles.includes(value);
-                    updateUserRole(user.id, value, hasRole ? 'remove' : 'add');
-                  }}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Assign role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="project_manager">Project Manager</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditUser(user);
-                    setEditDialogOpen(true);
-                  }}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteUserId(user.id)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Users Display */}
+      {viewMode === "card" ? (
+        <div className="grid gap-4">
+          {filteredUsers.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No users found matching your filters</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredUsers.map((user) => (
+              <Card key={user.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-xl">{user.full_name || user.email}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {user.roles.map((role) => (
+                        <Badge key={role} className={getRoleBadgeColor(role)}>
+                          {role}
+                        </Badge>
+                      ))}
+                      {user.roles.length === 0 && (
+                        <Badge variant="outline">User</Badge>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Select
+                      onValueChange={(value) => {
+                        const hasRole = user.roles.includes(value);
+                        updateUserRole(user.id, value, hasRole ? 'remove' : 'add');
+                      }}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Assign role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="project_manager">Project Manager</SelectItem>
+                        <SelectItem value="member">Member</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditUser(user);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteUserId(user.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                      No users found matching your filters
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        {user.full_name || user.email}
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {user.roles.map((role) => (
+                            <Badge key={role} className={getRoleBadgeColor(role)} variant="outline">
+                              {role.replace('_', ' ')}
+                            </Badge>
+                          ))}
+                          {user.roles.length === 0 && (
+                            <Badge variant="outline">User</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Select
+                            onValueChange={(value) => {
+                              const hasRole = user.roles.includes(value);
+                              updateUserRole(user.id, value, hasRole ? 'remove' : 'add');
+                            }}
+                          >
+                            <SelectTrigger className="w-[140px] h-8">
+                              <SelectValue placeholder="Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="project_manager">PM</SelectItem>
+                              <SelectItem value="member">Member</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditUser(user);
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteUserId(user.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
