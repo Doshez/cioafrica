@@ -106,6 +106,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
         description: 'Task dates updated successfully',
       });
 
+      // Call the callback to refresh only if needed
       onTasksUpdate();
     } catch (error: any) {
       toast({
@@ -133,6 +134,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
         description: 'Task status updated successfully',
       });
 
+      // Call the callback to refresh only if needed
       onTasksUpdate();
     } catch (error: any) {
       toast({
@@ -169,6 +171,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
         description: progress >= 100 ? 'Task completed!' : 'Progress updated successfully',
       });
 
+      // Call the callback to refresh only if needed
       onTasksUpdate();
     } catch (error: any) {
       toast({

@@ -101,6 +101,20 @@ export default function DepartmentGantt() {
       if (projectError) throw projectError;
       setProject(projectData);
 
+      await fetchTasksAndAnalytics();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTasksAndAnalytics = async () => {
+    try {
       // Fetch tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
@@ -148,8 +162,6 @@ export default function DepartmentGantt() {
         description: error.message,
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -200,6 +212,19 @@ export default function DepartmentGantt() {
   });
 
   const handleStatusUpdate = async (taskId: string, newStatus: string) => {
+    // Optimistically update local state
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? { 
+              ...task, 
+              status: newStatus,
+              completed_at: newStatus === 'completed' ? new Date().toISOString() : null
+            } 
+          : task
+      )
+    );
+
     try {
       const { error } = await supabase
         .from('tasks')
@@ -216,8 +241,17 @@ export default function DepartmentGantt() {
         description: 'Task status updated successfully',
       });
 
-      fetchData();
+      // Silently refresh analytics without showing loading
+      const { data: analyticsData } = await supabase
+        .from('department_analytics')
+        .select('*')
+        .eq('department_id', departmentId)
+        .single();
+      
+      if (analyticsData) setAnalytics(analyticsData);
     } catch (error: any) {
+      // Revert optimistic update on error
+      fetchData();
       toast({
         title: 'Error',
         description: error.message,
@@ -227,18 +261,37 @@ export default function DepartmentGantt() {
   };
 
   const handleProgressUpdate = async (taskId: string, progress: number) => {
+    // Determine new status based on progress
+    let newStatus = 'todo';
+    let completedAt = null;
+    
+    if (progress >= 100) {
+      newStatus = 'completed';
+      completedAt = new Date().toISOString();
+    } else if (progress > 0 && progress < 100) {
+      newStatus = 'in_progress';
+    }
+
+    // Optimistically update local state
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? { 
+              ...task, 
+              progress_percentage: progress,
+              status: newStatus,
+              completed_at: completedAt
+            } 
+          : task
+      )
+    );
+
     try {
       const updateData: any = { 
-        progress_percentage: progress
+        progress_percentage: progress,
+        status: newStatus,
+        completed_at: completedAt
       };
-
-      // Auto-complete when reaching 100%
-      if (progress >= 100) {
-        updateData.status = 'completed';
-        updateData.completed_at = new Date().toISOString();
-      } else if (progress > 0 && progress < 100) {
-        updateData.status = 'in_progress';
-      }
 
       const { error } = await supabase
         .from('tasks')
@@ -252,8 +305,17 @@ export default function DepartmentGantt() {
         description: progress >= 100 ? 'Task completed!' : 'Progress updated successfully',
       });
 
-      fetchData();
+      // Silently refresh analytics without showing loading
+      const { data: analyticsData } = await supabase
+        .from('department_analytics')
+        .select('*')
+        .eq('department_id', departmentId)
+        .single();
+      
+      if (analyticsData) setAnalytics(analyticsData);
     } catch (error: any) {
+      // Revert optimistic update on error
+      fetchData();
       toast({
         title: 'Error',
         description: error.message,
@@ -290,7 +352,7 @@ export default function DepartmentGantt() {
           <CreateTaskDialog
             projectId={projectId}
             departmentId={departmentId}
-            onTaskCreated={fetchData}
+            onTaskCreated={fetchTasksAndAnalytics}
           />
         )}
       </div>
@@ -530,7 +592,7 @@ export default function DepartmentGantt() {
             departmentId={department.id}
             departmentName={department.name}
             tasks={tasks}
-            onTasksUpdate={fetchData}
+            onTasksUpdate={fetchTasksAndAnalytics}
           />
         </TabsContent>
       </Tabs>
