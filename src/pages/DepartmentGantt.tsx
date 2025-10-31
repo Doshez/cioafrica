@@ -35,10 +35,16 @@ interface Task {
   start_date: string;
   due_date: string;
   assignee_department_id: string;
+  assignee_user_id?: string;
   description?: string;
   progress_percentage?: number;
   estimate_hours?: number;
   logged_hours?: number;
+}
+
+interface TaskWithProfile extends Task {
+  assignee_name?: string;
+  assignee_email?: string;
 }
 
 interface DepartmentAnalytics {
@@ -58,7 +64,7 @@ export default function DepartmentGantt() {
 
   const [department, setDepartment] = useState<Department | null>(null);
   const [project, setProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithProfile[]>([]);
   const [analytics, setAnalytics] = useState<DepartmentAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -104,7 +110,28 @@ export default function DepartmentGantt() {
         .order('start_date', { ascending: true });
 
       if (tasksError) throw tasksError;
-      setTasks(tasksData || []);
+
+      // Fetch assignee profiles for tasks that have assignees
+      const tasksWithProfiles: TaskWithProfile[] = await Promise.all(
+        (tasksData || []).map(async (task) => {
+          if (task.assignee_user_id) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', task.assignee_user_id)
+              .single();
+            
+            return {
+              ...task,
+              assignee_name: profileData?.full_name,
+              assignee_email: profileData?.email,
+            };
+          }
+          return task;
+        })
+      );
+
+      setTasks(tasksWithProfiles);
 
       // Fetch analytics
       const { data: analyticsData, error: analyticsError } = await supabase
@@ -171,6 +198,69 @@ export default function DepartmentGantt() {
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  const handleStatusUpdate = async (taskId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Task status updated successfully',
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleProgressUpdate = async (taskId: string, progress: number) => {
+    try {
+      const updateData: any = { 
+        progress_percentage: progress
+      };
+
+      // Auto-complete when reaching 100%
+      if (progress >= 100) {
+        updateData.status = 'completed';
+        updateData.completed_at = new Date().toISOString();
+      } else if (progress > 0 && progress < 100) {
+        updateData.status = 'in_progress';
+      }
+
+      const { error } = await supabase
+        .from('tasks')
+        .update(updateData)
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: progress >= 100 ? 'Task completed!' : 'Progress updated successfully',
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   if (loading) {
     return <div className="p-8">Loading...</div>;
@@ -311,9 +401,6 @@ export default function DepartmentGantt() {
                           <Badge variant={getPriorityColor(task.priority)} className="capitalize">
                             {task.priority}
                           </Badge>
-                          <Badge variant="outline" className={getStatusColor(task.status)}>
-                            {getStatusLabel(task.status)}
-                          </Badge>
                         </div>
 
                         {/* Description */}
@@ -323,13 +410,52 @@ export default function DepartmentGantt() {
                           </p>
                         )}
 
-                        {/* Progress Bar */}
-                        <div className="space-y-1">
+                        {/* Assigned User */}
+                        {task.assignee_name && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">Assigned to:</span>
+                            <span className="font-medium">{task.assignee_name}</span>
+                          </div>
+                        )}
+
+                        {/* Status Control */}
+                        <div className="space-y-2">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Select 
+                            value={task.status} 
+                            onValueChange={(value) => handleStatusUpdate(task.id, value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              <SelectItem value="todo">To Do</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Progress Control */}
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Progress</span>
                             <span className="font-medium">{progress}%</span>
                           </div>
-                          <Progress value={progress} className="h-2" />
+                          <div className="flex items-center gap-3">
+                            <Progress value={progress} className="h-2 flex-1" />
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={progress}
+                              onChange={(e) => {
+                                const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                handleProgressUpdate(task.id, value);
+                              }}
+                              className="w-20 h-8"
+                            />
+                          </div>
                         </div>
 
                         {/* Meta Information */}
