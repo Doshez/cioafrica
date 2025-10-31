@@ -14,7 +14,6 @@ import {
   CheckCircle2, 
   Clock, 
   ListTodo,
-  Calendar,
   TrendingUp,
   ExternalLink,
   BarChart3
@@ -158,6 +157,10 @@ export default function ProjectDetails() {
 
   const getDepartmentTasks = (departmentId: string) => {
     return tasks.filter(task => task.assignee_department_id === departmentId);
+  };
+
+  const handleViewGanttChart = () => {
+    navigate(`/projects/${projectId}/gantt`);
   };
 
   if (loading) {
