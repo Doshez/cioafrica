@@ -15,6 +15,8 @@ import UserManagement from "./pages/admin/UserManagement";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import GanttDemo from "./pages/GanttDemo";
+import GanttDocumentation from "./pages/GanttDocumentation";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
             <Route path="/admin/users" element={<Layout><UserManagement /></Layout>} />
             <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
+            <Route path="/gantt-demo" element={<Layout><GanttDemo /></Layout>} />
+            <Route path="/gantt-docs" element={<Layout><GanttDocumentation /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
