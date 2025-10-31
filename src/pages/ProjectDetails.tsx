@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreateDepartmentDialog } from '@/components/CreateDepartmentDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
+import { ProjectMembersCard } from '@/components/ProjectMembersCard';
 import { useUserRole } from '@/hooks/useUserRole';
 import { 
   ArrowLeft, 
@@ -27,6 +28,7 @@ interface Project {
   status: string;
   start_date: string;
   end_date: string;
+  owner_id: string;
 }
 
 interface Department {
@@ -214,46 +216,51 @@ export default function ProjectDetails() {
         </CardContent>
       </Card>
 
-      {/* Project Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Project Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Overall Completion</span>
-              <span className="font-semibold">{projectProgress}%</span>
+      {/* Project Overview and Members */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Project Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Overall Completion</span>
+                <span className="font-semibold">{projectProgress}%</span>
+              </div>
+              <Progress value={projectProgress} />
             </div>
-            <Progress value={projectProgress} />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Departments</p>
-              <p className="text-2xl font-bold">{departments.length}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Total Departments</p>
+                <p className="text-2xl font-bold">{departments.length}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Total Tasks</p>
+                <p className="text-2xl font-bold">{tasks.length}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {tasks.filter(t => t.status === 'completed').length}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">In Progress</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {tasks.filter(t => t.status === 'in_progress').length}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Tasks</p>
-              <p className="text-2xl font-bold">{tasks.length}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Completed</p>
-              <p className="text-2xl font-bold text-green-600">
-                {tasks.filter(t => t.status === 'completed').length}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">In Progress</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {tasks.filter(t => t.status === 'in_progress').length}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Project Members */}
+        <ProjectMembersCard projectId={projectId!} projectOwnerId={project.owner_id} />
+      </div>
 
       {/* Departments and Analytics */}
       <div className="space-y-4">

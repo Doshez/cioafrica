@@ -233,18 +233,21 @@ export type Database = {
           created_at: string | null
           id: string
           project_id: string
+          role: Database["public"]["Enums"]["project_role"] | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
           project_id: string
+          role?: Database["public"]["Enums"]["project_role"] | null
           user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
           project_id?: string
+          role?: Database["public"]["Enums"]["project_role"] | null
           user_id?: string
         }
         Relationships: [
@@ -639,6 +642,22 @@ export type Database = {
       }
     }
     Functions: {
+      has_project_role: {
+        Args: {
+          _project_id: string
+          _role: Database["public"]["Enums"]["project_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_project_role_level: {
+        Args: {
+          _min_role: Database["public"]["Enums"]["project_role"]
+          _project_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -649,6 +668,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "project_manager" | "member" | "viewer"
+      project_role: "owner" | "manager" | "member" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -777,6 +797,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "project_manager", "member", "viewer"],
+      project_role: ["owner", "manager", "member", "viewer"],
     },
   },
 } as const
