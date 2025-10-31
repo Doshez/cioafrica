@@ -276,12 +276,12 @@ export function AnalyticsGantt() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle>Overall Gantt Chart</CardTitle>
             <CardDescription>All projects, departments, and tasks with assigned users</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -303,15 +303,17 @@ export function AnalyticsGantt() {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div ref={ganttRef} className="bg-background">
-          <Gantt
-            tasks={ganttTasks}
-            viewMode={viewMode}
-            listCellWidth="250px"
-            columnWidth={viewMode === ViewMode.Month ? 60 : viewMode === ViewMode.Week ? 65 : 60}
-            rowHeight={50}
-          />
+      <CardContent className="p-0">
+        <div ref={ganttRef} className="w-full overflow-x-auto" style={{ minHeight: '400px' }}>
+          <div className="p-4">
+            <Gantt
+              tasks={ganttTasks}
+              viewMode={viewMode}
+              listCellWidth="250px"
+              columnWidth={viewMode === ViewMode.Month ? 60 : viewMode === ViewMode.Week ? 65 : 60}
+              rowHeight={50}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
