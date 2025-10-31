@@ -47,6 +47,7 @@ interface ExpandableElementRowProps {
   calculatePosition: (item: { start_date: string; due_date: string }) => { left: string; width: string } | null;
   getStatusIcon: (status: string) => any;
   getStatusColor: (status?: string) => string;
+  isTaskOverdue: (dueDate: string, status: string) => boolean;
 }
 
 export function ExpandableElementRow({
@@ -58,7 +59,8 @@ export function ExpandableElementRow({
   onElementClick,
   calculatePosition,
   getStatusIcon,
-  getStatusColor
+  getStatusColor,
+  isTaskOverdue
 }: ExpandableElementRowProps) {
   // Calculate element position based on its tasks
   const elementStartDate = element.start_date || 
@@ -208,6 +210,8 @@ export function ExpandableElementRow({
           if (!taskPosition) return null;
 
           const TaskStatusIcon = getStatusIcon(task.status);
+          const isOverdue = isTaskOverdue(task.due_date, task.status);
+          const overdueColor = '#EF4444'; // Red color for overdue
 
           return (
             <motion.div
@@ -233,15 +237,22 @@ export function ExpandableElementRow({
                       <span className="truncate">{task.assignee}</span>
                     </div>
                   )}
-                  <span
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium"
-                    style={{ 
-                      backgroundColor: `${getStatusColor(task.status)}22`, 
-                      color: getStatusColor(task.status) 
-                    }}
-                  >
-                    ● {task.status.replace('_', ' ')}
-                  </span>
+                  {isOverdue && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-destructive/20 text-destructive">
+                      ● Overdue
+                    </span>
+                  )}
+                  {!isOverdue && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium"
+                      style={{ 
+                        backgroundColor: `${getStatusColor(task.status)}22`, 
+                        color: getStatusColor(task.status) 
+                      }}
+                    >
+                      ● {task.status.replace('_', ' ')}
+                    </span>
+                  )}
                 </div>
               </div>
                   <Badge 
@@ -271,24 +282,28 @@ export function ExpandableElementRow({
                           ...taskPosition,
                           height: '24px',
                           top: '6px',
-                          background: task.status === 'in_progress' || task.status === 'in-progress'
+                          background: isOverdue
+                            ? `linear-gradient(90deg, ${overdueColor}, ${overdueColor}99)`
+                            : task.status === 'in_progress' || task.status === 'in-progress'
                             ? `linear-gradient(90deg, ${getStatusColor(task.status)}, ${getStatusColor(task.status)}99)`
                             : task.status === 'completed' || task.status === 'done'
                             ? getStatusColor(task.status)
                             : `${getStatusColor(task.status)}55`,
-                          border: `1px solid ${getStatusColor(task.status)}`
+                          border: `2px solid ${isOverdue ? overdueColor : getStatusColor(task.status)}`
                         }}
                       >
-                        {/* Animated shimmer effect for in-progress tasks */}
-                        {(task.status === 'in_progress' || task.status === 'in-progress') && (
+                        {/* Animated shimmer effect for in-progress and overdue tasks */}
+                        {(isOverdue || task.status === 'in_progress' || task.status === 'in-progress') && (
                           <motion.div
                             className="absolute inset-0 rounded-md"
                             style={{
-                              background: `linear-gradient(270deg, ${getStatusColor(task.status)}33, ${getStatusColor(task.status)}99, ${getStatusColor(task.status)}33)`,
+                              background: isOverdue 
+                                ? `linear-gradient(270deg, ${overdueColor}33, ${overdueColor}99, ${overdueColor}33)`
+                                : `linear-gradient(270deg, ${getStatusColor(task.status)}33, ${getStatusColor(task.status)}99, ${getStatusColor(task.status)}33)`,
                               backgroundSize: '200% 100%'
                             }}
                             animate={{ backgroundPosition: ['0% 0%', '100% 0%'] }}
-                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                            transition={{ repeat: Infinity, duration: isOverdue ? 1.5 : 2, ease: "linear" }}
                           />
                         )}
                         
@@ -324,19 +339,27 @@ export function ExpandableElementRow({
                             {task.assignee}
                           </p>
                         )}
-                        <div className="grid grid-cols-2 gap-1 text-[10px] pt-1">
+                         <div className="grid grid-cols-2 gap-1 text-[10px] pt-1">
                           <div>
                             <span className="text-muted-foreground">Start:</span>
                             <p className="font-medium">{format(new Date(task.start_date), 'MMM d')}</p>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Due:</span>
-                            <p className="font-medium">{format(new Date(task.due_date), 'MMM d')}</p>
+                            <span className={isOverdue ? "text-destructive" : "text-muted-foreground"}>Due:</span>
+                            <p className={`font-medium ${isOverdue ? "text-destructive" : ""}`}>
+                              {format(new Date(task.due_date), 'MMM d')}
+                              {isOverdue && " (Overdue)"}
+                            </p>
                           </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground pt-1">
                           Progress: {task.progress_percentage || 0}%
                         </p>
+                        {isOverdue && (
+                          <p className="text-[10px] text-destructive font-medium pt-1">
+                            ⚠️ This task is overdue (EAT timezone)
+                          </p>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>

@@ -53,6 +53,7 @@ import {
   isSameMonth,
   getWeek
 } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -369,6 +370,17 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       default:
         return Circle;
     }
+  };
+
+  // Check if a task is overdue using EAT timezone
+  const isTaskOverdue = (dueDate: string, status: string): boolean => {
+    if (!dueDate || status === 'done' || status === 'completed') return false;
+    
+    // Get current time in EAT timezone (Africa/Nairobi)
+    const nowInEAT = toZonedTime(new Date(), 'Africa/Nairobi');
+    const taskDueDate = toZonedTime(new Date(dueDate), 'Africa/Nairobi');
+    
+    return taskDueDate < nowInEAT;
   };
 
   const getPriorityColor = (priority: string) => {
@@ -1093,6 +1105,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           calculatePosition={calculatePosition}
                           getStatusIcon={getStatusIcon}
                           getStatusColor={getStatusColor}
+                          isTaskOverdue={isTaskOverdue}
                         />
                       ))}
                     </motion.div>
