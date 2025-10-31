@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, Search, Filter, Plus, Percent } from "lucide-react";
+import { Loader2, Clock, Search, Filter, Plus, Percent, LayoutGrid, List, Columns3 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Task {
   id: string;
@@ -54,6 +55,7 @@ export default function MyTasks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [groupedTasks, setGroupedTasks] = useState<GroupedTasks[]>([]);
+  const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('cards');
 
   useEffect(() => {
     if (user) {
@@ -273,14 +275,33 @@ export default function MyTasks() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">My Tasks</h1>
           <p className="text-muted-foreground mt-2">
             Tasks assigned to you across all projects
           </p>
         </div>
-        {isAdmin && <CreateTaskDialog onTaskCreated={fetchMyTasks} />}
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} className="w-auto">
+            <TabsList>
+              <TabsTrigger value="cards" className="gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Cards</span>
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-2">
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">List</span>
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="gap-2">
+                <Columns3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Board</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {isAdmin && <CreateTaskDialog onTaskCreated={fetchMyTasks} />}
+        </div>
       </div>
 
       {/* Filters */}
@@ -327,7 +348,7 @@ export default function MyTasks() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'cards' ? (
         <div className="grid gap-6">
           {groupedTasks.map((group) => (
             <Card key={group.elementId} className="overflow-hidden">
@@ -427,6 +448,193 @@ export default function MyTasks() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      ) : viewMode === 'list' ? (
+        <Card>
+          <CardContent className="p-0">
+            {groupedTasks.map((group) => (
+              <div key={group.elementId} className="border-b last:border-b-0">
+                <div className="bg-muted/50 px-4 py-2 font-semibold text-sm flex items-center justify-between">
+                  <span>{group.elementTitle}</span>
+                  <Badge variant="secondary">{group.tasks.length}</Badge>
+                </div>
+                <div className="divide-y">
+                  {group.tasks.map((task) => {
+                    const taskOverdue = isOverdue(task.due_date, task.status);
+                    return (
+                      <div 
+                        key={task.id} 
+                        className={`p-4 hover:bg-muted/50 transition-colors ${
+                          taskOverdue ? 'bg-destructive/5' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className={`font-medium truncate ${taskOverdue ? 'text-destructive' : ''}`}>
+                                {task.title}
+                              </h4>
+                              {taskOverdue && (
+                                <Badge variant="destructive" className="text-xs shrink-0">Overdue</Badge>
+                              )}
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {task.description}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2 text-xs">
+                              {task.projects && (
+                                <Badge variant="outline" className="text-xs">
+                                  {task.projects.name}
+                                </Badge>
+                              )}
+                              <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
+                                {task.priority}
+                              </Badge>
+                              {task.due_date && (
+                                <span className={taskOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                                  <Clock className="h-3 w-3 inline mr-1" />
+                                  {new Date(task.due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="w-24">
+                              <div className="text-xs text-muted-foreground mb-1">Progress</div>
+                              <Slider
+                                value={[task.progress_percentage || 0]}
+                                onValueChange={(value) => updateTaskProgress(task.id, value[0])}
+                                max={100}
+                                step={1}
+                                className="w-full"
+                              />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold">{task.progress_percentage || 0}%</div>
+                            </div>
+                            <Select
+                              value={task.status}
+                              onValueChange={(value) => updateTaskStatus(task.id, value)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                <SelectItem value="todo">To Do</SelectItem>
+                                <SelectItem value="in_progress">In Progress</SelectItem>
+                                <SelectItem value="done">Done</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {['todo', 'in_progress', 'done'].map((status) => {
+            const statusTasks = groupedTasks.flatMap(g => 
+              g.tasks.filter(t => t.status === status)
+            );
+            const statusLabel = status === 'todo' ? 'To Do' : status === 'in_progress' ? 'In Progress' : 'Done';
+            
+            return (
+              <Card key={status}>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>{statusLabel}</span>
+                    <Badge variant="secondary">{statusTasks.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <ScrollArea className="h-[600px] pr-4">
+                    {statusTasks.map((task) => {
+                      const taskOverdue = isOverdue(task.due_date, task.status);
+                      return (
+                        <Card 
+                          key={task.id} 
+                          className={`mb-3 ${taskOverdue ? 'border-destructive' : ''}`}
+                        >
+                          <CardContent className="p-3">
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className={`text-sm font-semibold line-clamp-2 ${
+                                  taskOverdue ? 'text-destructive' : ''
+                                }`}>
+                                  {task.title}
+                                </h4>
+                                {taskOverdue && (
+                                  <Badge variant="destructive" className="text-xs shrink-0">
+                                    Overdue
+                                  </Badge>
+                                )}
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {task.description}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {task.projects && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {task.projects.name}
+                                  </Badge>
+                                )}
+                                <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
+                                  {task.priority}
+                                </Badge>
+                              </div>
+                              {task.due_date && (
+                                <div className={`flex items-center gap-1 text-xs ${
+                                  taskOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'
+                                }`}>
+                                  <Clock className="h-3 w-3" />
+                                  Due: {new Date(task.due_date).toLocaleDateString()}
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">Progress</span>
+                                  <span className="font-medium">{task.progress_percentage || 0}%</span>
+                                </div>
+                                <Slider
+                                  value={[task.progress_percentage || 0]}
+                                  onValueChange={(value) => updateTaskProgress(task.id, value[0])}
+                                  max={100}
+                                  step={1}
+                                  className="w-full"
+                                />
+                              </div>
+                              <Select
+                                value={task.status}
+                                onValueChange={(value) => updateTaskStatus(task.id, value)}
+                              >
+                                <SelectTrigger className="w-full h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background z-50">
+                                  <SelectItem value="todo">To Do (0%)</SelectItem>
+                                  <SelectItem value="in_progress">In Progress (1-99%)</SelectItem>
+                                  <SelectItem value="done">Done (100%)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
