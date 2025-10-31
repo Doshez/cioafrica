@@ -80,15 +80,18 @@ export function ExpandableElementRow({
     ? Math.round(element.tasks.reduce((sum, task) => sum + (task.progress_percentage || 0), 0) / element.tasks.length)
     : 0;
   
+  // Check if any tasks in element are overdue
+  const hasOverdueTasks = hasTasks && element.tasks.some(task => isTaskOverdue(task.due_date, task.status));
+  
   // Determine element status based on tasks
   const elementStatus = hasTasks 
-    ? (element.tasks.every(t => t.status === 'completed') ? 'completed' : 
+    ? (element.tasks.every(t => t.status === 'completed' || t.status === 'done') ? 'completed' : 
        element.tasks.some(t => t.status === 'in_progress') ? 'in_progress' : 'todo')
     : 'todo';
   
   const StatusIcon = getStatusIcon(elementStatus);
 
-  const completedTasks = element.tasks.filter(t => t.status === 'completed').length;
+  const completedTasks = element.tasks.filter(t => t.status === 'completed' || t.status === 'done').length;
 
   return (
     <>
@@ -124,8 +127,13 @@ export function ExpandableElementRow({
             />
             <div className="min-w-0 flex-1 cursor-pointer" onClick={onElementClick}>
               <div className="font-semibold text-xs sm:text-sm truncate flex items-center gap-1.5">
-                <StatusIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate">{element.title}</span>
+                <StatusIcon className={`h-3.5 w-3.5 flex-shrink-0 ${hasOverdueTasks ? 'text-destructive' : ''}`} />
+                <span className={`truncate ${hasOverdueTasks ? 'text-destructive' : ''}`}>{element.title}</span>
+                {hasOverdueTasks && (
+                  <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                    Overdue
+                  </Badge>
+                )}
               </div>
               <div className="text-[10px] sm:text-xs text-muted-foreground">
                 {hasTasks ? `${element.tasks.length} tasks • ${completedTasks}/${element.tasks.length} complete` : 'No tasks'}
@@ -143,12 +151,16 @@ export function ExpandableElementRow({
                   initial={{ opacity: 0, scaleX: 0.8 }}
                   animate={{ opacity: 1, scaleX: 1 }}
                   whileHover={{ scale: 1.02, zIndex: 30 }}
-                  className="absolute cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all"
+                  className={`absolute cursor-pointer rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all ${
+                    hasOverdueTasks ? 'ring-2 ring-destructive' : ''
+                  }`}
                   style={{
                     ...position,
                     height: '32px',
                     top: '8px',
-                    background: `linear-gradient(135deg, ${deptColor}E6, ${deptColor}B3)`
+                    background: hasOverdueTasks 
+                      ? 'linear-gradient(135deg, #EF4444E6, #DC2626B3)'
+                      : `linear-gradient(135deg, ${deptColor}E6, ${deptColor}B3)`
                   }}
                   onClick={onElementClick}
                 >
@@ -182,6 +194,11 @@ export function ExpandableElementRow({
                   {hasTasks && (
                     <p className="text-xs">
                       {element.tasks.length} task{element.tasks.length !== 1 ? 's' : ''} • {avgProgress}% complete
+                    </p>
+                  )}
+                  {hasOverdueTasks && (
+                    <p className="text-xs text-destructive font-medium mt-1">
+                      ⚠️ Contains overdue tasks
                     </p>
                   )}
                   {elementStartDate && elementDueDate && (
@@ -223,12 +240,14 @@ export function ExpandableElementRow({
               className="flex border-b bg-muted/5 hover:bg-muted/20 transition-colors"
             >
               {/* Left Column - Task Info */}
-              <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-2 flex-shrink-0">
+              <div className={`w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-2 flex-shrink-0 ${
+                isOverdue ? 'bg-destructive/5' : ''
+              }`}>
                 <div className="flex items-center gap-2 pl-8">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <TaskStatusIcon className="h-3 w-3 flex-shrink-0" />
-                  <span className="text-xs font-medium truncate">{task.title}</span>
+                  <TaskStatusIcon className={`h-3 w-3 flex-shrink-0 ${isOverdue ? 'text-destructive' : ''}`} />
+                  <span className={`text-xs font-medium truncate ${isOverdue ? 'text-destructive' : ''}`}>{task.title}</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {task.assignee && (
