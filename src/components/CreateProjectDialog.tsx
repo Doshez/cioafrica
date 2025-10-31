@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,8 @@ export function CreateProjectDialog({ onProjectCreated }: CreateProjectDialogPro
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -27,12 +29,57 @@ export function CreateProjectDialog({ onProjectCreated }: CreateProjectDialogPro
     end_date: '',
   });
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({
+          title: "Error",
+          description: "Logo file size must be less than 2MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
     setLoading(true);
     try {
+      let logoUrl = null;
+
+      // Upload logo if provided
+      if (logoFile) {
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('project-logos')
+          .upload(fileName, logoFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('project-logos')
+          .getPublicUrl(fileName);
+
+        logoUrl = publicUrl;
+      }
+
       const { error } = await supabase
         .from('projects')
         .insert({
@@ -42,6 +89,7 @@ export function CreateProjectDialog({ onProjectCreated }: CreateProjectDialogPro
           start_date: formData.start_date,
           end_date: formData.end_date || null,
           owner_id: user.id,
+          logo_url: logoUrl,
         });
 
       if (error) throw error;
@@ -58,6 +106,7 @@ export function CreateProjectDialog({ onProjectCreated }: CreateProjectDialogPro
         start_date: '',
         end_date: '',
       });
+      clearLogo();
       setOpen(false);
       onProjectCreated?.();
     } catch (error: any) {
@@ -105,6 +154,42 @@ export function CreateProjectDialog({ onProjectCreated }: CreateProjectDialogPro
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="logo">Project Logo (Optional)</Label>
+            {logoPreview ? (
+              <div className="relative inline-block">
+                <img src={logoPreview} alt="Logo preview" className="h-20 w-20 object-contain rounded border" />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                  onClick={clearLogo}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  id="logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                />
+                <Label
+                  htmlFor="logo"
+                  className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-muted"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Logo</span>
+                </Label>
+                <span className="text-xs text-muted-foreground">Max 2MB</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

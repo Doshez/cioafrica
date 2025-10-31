@@ -16,6 +16,7 @@ import {
   KeyRound,
   User
 } from 'lucide-react';
+import cioLogo from '@/assets/cio-africa-logo.png';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,9 +123,7 @@ export default function Layout({ children }: LayoutProps) {
             </Button>
             
             <Link to="/" className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-primary shadow-glow">
-                <LayoutDashboard className="h-5 w-5 text-white" />
-              </div>
+              <img src={cioLogo} alt="CIO Africa" className="h-10 w-auto" />
               <span className="font-semibold text-lg hidden sm:inline">Project Planner</span>
             </Link>
 

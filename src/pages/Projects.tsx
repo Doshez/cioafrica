@@ -18,6 +18,7 @@ interface Project {
   status: string;
   start_date: string;
   end_date: string | null;
+  logo_url?: string | null;
 }
 
 export default function Projects() {
@@ -39,7 +40,7 @@ export default function Projects() {
     try {
       let projectsQuery = supabase
         .from('projects')
-        .select('id, name, description, status, start_date, end_date')
+        .select('id, name, description, status, start_date, end_date, logo_url')
         .order('created_at', { ascending: false });
 
       // If user is not admin or project manager, filter by assigned projects
@@ -148,16 +149,19 @@ export default function Projects() {
               onClick={() => navigate(`/projects/${project.id}`)}
             >
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-xl group-hover:text-primary transition-smooth">
+                <div className="flex items-start justify-between gap-3">
+                  {project.logo_url && (
+                    <img src={project.logo_url} alt={`${project.name} logo`} className="h-10 w-10 object-contain rounded flex-shrink-0" />
+                  )}
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <CardTitle className="text-xl group-hover:text-primary transition-smooth truncate">
                       {project.name}
                     </CardTitle>
                     <CardDescription className="line-clamp-2">
                       {project.description}
                     </CardDescription>
                   </div>
-                  <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth">
+                  <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth flex-shrink-0">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </div>

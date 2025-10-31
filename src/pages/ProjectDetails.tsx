@@ -9,6 +9,7 @@ import { CreateDepartmentDialog } from '@/components/CreateDepartmentDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { ProjectMembersCard } from '@/components/ProjectMembersCard';
 import { useUserRole } from '@/hooks/useUserRole';
+import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
 import { 
   ArrowLeft, 
   Folder, 
@@ -29,6 +30,7 @@ interface Project {
   start_date: string;
   end_date: string;
   owner_id: string;
+  logo_url?: string | null;
 }
 
 interface Department {
@@ -201,6 +203,9 @@ export default function ProjectDetails() {
           <Button variant="outline" size="icon" onClick={() => navigate('/projects')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          {project.logo_url && (
+            <img src={project.logo_url} alt={`${project.name} logo`} className="h-12 w-12 object-contain rounded" />
+          )}
           <div>
             <h1 className="text-3xl font-bold">{project.name}</h1>
             <p className="text-muted-foreground">{project.description}</p>
@@ -208,6 +213,11 @@ export default function ProjectDetails() {
         </div>
         {(isAdmin || isProjectManager) && (
           <div className="flex gap-2">
+            <UpdateProjectLogoDialog
+              projectId={projectId!}
+              currentLogoUrl={project.logo_url}
+              onLogoUpdated={fetchProjectData}
+            />
             <CreateDepartmentDialog 
               projectId={projectId!} 
               onDepartmentCreated={fetchProjectData}
