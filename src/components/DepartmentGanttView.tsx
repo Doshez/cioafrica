@@ -225,6 +225,9 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
               }}
               ref={leftScrollRef}
             >
+              {/* Header spacer to match Gantt header height */}
+              <div className="h-[65px] border-b bg-muted/10"></div>
+              
               <div>
                 {tasks.map((task) => {
                   const progress = task.progress_percentage ?? getTaskProgress(task.status);
