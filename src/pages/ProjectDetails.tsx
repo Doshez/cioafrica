@@ -271,7 +271,7 @@ export default function ProjectDetails() {
                         className="flex items-center gap-2"
                       >
                         <ExternalLink className="h-4 w-4" />
-                        View Gantt
+                        Open Task
                       </Button>
                     </div>
                   </CardHeader>
