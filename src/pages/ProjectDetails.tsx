@@ -19,6 +19,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { ProjectGanttChart } from '@/components/ProjectGanttChart';
 
 interface Project {
   id: string;
@@ -196,6 +197,9 @@ export default function ProjectDetails() {
           </div>
         )}
       </div>
+
+      {/* Gantt Chart */}
+      <ProjectGanttChart projectId={projectId!} />
 
       {/* Project Overview */}
       <Card>
