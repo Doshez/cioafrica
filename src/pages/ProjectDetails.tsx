@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreateDepartmentDialog } from '@/components/CreateDepartmentDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
+import { ProjectGanttChart } from '@/components/ProjectGanttChart';
 import { useUserRole } from '@/hooks/useUserRole';
 import { 
   ArrowLeft, 
@@ -237,6 +238,9 @@ export default function ProjectDetails() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Project Gantt Chart */}
+      <ProjectGanttChart projectId={projectId!} projectName={project.name} />
 
       {/* Departments and Analytics */}
       <div className="space-y-4">
