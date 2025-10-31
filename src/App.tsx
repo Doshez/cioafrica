@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import GanttDemo from "./pages/GanttDemo";
 import GanttDocumentation from "./pages/GanttDocumentation";
+import ProjectGanttChartPage from "./pages/ProjectGanttChartPage";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
             <Route path="/projects" element={<Layout><Projects /></Layout>} />
             <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
+            <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
             <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
             <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
             <Route path="/admin/users" element={<Layout><UserManagement /></Layout>} />

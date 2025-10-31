@@ -15,10 +15,10 @@ import {
   Clock, 
   ListTodo,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  GanttChartSquare
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { InteractiveGanttChart } from '@/components/InteractiveGanttChart';
 
 interface Project {
   id: string;
@@ -197,6 +197,23 @@ export default function ProjectDetails() {
         )}
       </div>
 
+      {/* Quick Actions */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={() => navigate(`/projects/${projectId}/gantt`)}
+            className="w-full sm:w-auto gap-2"
+            size="lg"
+          >
+            <GanttChartSquare className="h-5 w-5" />
+            View Gantt Chart
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Project Overview */}
       <Card>
         <CardHeader>
@@ -311,9 +328,6 @@ export default function ProjectDetails() {
           </div>
         )}
       </div>
-
-      {/* Interactive Gantt Chart */}
-      <InteractiveGanttChart projectId={projectId!} />
     </div>
   );
 }
