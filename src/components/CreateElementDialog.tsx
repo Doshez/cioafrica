@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,8 +25,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const elementSchema = z.object({
   title: z.string().min(1, 'Element title is required'),
@@ -40,21 +41,19 @@ const elementSchema = z.object({
 type ElementFormData = z.infer<typeof elementSchema>;
 
 interface CreateElementDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   projectId: string;
-  departments: Array<{ id: string; name: string }>;
-  onSuccess?: () => void;
+  departmentId?: string;
+  onElementCreated?: () => void;
 }
 
 export function CreateElementDialog({
-  open,
-  onOpenChange,
   projectId,
-  departments,
-  onSuccess,
+  departmentId,
+  onElementCreated,
 }: CreateElementDialogProps) {
+  const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
   const { toast } = useToast();
 
   const form = useForm<ElementFormData>({
@@ -62,9 +61,31 @@ export function CreateElementDialog({
     defaultValues: {
       title: '',
       description: '',
+      departmentId: departmentId || '',
       priority: 'medium',
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      fetchDepartments();
+    }
+  }, [open]);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('id, name')
+        .eq('project_id', projectId)
+        .order('name');
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
 
   const onSubmit = async (data: ElementFormData) => {
     try {
@@ -88,8 +109,8 @@ export function CreateElementDialog({
       });
 
       form.reset();
-      onOpenChange(false);
-      onSuccess?.();
+      setOpen(false);
+      onElementCreated?.();
     } catch (error: any) {
       console.error('Error creating element:', error);
       toast({
@@ -103,7 +124,13 @@ export function CreateElementDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="gap-2">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Add Element</span>
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Element</DialogTitle>
@@ -261,7 +288,7 @@ export function CreateElementDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => setOpen(false)}
               >
                 Cancel
               </Button>

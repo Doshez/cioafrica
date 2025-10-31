@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
+import { CreateElementDialog } from '@/components/CreateElementDialog';
 import { DepartmentGanttView } from '@/components/DepartmentGanttView';
 import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -347,11 +348,18 @@ export default function DepartmentGantt() {
           </div>
         </div>
         {(isAdmin || isProjectManager) && (
-          <CreateTaskDialog
-            projectId={projectId}
-            departmentId={departmentId}
-            onTaskCreated={fetchTasksAndAnalytics}
-          />
+          <div className="flex items-center gap-2">
+            <CreateElementDialog
+              projectId={projectId}
+              departmentId={departmentId}
+              onElementCreated={fetchTasksAndAnalytics}
+            />
+            <CreateTaskDialog
+              projectId={projectId}
+              departmentId={departmentId}
+              onTaskCreated={fetchTasksAndAnalytics}
+            />
+          </div>
         )}
       </div>
 
