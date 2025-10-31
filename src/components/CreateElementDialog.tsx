@@ -33,9 +33,6 @@ const elementSchema = z.object({
   title: z.string().min(1, 'Element title is required'),
   description: z.string().optional(),
   departmentId: z.string().min(1, 'Department is required'),
-  priority: z.enum(['low', 'medium', 'high']),
-  startDate: z.date().optional(),
-  dueDate: z.date().optional(),
 });
 
 type ElementFormData = z.infer<typeof elementSchema>;
@@ -62,7 +59,6 @@ export function CreateElementDialog({
       title: '',
       description: '',
       departmentId: departmentId || '',
-      priority: 'medium',
     },
   });
 
@@ -96,9 +92,6 @@ export function CreateElementDialog({
         department_id: data.departmentId,
         title: data.title,
         description: data.description,
-        priority: data.priority,
-        start_date: data.startDate ? format(data.startDate, 'yyyy-MM-dd') : null,
-        due_date: data.dueDate ? format(data.dueDate, 'yyyy-MM-dd') : null,
       });
 
       if (error) throw error;
@@ -194,95 +187,6 @@ export function CreateElementDialog({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="priority"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Priority</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, 'PPP') : 'Pick a date'}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Due Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, 'PPP') : 'Pick a date'}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button
