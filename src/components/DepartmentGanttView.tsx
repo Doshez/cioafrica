@@ -205,27 +205,27 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
       </div>
 
       {ganttTasks.length > 0 ? (
-        <div className="border rounded-lg bg-background">
+        <div className="border rounded-lg bg-background overflow-hidden">
           {/* Excel-like layout with tasks on left and chart on right */}
-          <div className="flex border-b bg-muted/30">
-            <div className="w-[400px] p-3 font-semibold border-r">Task Details</div>
-            <div className="flex-1 p-3 font-semibold">Timeline</div>
+          <div className="flex border-b bg-muted/30 sticky top-0 z-10">
+            <div className="w-[400px] p-3 font-semibold border-r shrink-0">Task Details</div>
+            <div className="flex-1 p-3 font-semibold overflow-hidden">Timeline</div>
           </div>
           
-          <div className="flex">
+          <div className="flex h-[600px]">
             {/* Left side - Task List */}
-            <ScrollArea className="w-[400px] border-r h-[600px]">
+            <div className="w-[400px] border-r shrink-0 overflow-y-auto">
               <div className="divide-y">
                 {tasks.map((task) => {
                   const progress = task.progress_percentage ?? getTaskProgress(task.status);
                   return (
-                    <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors">
-                      <div className="space-y-2">
+                    <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors h-[60px] flex items-center">
+                      <div className="w-full space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm leading-tight">{task.title}</p>
+                          <p className="font-medium text-sm leading-tight line-clamp-1">{task.title}</p>
                           <Badge 
                             variant={task.priority === 'high' ? 'destructive' : 'default'}
-                            className="shrink-0 text-xs"
+                            className="shrink-0 text-xs h-5"
                           >
                             {task.priority}
                           </Badge>
@@ -236,7 +236,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
                             value={task.status} 
                             onValueChange={(value) => handleStatusUpdate(task.id, value)}
                           >
-                            <SelectTrigger className="h-7 text-xs">
+                            <SelectTrigger className="h-6 text-xs w-28">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -245,13 +245,10 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
                               <SelectItem value="completed">Completed</SelectItem>
                             </SelectContent>
                           </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Progress</span>
+                          
+                          <div className="flex items-center gap-1">
                             {task.status === 'in_progress' ? (
-                              <div className="flex items-center gap-1">
+                              <>
                                 <Input
                                   type="number"
                                   min="0"
@@ -261,46 +258,35 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
                                     const value = Math.min(100, Math.max(0, Number(e.target.value)));
                                     handleProgressUpdate(task.id, value);
                                   }}
-                                  className="w-14 h-6 text-xs"
+                                  className="w-12 h-6 text-xs"
                                 />
                                 <span className="text-xs">%</span>
-                              </div>
+                              </>
                             ) : (
                               <span className="text-xs font-medium">{progress}%</span>
                             )}
                           </div>
-                          <Progress value={progress} className="h-1.5" />
                         </div>
-
-                        {(task.start_date || task.due_date) && (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            {task.start_date && (
-                              <div>Start: {new Date(task.start_date).toLocaleDateString()}</div>
-                            )}
-                            {task.due_date && (
-                              <div>Due: {new Date(task.due_date).toLocaleDateString()}</div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Right side - Gantt Chart */}
-            <ScrollArea className="flex-1 h-[600px]">
+            <div className="flex-1 overflow-x-auto overflow-y-auto">
               <div className="min-w-max">
                 <Gantt
                   tasks={ganttTasks}
                   viewMode={viewMode}
                   onDateChange={handleTaskChange}
-                  listCellWidth=""
+                  listCellWidth="0"
+                  rowHeight={60}
                   columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
                 />
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       ) : (
