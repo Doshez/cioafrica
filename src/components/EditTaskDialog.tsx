@@ -25,6 +25,9 @@ interface EditTaskDialogProps {
     id: string;
     title: string;
     assignee_user_id?: string;
+    element_id?: string;
+    project_id?: string;
+    assignee_department_id?: string;
   } | null;
   onSuccess: () => void;
 }
@@ -35,10 +38,17 @@ interface User {
   email: string;
 }
 
+interface Element {
+  id: string;
+  title: string;
+}
+
 export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [assigneeUserId, setAssigneeUserId] = useState<string>('');
+  const [elementId, setElementId] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
+  const [elements, setElements] = useState<Element[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
@@ -47,14 +57,16 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     if (task) {
       setTitle(task.title);
       setAssigneeUserId(task.assignee_user_id || '');
+      setElementId(task.element_id || '');
     }
   }, [task]);
 
   useEffect(() => {
-    if (open) {
+    if (open && task) {
       fetchUsers();
+      fetchElements();
     }
-  }, [open]);
+  }, [open, task]);
 
   const fetchUsers = async () => {
     try {
@@ -70,6 +82,24 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     }
   };
 
+  const fetchElements = async () => {
+    if (!task?.project_id || !task?.assignee_department_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('elements')
+        .select('id, title')
+        .eq('project_id', task.project_id)
+        .eq('department_id', task.assignee_department_id)
+        .order('title');
+
+      if (error) throw error;
+      setElements(data || []);
+    } catch (error) {
+      console.error('Error fetching elements:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!task) return;
@@ -81,6 +111,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
         .update({
           title: title.trim(),
           assignee_user_id: assigneeUserId || null,
+          element_id: elementId || null,
         })
         .eq('id', task.id);
 
@@ -152,6 +183,23 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
                 placeholder="Enter task name"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="element">Element</Label>
+              <Select value={elementId || 'no-element'} onValueChange={(value) => setElementId(value === 'no-element' ? '' : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select element" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-element">No Element</SelectItem>
+                  {elements.map((element) => (
+                    <SelectItem key={element.id} value={element.id}>
+                      {element.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
