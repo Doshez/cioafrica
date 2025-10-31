@@ -3,10 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, MoreVertical, Users, Calendar, Loader2 } from 'lucide-react';
+import { Search, MoreVertical, Calendar, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { CreateProjectDialog } from '@/components/CreateProjectDialog';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Project {
   id: string;
@@ -20,6 +22,7 @@ interface Project {
 export default function Projects() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isAdmin, isProjectManager } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,10 +89,9 @@ export default function Projects() {
             Manage and track all your projects
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        {(isAdmin || isProjectManager) && (
+          <CreateProjectDialog onProjectCreated={fetchProjects} />
+        )}
       </div>
 
       {/* Search & Filters */}

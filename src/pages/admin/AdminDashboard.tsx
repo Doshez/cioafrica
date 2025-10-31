@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Users, FolderKanban, CheckSquare, TrendingUp } from "lucide-react";
+import { CreateProjectDialog } from "@/components/CreateProjectDialog";
+import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 
 interface Stats {
   totalUsers: number;
@@ -80,11 +82,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of system statistics and management
-        </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-2">
+            Overview of system statistics and management
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <CreateProjectDialog onProjectCreated={fetchStats} />
+          <CreateTaskDialog onTaskCreated={fetchStats} />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

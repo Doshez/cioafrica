@@ -9,7 +9,6 @@ import {
   CheckSquare, 
   BarChart3, 
   Users, 
-  Bell,
   LogOut,
   Menu,
   Shield,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface LayoutProps {
   children: ReactNode;
@@ -108,10 +108,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary"></span>
-            </Button>
+            <NotificationBell />
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-5 w-5" />
             </Button>
