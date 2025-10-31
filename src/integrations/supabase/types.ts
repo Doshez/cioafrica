@@ -56,20 +56,38 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          project_id: string | null
         }
         Insert: {
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
+          project_id?: string | null
         }
         Update: {
           created_at?: string | null
           description?: string | null
           id?: string
           name?: string
+          project_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -166,6 +184,13 @@ export type Database = {
             foreignKeyName: "project_members_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
@@ -215,6 +240,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
           {
             foreignKeyName: "projects_department_id_fkey"
             columns: ["department_id"]
@@ -396,6 +428,13 @@ export type Database = {
             foreignKeyName: "tasks_assignee_department_id_fkey"
             columns: ["assignee_department_id"]
             isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "tasks_assignee_department_id_fkey"
+            columns: ["assignee_department_id"]
+            isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
           },
@@ -405,6 +444,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
           },
           {
             foreignKeyName: "tasks_project_id_fkey"
@@ -438,7 +484,49 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      department_analytics: {
+        Row: {
+          completed_tasks: number | null
+          completion_percentage: number | null
+          department_id: string | null
+          department_name: string | null
+          earliest_start_date: string | null
+          in_progress_tasks: number | null
+          latest_due_date: string | null
+          project_id: string | null
+          todo_tasks: number | null
+          total_tasks: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "departments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_analytics: {
+        Row: {
+          completed_tasks: number | null
+          completion_percentage: number | null
+          in_progress_tasks: number | null
+          project_id: string | null
+          project_name: string | null
+          todo_tasks: number | null
+          total_departments: number | null
+          total_tasks: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
