@@ -18,8 +18,14 @@ import {
   ListTodo,
   TrendingUp,
   ExternalLink,
-  GanttChartSquare
+  GanttChartSquare,
+  Grid3x3,
+  List,
+  Filter,
+  User
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from '@/components/ui/progress';
 
 interface Project {
@@ -59,12 +65,14 @@ interface Task {
   start_date: string;
   due_date: string;
   assignee_department_id: string;
+  assignee_user_id?: string;
 }
 
 export default function ProjectDetails() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { isAdmin, isProjectManager } = useUserRole();
   
   const [project, setProject] = useState<Project | null>(null);
@@ -73,6 +81,8 @@ export default function ProjectDetails() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [filterMode, setFilterMode] = useState<'all' | 'my' | 'active'>('all');
 
   useEffect(() => {
     if (projectId) {
@@ -172,6 +182,52 @@ export default function ProjectDetails() {
 
   const getDepartmentTasks = (departmentId: string) => {
     return tasks.filter(task => task.assignee_department_id === departmentId);
+  };
+
+  const userHasTasksInDepartment = (departmentId: string) => {
+    if (isAdmin || isProjectManager) return true;
+    return tasks.some(task => 
+      task.assignee_department_id === departmentId && 
+      task.assignee_user_id === user?.id
+    );
+  };
+
+  const getUserTaskCount = (departmentId: string) => {
+    return tasks.filter(task => 
+      task.assignee_department_id === departmentId && 
+      task.assignee_user_id === user?.id
+    ).length;
+  };
+
+  const getFilteredAndSortedDepartments = () => {
+    let filtered = [...departments];
+
+    // Apply filter
+    if (filterMode === 'my' && !isAdmin && !isProjectManager) {
+      filtered = filtered.filter(dept => userHasTasksInDepartment(dept.id));
+    } else if (filterMode === 'active') {
+      filtered = filtered.filter(dept => {
+        const analytics = departmentAnalytics.find(a => a.department_id === dept.id);
+        return analytics && analytics.in_progress_tasks > 0;
+      });
+    }
+
+    // Sort: departments with user's tasks first, then by name
+    return filtered.sort((a, b) => {
+      const aHasTasks = userHasTasksInDepartment(a.id);
+      const bHasTasks = userHasTasksInDepartment(b.id);
+      
+      if (aHasTasks && !bHasTasks) return -1;
+      if (!aHasTasks && bHasTasks) return 1;
+      
+      // If both have or don't have tasks, sort by task count then name
+      const aTaskCount = getUserTaskCount(a.id);
+      const bTaskCount = getUserTaskCount(b.id);
+      
+      if (aTaskCount !== bTaskCount) return bTaskCount - aTaskCount;
+      
+      return a.name.localeCompare(b.name);
+    });
   };
 
   if (loading) {
@@ -295,11 +351,48 @@ export default function ProjectDetails() {
 
       {/* Departments and Analytics */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Departments</h2>
-        {departments.length === 0 ? (
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Departments</h2>
+          <div className="flex items-center gap-2">
+            <Select value={filterMode} onValueChange={(value: any) => setFilterMode(value)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                <SelectItem value="my">My Departments</SelectItem>
+                <SelectItem value="active">Active Only</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="px-2"
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="px-2"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        {getFilteredAndSortedDepartments().length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              {isAdmin || isProjectManager ? (
+              {filterMode === 'my' ? (
+                <p>You don't have any assigned tasks in this project yet.</p>
+              ) : filterMode === 'active' ? (
+                <p>No departments with active tasks.</p>
+              ) : isAdmin || isProjectManager ? (
                 <p>No departments yet. Create one to get started.</p>
               ) : (
                 <div className="space-y-2">
@@ -310,20 +403,30 @@ export default function ProjectDetails() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {departments.map((dept) => {
+          <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'space-y-4'}>
+            {getFilteredAndSortedDepartments().map((dept) => {
               const analytics = departmentAnalytics.find(a => a.department_id === dept.id);
               const deptTasks = getDepartmentTasks(dept.id);
+              const myTaskCount = getUserTaskCount(dept.id);
+              const hasMyTasks = userHasTasksInDepartment(dept.id);
 
               return (
-                <Card key={dept.id}>
+                <Card key={dept.id} className={hasMyTasks && !isAdmin && !isProjectManager ? 'border-primary' : ''}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2">
-                          <Folder className="h-5 w-5" />
-                          {dept.name}
-                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="flex items-center gap-2">
+                            <Folder className="h-5 w-5" />
+                            {dept.name}
+                          </CardTitle>
+                          {hasMyTasks && !isAdmin && !isProjectManager && (
+                            <Badge variant="default" className="gap-1">
+                              <User className="h-3 w-3" />
+                              {myTaskCount} My {myTaskCount === 1 ? 'Task' : 'Tasks'}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mt-1">{dept.description}</p>
                       </div>
                       <Button
@@ -333,7 +436,7 @@ export default function ProjectDetails() {
                         className="flex items-center gap-2"
                       >
                         <ExternalLink className="h-4 w-4" />
-                        Open Task
+                        Open
                       </Button>
                     </div>
                   </CardHeader>
