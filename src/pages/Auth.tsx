@@ -81,7 +81,7 @@ export default function Auth() {
         </div>
 
         <Card className="shadow-lg border-border/50">
-          <CardHeader>
+          <CardHeader className="text-center">
             <CardTitle>Welcome</CardTitle>
             <CardDescription>Sign in to your account</CardDescription>
           </CardHeader>
