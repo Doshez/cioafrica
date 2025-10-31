@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface User {
   id: string;
@@ -160,13 +162,137 @@ export default function UserManagement() {
     );
   }
 
+  const roleDescriptions = [
+    {
+      role: 'admin',
+      icon: Shield,
+      color: 'text-red-500',
+      title: 'Admin',
+      description: 'Full system access with all privileges',
+      permissions: [
+        'View and manage all users',
+        'Create and delete users',
+        'Assign/remove any role',
+        'Access admin dashboard',
+        'View and manage all projects',
+        'View and manage all tasks',
+        'Access analytics',
+        'Delete projects and departments'
+      ]
+    },
+    {
+      role: 'project_manager',
+      icon: UserCog,
+      color: 'text-blue-500',
+      title: 'Project Manager',
+      description: 'Manage projects, departments, and team tasks',
+      permissions: [
+        'Create and update projects',
+        'Create and manage departments',
+        'Create and assign tasks',
+        'Update task status and assignments',
+        'Add/remove project members',
+        'View Gantt charts',
+        'View analytics',
+        'Cannot access admin dashboard',
+        'Cannot manage user roles'
+      ]
+    },
+    {
+      role: 'member',
+      icon: Users,
+      color: 'text-green-500',
+      title: 'Member',
+      description: 'Standard user with task management capabilities',
+      permissions: [
+        'View assigned projects',
+        'View Gantt charts',
+        'Create tasks in assigned projects',
+        'Assign tasks to team members',
+        'Update own assigned tasks',
+        'View project analytics',
+        'Add comments and attachments',
+        'Cannot create/delete projects',
+        'Cannot manage departments',
+        'Cannot access admin features'
+      ]
+    },
+    {
+      role: 'viewer',
+      icon: Eye,
+      color: 'text-gray-500',
+      title: 'Viewer',
+      description: 'Read-only access to assigned projects',
+      permissions: [
+        'View assigned projects',
+        'View Gantt charts',
+        'View tasks and their details',
+        'View project analytics',
+        'Cannot create or edit anything',
+        'Cannot assign tasks',
+        'Cannot access admin features'
+      ]
+    }
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Role Guide Card */}
+      <Card className="border-primary/20">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Info className="h-5 w-5 text-primary" />
+            <CardTitle>Role Permissions Guide</CardTitle>
+          </div>
+          <CardDescription>
+            Understand what each role can access and do in the system
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible className="w-full">
+            {roleDescriptions.map((roleDesc) => {
+              const Icon = roleDesc.icon;
+              return (
+                <AccordionItem key={roleDesc.role} value={roleDesc.role}>
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-3">
+                      <Icon className={`h-5 w-5 ${roleDesc.color}`} />
+                      <div className="text-left">
+                        <div className="font-semibold">{roleDesc.title}</div>
+                        <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pl-8 space-y-2 pt-2">
+                      <p className="text-sm font-medium mb-3">Capabilities:</p>
+                      <ul className="space-y-1.5">
+                        {roleDesc.permissions.map((permission, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <span className={`mt-1 ${permission.includes('Cannot') ? 'text-red-500' : 'text-green-500'}`}>
+                              {permission.includes('Cannot') ? '✗' : '✓'}
+                            </span>
+                            <span className={permission.includes('Cannot') ? 'text-muted-foreground' : ''}>
+                              {permission}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      {/* Header with Create User Button */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground mt-2">
-            Manage user roles and permissions
+            Create and manage users with role-based access control
           </p>
         </div>
         
@@ -215,15 +341,53 @@ export default function UserManagement() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="project_manager">Project Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="viewer">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Viewer</div>
+                          <div className="text-xs text-muted-foreground">Read-only access</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="member">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Member</div>
+                          <div className="text-xs text-muted-foreground">Create & manage tasks</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="project_manager">
+                      <div className="flex items-center gap-2">
+                        <UserCog className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Project Manager</div>
+                          <div className="text-xs text-muted-foreground">Manage projects & teams</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Admin</div>
+                          <div className="text-xs text-muted-foreground">Full system access</div>
+                        </div>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Members can view charts, create tasks, and manage assignments
-                </p>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {newUserRole === 'admin' && 'Full access to all features including user management'}
+                    {newUserRole === 'project_manager' && 'Can manage projects, departments, and assign tasks'}
+                    {newUserRole === 'member' && 'Can view projects, create tasks, and update assigned tasks'}
+                    {newUserRole === 'viewer' && 'Read-only access to assigned projects and Gantt charts'}
+                  </AlertDescription>
+                </Alert>
               </div>
             </div>
             
