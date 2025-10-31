@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Task {
   id: string;
@@ -204,71 +205,109 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
       </div>
 
       {ganttTasks.length > 0 ? (
-        <div className="border rounded-lg overflow-auto bg-background">
-          <Gantt
-            tasks={ganttTasks}
-            viewMode={viewMode}
-            onDateChange={handleTaskChange}
-            listCellWidth=""
-            columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
-          />
+        <div className="border rounded-lg bg-background">
+          {/* Excel-like layout with tasks on left and chart on right */}
+          <div className="flex border-b bg-muted/30">
+            <div className="w-[400px] p-3 font-semibold border-r">Task Details</div>
+            <div className="flex-1 p-3 font-semibold">Timeline</div>
+          </div>
+          
+          <div className="flex">
+            {/* Left side - Task List */}
+            <ScrollArea className="w-[400px] border-r h-[600px]">
+              <div className="divide-y">
+                {tasks.map((task) => {
+                  const progress = task.progress_percentage ?? getTaskProgress(task.status);
+                  return (
+                    <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors">
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-sm leading-tight">{task.title}</p>
+                          <Badge 
+                            variant={task.priority === 'high' ? 'destructive' : 'default'}
+                            className="shrink-0 text-xs"
+                          >
+                            {task.priority}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Select 
+                            value={task.status} 
+                            onValueChange={(value) => handleStatusUpdate(task.id, value)}
+                          >
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="todo">Not Started</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Progress</span>
+                            {task.status === 'in_progress' ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={progress}
+                                  onChange={(e) => {
+                                    const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                                    handleProgressUpdate(task.id, value);
+                                  }}
+                                  className="w-14 h-6 text-xs"
+                                />
+                                <span className="text-xs">%</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs font-medium">{progress}%</span>
+                            )}
+                          </div>
+                          <Progress value={progress} className="h-1.5" />
+                        </div>
+
+                        {(task.start_date || task.due_date) && (
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            {task.start_date && (
+                              <div>Start: {new Date(task.start_date).toLocaleDateString()}</div>
+                            )}
+                            {task.due_date && (
+                              <div>Due: {new Date(task.due_date).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+
+            {/* Right side - Gantt Chart */}
+            <ScrollArea className="flex-1 h-[600px]">
+              <div className="min-w-max">
+                <Gantt
+                  tasks={ganttTasks}
+                  viewMode={viewMode}
+                  onDateChange={handleTaskChange}
+                  listCellWidth=""
+                  columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
+                />
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 text-muted-foreground">
           No tasks with dates available for Gantt chart view
         </div>
       )}
-
-      <div className="space-y-3">
-        <h4 className="font-semibold">Task Status Management</h4>
-        {tasks.map((task) => {
-          const progress = task.progress_percentage ?? getTaskProgress(task.status);
-          return (
-            <div key={task.id} className="flex items-center gap-4 p-3 border rounded-lg bg-card">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{task.title}</p>
-                  <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
-                    {task.priority}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Progress:</span>
-                  <Progress value={progress} className="flex-1 max-w-[200px]" />
-                  {task.status === 'in_progress' ? (
-                    <div className="flex items-center gap-1">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={progress}
-                        onChange={(e) => {
-                          const value = Math.min(100, Math.max(0, Number(e.target.value)));
-                          handleProgressUpdate(task.id, value);
-                        }}
-                        className="w-16 h-7 text-xs"
-                      />
-                      <span className="text-xs font-medium">%</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-medium">{progress}%</span>
-                  )}
-                </div>
-              </div>
-              <Select value={task.status} onValueChange={(value) => handleStatusUpdate(task.id, value)}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todo">Not Started</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
