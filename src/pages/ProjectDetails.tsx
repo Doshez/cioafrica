@@ -15,9 +15,11 @@ import {
   Clock, 
   ListTodo,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { InteractiveGanttChart } from '@/components/InteractiveGanttChart';
 
 interface Project {
   id: string;
@@ -236,6 +238,9 @@ export default function ProjectDetails() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Interactive Gantt Chart */}
+      <InteractiveGanttChart projectId={projectId!} />
 
       {/* Departments and Analytics */}
       <div className="space-y-4">
