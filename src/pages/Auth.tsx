@@ -87,6 +87,7 @@ export default function Auth() {
       <ChangePasswordDialog 
         open={showPasswordChange} 
         onSuccess={handlePasswordChangeSuccess}
+        isForced={true}
       />
       <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">

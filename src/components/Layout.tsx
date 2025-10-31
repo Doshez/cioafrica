@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -12,11 +12,22 @@ import {
   LogOut,
   Menu,
   Shield,
-  UserCog
+  UserCog,
+  KeyRound,
+  User
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
+import { supabase } from '@/integrations/supabase/client';
+import ChangePasswordDialog from '@/components/ChangePasswordDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,12 +39,36 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  // Check if user must change password on mount
+  useEffect(() => {
+    const checkPasswordChange = async () => {
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('must_change_password')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.must_change_password) {
+          setShowPasswordChange(true);
+        }
+      }
+    };
+
+    checkPasswordChange();
+  }, [user]);
+
+  const handlePasswordChangeSuccess = () => {
+    setShowPasswordChange(false);
+  };
 
   if (loading) {
     return (
@@ -67,7 +102,12 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
-    <div className="min-h-screen gradient-subtle">
+    <>
+      <ChangePasswordDialog 
+        open={showPasswordChange} 
+        onSuccess={handlePasswordChangeSuccess}
+      />
+      <div className="min-h-screen gradient-subtle">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
@@ -109,9 +149,27 @@ export default function Layout({ children }: LayoutProps) {
 
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowPasswordChange(true)}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -144,5 +202,6 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
     </div>
+    </>
   );
 }

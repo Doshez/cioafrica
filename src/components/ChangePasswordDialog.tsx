@@ -10,9 +10,10 @@ import { Loader2, Lock } from 'lucide-react';
 interface ChangePasswordDialogProps {
   open: boolean;
   onSuccess: () => void;
+  isForced?: boolean;
 }
 
-export default function ChangePasswordDialog({ open, onSuccess }: ChangePasswordDialogProps) {
+export default function ChangePasswordDialog({ open, onSuccess, isForced = false }: ChangePasswordDialogProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,7 +44,7 @@ export default function ChangePasswordDialog({ open, onSuccess }: ChangePassword
       // Update must_change_password flag in profiles
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (user) {
+      if (user && isForced) {
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ must_change_password: false })
@@ -64,8 +65,8 @@ export default function ChangePasswordDialog({ open, onSuccess }: ChangePassword
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+    <Dialog open={open} onOpenChange={isForced ? () => {} : () => onSuccess()}>
+      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => isForced && e.preventDefault()}>
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -74,7 +75,9 @@ export default function ChangePasswordDialog({ open, onSuccess }: ChangePassword
             <DialogTitle>Change Your Password</DialogTitle>
           </div>
           <DialogDescription>
-            For security reasons, you must change your temporary password before continuing.
+            {isForced 
+              ? 'For security reasons, you must change your temporary password before continuing.'
+              : 'Enter your new password below to update your account security.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleChangePassword} className="space-y-4">
