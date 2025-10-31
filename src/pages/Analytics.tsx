@@ -7,7 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { BarChart3, FolderKanban, ListTodo, Building2 } from "lucide-react";
-import { AnalyticsGantt } from "@/components/AnalyticsGantt";
 
 interface ProjectAnalytics {
   project_id: string;
@@ -306,9 +305,6 @@ const Analytics = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Overall Gantt Chart */}
-      <AnalyticsGantt />
     </div>
   );
 };
