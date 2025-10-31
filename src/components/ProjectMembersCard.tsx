@@ -43,13 +43,40 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
   const fetchMembers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch project members
+      const { data: membersData, error: membersError } = await supabase
         .from('project_members')
-        .select('*, profiles(full_name, email)')
+        .select('*')
         .eq('project_id', projectId);
 
-      if (error) throw error;
-      setMembers(data || []);
+      if (membersError) throw membersError;
+
+      // Fetch profiles for those members
+      if (membersData && membersData.length > 0) {
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Combine the data
+        const combinedData = membersData.map(member => {
+          const profile = profilesData?.find(p => p.id === member.user_id);
+          return {
+            ...member,
+            profiles: {
+              full_name: profile?.full_name || null,
+              email: profile?.email || '',
+            },
+          };
+        });
+
+        setMembers(combinedData as ProjectMember[]);
+      } else {
+        setMembers([]);
+      }
     } catch (error: any) {
       toast({
         title: "Error",

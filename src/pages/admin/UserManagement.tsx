@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Crown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -167,70 +167,137 @@ export default function UserManagement() {
       role: 'admin',
       icon: Shield,
       color: 'text-red-500',
-      title: 'Admin',
+      title: 'System Admin',
       description: 'Full system access with all privileges',
       permissions: [
-        'View and manage all users',
-        'Create and delete users',
-        'Assign/remove any role',
-        'Access admin dashboard',
-        'View and manage all projects',
-        'View and manage all tasks',
-        'Access analytics',
-        'Delete projects and departments'
+        '✓ View and manage all users',
+        '✓ Create and delete users',
+        '✓ Assign/remove any role',
+        '✓ Access admin dashboard',
+        '✓ View and manage all projects',
+        '✓ View and manage all tasks',
+        '✓ Access analytics',
+        '✓ Delete projects and departments',
+        '✓ Override any project-level permissions'
       ]
     },
     {
       role: 'project_manager',
       icon: UserCog,
       color: 'text-blue-500',
-      title: 'Project Manager',
-      description: 'Manage projects, departments, and team tasks',
+      title: 'System Project Manager',
+      description: 'Manage projects, departments, and team tasks across the system',
       permissions: [
-        'Create and update projects',
-        'Create and manage departments',
-        'Create and assign tasks',
-        'Update task status and assignments',
-        'Add/remove project members',
-        'View Gantt charts',
-        'View analytics',
-        'Cannot access admin dashboard',
-        'Cannot manage user roles'
+        '✓ Create and update projects',
+        '✓ Create and manage departments',
+        '✓ Create and assign tasks',
+        '✓ Update task status and assignments',
+        '✓ Add/remove project members',
+        '✓ View Gantt charts',
+        '✓ View analytics',
+        '✗ Cannot access admin dashboard',
+        '✗ Cannot manage user roles'
       ]
     },
     {
       role: 'member',
       icon: Users,
       color: 'text-green-500',
-      title: 'Member',
-      description: 'Standard user with task management capabilities',
+      title: 'System Member',
+      description: 'Standard user with task management capabilities (default role)',
       permissions: [
-        'View assigned projects',
-        'View Gantt charts',
-        'Create tasks in assigned projects',
-        'Assign tasks to team members',
-        'Update own assigned tasks',
-        'View project analytics',
-        'Add comments and attachments',
-        'Cannot create/delete projects',
-        'Cannot manage departments',
-        'Cannot access admin features'
+        '✓ View assigned projects',
+        '✓ View Gantt charts',
+        '✓ Create tasks in assigned projects',
+        '✓ Assign tasks to team members',
+        '✓ Update own assigned tasks',
+        '✓ View project analytics',
+        '✓ Add comments and attachments',
+        '✗ Cannot create/delete projects',
+        '✗ Cannot manage departments',
+        '✗ Cannot access admin features'
       ]
     },
     {
       role: 'viewer',
       icon: Eye,
       color: 'text-gray-500',
-      title: 'Viewer',
+      title: 'System Viewer',
       description: 'Read-only access to assigned projects',
       permissions: [
-        'View assigned projects',
-        'View Gantt charts',
-        'View tasks and their details',
-        'View project analytics',
-        'Cannot create or edit anything',
-        'Cannot assign tasks',
-        'Cannot access admin features'
+        '✓ View assigned projects',
+        '✓ View Gantt charts',
+        '✓ View tasks and their details',
+        '✓ View project analytics',
+        '✗ Cannot create or edit anything',
+        '✗ Cannot assign tasks',
+        '✗ Cannot access admin features'
+      ]
+    }
+  ];
+
+  const projectRoleDescriptions = [
+    {
+      role: 'owner',
+      icon: Crown,
+      color: 'text-purple-500',
+      title: 'Project Owner',
+      description: 'Full control over the specific project',
+      permissions: [
+        '✓ All project management capabilities',
+        '✓ Add/remove project members',
+        '✓ Assign project-level roles',
+        '✓ Delete the project',
+        '✓ Create departments',
+        '✓ Create and assign tasks',
+        '✓ View Gantt charts'
+      ]
+    },
+    {
+      role: 'manager',
+      icon: UserCog,
+      color: 'text-blue-500',
+      title: 'Project Manager',
+      description: 'Manage all aspects of this specific project',
+      permissions: [
+        '✓ Create and manage departments',
+        '✓ Create and assign tasks',
+        '✓ Update project details',
+        '✓ View Gantt charts',
+        '✓ Manage task assignments',
+        '✗ Cannot add/remove members',
+        '✗ Cannot delete project'
+      ]
+    },
+    {
+      role: 'member',
+      icon: Users,
+      color: 'text-green-500',
+      title: 'Project Member',
+      description: 'Create and manage tasks in this project',
+      permissions: [
+        '✓ View project Gantt chart',
+        '✓ Create tasks',
+        '✓ Assign tasks to team members',
+        '✓ Update task status',
+        '✓ Add comments and attachments',
+        '✗ Cannot create departments',
+        '✗ Cannot modify project settings'
+      ]
+    },
+    {
+      role: 'viewer',
+      icon: Eye,
+      color: 'text-gray-500',
+      title: 'Project Viewer',
+      description: 'Read-only access to this project',
+      permissions: [
+        '✓ View project Gantt chart',
+        '✓ View all tasks',
+        '✓ View departments',
+        '✓ View project analytics',
+        '✗ Cannot create or edit anything',
+        '✗ Cannot assign tasks'
       ]
     }
   ];
@@ -245,45 +312,105 @@ export default function UserManagement() {
             <CardTitle>Role Permissions Guide</CardTitle>
           </div>
           <CardDescription>
-            Understand what each role can access and do in the system
+            Understand system-wide and project-specific roles
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full">
-            {roleDescriptions.map((roleDesc) => {
-              const Icon = roleDesc.icon;
-              return (
-                <AccordionItem key={roleDesc.role} value={roleDesc.role}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-3">
-                      <Icon className={`h-5 w-5 ${roleDesc.color}`} />
-                      <div className="text-left">
-                        <div className="font-semibold">{roleDesc.title}</div>
-                        <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              System-Wide Roles
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              These roles apply across the entire application and control access to system-level features.
+            </p>
+            <Accordion type="single" collapsible className="w-full">
+              {roleDescriptions.map((roleDesc) => {
+                const Icon = roleDesc.icon;
+                return (
+                  <AccordionItem key={roleDesc.role} value={roleDesc.role}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <Icon className={`h-5 w-5 ${roleDesc.color}`} />
+                        <div className="text-left">
+                          <div className="font-semibold">{roleDesc.title}</div>
+                          <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
+                        </div>
                       </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="pl-8 space-y-2 pt-2">
-                      <p className="text-sm font-medium mb-3">Capabilities:</p>
-                      <ul className="space-y-1.5">
-                        {roleDesc.permissions.map((permission, idx) => (
-                          <li key={idx} className="text-sm flex items-start gap-2">
-                            <span className={`mt-1 ${permission.includes('Cannot') ? 'text-red-500' : 'text-green-500'}`}>
-                              {permission.includes('Cannot') ? '✗' : '✓'}
-                            </span>
-                            <span className={permission.includes('Cannot') ? 'text-muted-foreground' : ''}>
-                              {permission}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pl-8 space-y-2 pt-2">
+                        <ul className="space-y-1.5">
+                          {roleDesc.permissions.map((permission, idx) => (
+                            <li key={idx} className="text-sm flex items-start gap-2">
+                              <span className={permission.startsWith('✗') ? 'text-red-500' : 'text-green-500'}>
+                                {permission.slice(0, 1)}
+                              </span>
+                              <span className={permission.startsWith('✗') ? 'text-muted-foreground' : ''}>
+                                {permission.slice(2)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </div>
+
+          <div className="border-t pt-6">
+            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Project-Specific Roles
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Users can be assigned different roles for each project. These permissions only apply within that specific project.
+              For example, a user can be a "Viewer" on Project A and a "Manager" on Project B.
+            </p>
+            <Alert className="mb-4">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>How it works:</strong> When you add members to a project, you can assign them project-specific roles.
+                These roles control what they can do within that project only, not system-wide.
+              </AlertDescription>
+            </Alert>
+            <Accordion type="single" collapsible className="w-full">
+              {projectRoleDescriptions.map((roleDesc) => {
+                const Icon = roleDesc.icon;
+                return (
+                  <AccordionItem key={roleDesc.role} value={`project-${roleDesc.role}`}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <Icon className={`h-5 w-5 ${roleDesc.color}`} />
+                        <div className="text-left">
+                          <div className="font-semibold">{roleDesc.title}</div>
+                          <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pl-8 space-y-2 pt-2">
+                        <ul className="space-y-1.5">
+                          {roleDesc.permissions.map((permission, idx) => (
+                            <li key={idx} className="text-sm flex items-start gap-2">
+                              <span className={permission.startsWith('✗') ? 'text-red-500' : 'text-green-500'}>
+                                {permission.slice(0, 1)}
+                              </span>
+                              <span className={permission.startsWith('✗') ? 'text-muted-foreground' : ''}>
+                                {permission.slice(2)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </div>
         </CardContent>
       </Card>
 
