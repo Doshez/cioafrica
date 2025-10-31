@@ -7,6 +7,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import ProjectDetails from "./pages/ProjectDetails";
 import MyTasks from "./pages/MyTasks";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/" element={<Layout><Dashboard /></Layout>} />
             <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
             <Route path="/projects" element={<Layout><Projects /></Layout>} />
+            <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
             <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
             <Route path="/admin/users" element={<Layout><UserManagement /></Layout>} />
             <Route path="*" element={<NotFound />} />

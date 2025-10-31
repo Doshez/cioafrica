@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, MoreVertical, Calendar, Loader2 } from 'lucide-react';
+import { Search, MoreVertical, Calendar, Loader2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,7 @@ interface Project {
 
 export default function Projects() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, isProjectManager } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,7 +121,11 @@ export default function Projects() {
           </Card>
         ) : (
           filteredProjects.map((project) => (
-            <Card key={project.id} className="transition-smooth hover:shadow-lg group">
+            <Card 
+              key={project.id} 
+              className="transition-smooth hover:shadow-lg group cursor-pointer"
+              onClick={() => navigate(`/projects/${project.id}`)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1">
@@ -144,12 +150,20 @@ export default function Projects() {
                 </div>
                 
                 {/* Dates */}
-                {project.end_date && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>Due: {new Date(project.end_date).toLocaleDateString()}</span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  {project.end_date && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>Due: {new Date(project.end_date).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/projects/${project.id}`);
+                  }}>
+                    View Details <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))

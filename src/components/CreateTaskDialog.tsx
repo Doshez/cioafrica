@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface CreateTaskDialogProps {
   projectId?: string;
+  departmentId?: string;
   onTaskCreated?: () => void;
 }
 
@@ -26,18 +27,27 @@ interface Project {
   name: string;
 }
 
-export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogProps) {
+interface Department {
+  id: string;
+  name: string;
+  project_id: string;
+}
+
+export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: CreateTaskDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     project_id: projectId || '',
     assignee_user_id: '',
+    assignee_department_id: departmentId || '',
     status: 'todo',
     priority: 'medium',
     start_date: '',
@@ -49,9 +59,18 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
       fetchProfiles();
       if (!projectId) {
         fetchProjects();
+      } else {
+        setSelectedProjectId(projectId);
       }
     }
   }, [open, projectId]);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchDepartments(selectedProjectId);
+      setFormData(prev => ({ ...prev, project_id: selectedProjectId, assignee_department_id: departmentId || '' }));
+    }
+  }, [selectedProjectId]);
 
   const fetchProfiles = async () => {
     const { data } = await supabase
@@ -69,9 +88,34 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
     if (data) setProjects(data);
   };
 
+  const fetchDepartments = async (projId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('id, name, project_id')
+        .eq('project_id', projId)
+        .order('name');
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error: any) {
+      console.error('Error fetching departments:', error);
+      setDepartments([]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (!formData.assignee_department_id) {
+      toast({
+        title: 'Error',
+        description: 'Please select a department for this task',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setLoading(true);
     try {
@@ -82,6 +126,7 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
           description: formData.description,
           project_id: formData.project_id,
           assignee_user_id: formData.assignee_user_id || null,
+          assignee_department_id: formData.assignee_department_id,
           status: formData.status,
           priority: formData.priority,
           start_date: formData.start_date || null,
@@ -115,6 +160,7 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
         description: '',
         project_id: projectId || '',
         assignee_user_id: '',
+        assignee_department_id: departmentId || '',
         status: 'todo',
         priority: 'medium',
         start_date: '',
@@ -172,7 +218,7 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
           {!projectId && (
             <div className="space-y-2">
               <Label htmlFor="project">Project</Label>
-              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
@@ -186,6 +232,32 @@ export function CreateTaskDialog({ projectId, onTaskCreated }: CreateTaskDialogP
               </Select>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="department">Department *</Label>
+            <Select
+              value={formData.assignee_department_id}
+              onValueChange={(value) => setFormData({ ...formData, assignee_department_id: value })}
+              disabled={!selectedProjectId || departments.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  !selectedProjectId 
+                    ? "Select a project first" 
+                    : departments.length === 0 
+                    ? "No departments available" 
+                    : "Select department"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="assignee">Assign To</Label>
