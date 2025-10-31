@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { DepartmentGanttView } from '@/components/DepartmentGanttView';
+import { TasksByUserView } from '@/components/TasksByUserView';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ArrowLeft, Plus, Filter, Calendar, Clock, MoreVertical, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Filter, Calendar, Clock, Search } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Department {
   id: string;
@@ -162,45 +162,6 @@ export default function DepartmentGantt() {
         description: error.message,
         variant: 'destructive',
       });
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
-      case 'low':
-        return 'secondary';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'text-green-600 bg-green-50';
-      case 'in_progress':
-        return 'text-blue-600 bg-blue-50';
-      case 'todo':
-        return 'text-gray-600 bg-gray-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Completed';
-      case 'in_progress':
-        return 'In Progress';
-      case 'todo':
-        return 'To Do';
-      default:
-        return status;
     }
   };
 
@@ -448,143 +409,24 @@ export default function DepartmentGantt() {
             </CardContent>
           </Card>
 
-          {/* Task List */}
-          <div className="space-y-3">
-            {filteredTasks.map((task) => {
-              const progress = task.progress_percentage ?? (task.status === 'completed' ? 100 : task.status === 'in_progress' ? 50 : 0);
-              return (
-                <Card key={task.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-3">
-                        {/* Title and Priority */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="text-lg font-semibold">{task.title}</h3>
-                          <Badge variant={getPriorityColor(task.priority)} className="capitalize">
-                            {task.priority}
-                          </Badge>
-                        </div>
-
-                        {/* Description */}
-                        {task.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {task.description}
-                          </p>
-                        )}
-
-                        {/* Assigned User */}
-                        {task.assignee_name && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">Assigned to:</span>
-                            <span className="font-medium">{task.assignee_name}</span>
-                          </div>
-                        )}
-
-                        {/* Status Control */}
-                        <div className="space-y-2">
-                          <span className="text-sm text-muted-foreground">Status</span>
-                          <Select 
-                            value={task.status} 
-                            onValueChange={(value) => handleStatusUpdate(task.id, value)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              <SelectItem value="todo">To Do</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Progress Control */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{progress}%</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Progress value={progress} className="h-2 flex-1" />
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={progress}
-                              onChange={(e) => {
-                                const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                handleProgressUpdate(task.id, value);
-                              }}
-                              className="w-20 h-8"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Meta Information */}
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                          {task.start_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              <span>Start: {new Date(task.start_date).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {task.due_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          {task.estimate_hours && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{task.estimate_hours}h estimated</span>
-                            </div>
-                          )}
-                          {task.logged_hours !== undefined && task.logged_hours > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{task.logged_hours}h logged</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-background z-50">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit Task</DropdownMenuItem>
-                          <DropdownMenuItem>Add Comment</DropdownMenuItem>
-                          <DropdownMenuItem>Attach File</DropdownMenuItem>
-                          {(isAdmin || isProjectManager) && (
-                            <DropdownMenuItem className="text-destructive">
-                              Delete Task
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-            {filteredTasks.length === 0 && (
-              <Card>
-                <CardContent className="py-12">
-                  <div className="text-center text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium">No tasks found</p>
-                    <p className="text-sm mt-1">Try adjusting your filters or create a new task</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* Tasks by User Columns */}
+          {filteredTasks.length > 0 ? (
+            <TasksByUserView
+              tasks={filteredTasks}
+              onStatusUpdate={handleStatusUpdate}
+              onProgressUpdate={handleProgressUpdate}
+            />
+          ) : (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No tasks found</p>
+                  <p className="text-sm mt-1">Try adjusting your filters or create a new task</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="gantt" className="space-y-4">
