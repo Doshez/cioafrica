@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { GanttAnalyticsView } from '@/components/GanttAnalyticsView';
-import { TaskRow } from '@/components/TaskRow';
+import { ElementRow } from '@/components/ElementRow';
 import {
   Select,
   SelectContent,
@@ -67,24 +67,22 @@ import {
 interface Task {
   id: string;
   title: string;
-  description?: string;
-  status: string;
-  priority: string;
+  assignee?: string;
   start_date: string;
   due_date: string;
-  assignee_department_id: string;
   progress_percentage: number;
-  assignee_user_id?: string;
-  elements?: TaskElement[];
+  status: string;
 }
 
-interface TaskElement {
+interface Element {
   id: string;
-  name: string;
-  start_date: string;
-  due_date: string;
-  progress_percentage: number;
-  status: string;
+  title: string;
+  description?: string;
+  departmentId: string;
+  priority?: string;
+  start_date?: string;
+  due_date?: string;
+  tasks: Task[];
 }
 
 interface Department {
@@ -113,17 +111,16 @@ const DEPT_COLORS = [
 ];
 
 export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [elements, setElements] = useState<Element[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [assignedUsers, setAssignedUsers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [chartMode, setChartMode] = useState<ChartMode>('gantt');
   const [scrollOffset, setScrollOffset] = useState<number>(0);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedElement, setSelectedElement] = useState<Element | null>(null);
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [expandedElements, setExpandedElements] = useState<Set<string>>(new Set());
   const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -148,7 +145,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       // Fetch tasks with valid dates
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, profiles(full_name)')
         .eq('project_id', projectId)
         .not('start_date', 'is', null)
         .not('due_date', 'is', null)
@@ -156,52 +153,58 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
       if (tasksError) throw tasksError;
       
-      const validTasks = (tasksData || []).filter(
-        task => task.start_date && task.due_date
-      ).map(task => ({
-        ...task,
-        // Mock elements for demonstration - in production, fetch from elements table
-        elements: task.title.toLowerCase().includes('banner') || task.title.toLowerCase().includes('setup') ? [
-          {
-            id: `${task.id}-elem-1`,
-            name: task.title.toLowerCase().includes('banner') ? 'Digital Artwork' : 'Stage Lighting',
-            start_date: task.start_date,
-            due_date: format(addDays(new Date(task.start_date), 3), 'yyyy-MM-dd'),
-            progress_percentage: task.progress_percentage || 0,
-            status: task.status
-          },
-          {
-            id: `${task.id}-elem-2`,
-            name: task.title.toLowerCase().includes('banner') ? 'Social Teasers' : 'Sound System',
-            start_date: format(addDays(new Date(task.start_date), 1), 'yyyy-MM-dd'),
-            due_date: format(addDays(new Date(task.start_date), 4), 'yyyy-MM-dd'),
-            progress_percentage: Math.max(0, (task.progress_percentage || 0) - 20),
-            status: task.status
-          }
-        ] : undefined
-      }));
+      // Group tasks into elements by department
+      // Mock data: Create elements as parent entities with tasks as children
+      const elementsMap = new Map<string, Element>();
       
-      setTasks(validTasks);
-
-      // Fetch assigned users
-      const userIds = validTasks
-        .map(t => t.assignee_user_id)
-        .filter(Boolean) as string[];
-      
-      if (userIds.length > 0) {
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
-
-        if (!userError && userData) {
-          const userMap: Record<string, string> = {};
-          userData.forEach(user => {
-            userMap[user.id] = user.full_name;
+      (tasksData || []).forEach((task: any) => {
+        if (!task.start_date || !task.due_date) return;
+        
+        // Create element key based on department or task grouping
+        // In production, fetch actual element data from database
+        const elementKey = `${task.assignee_department_id}-element`;
+        const elementTitle = task.title.toLowerCase().includes('banner') ? 'Design Banner' :
+                           task.title.toLowerCase().includes('setup') ? 'Venue Setup' :
+                           task.title.toLowerCase().includes('marketing') ? 'Marketing Campaign' :
+                           `Element Group ${task.assignee_department_id?.substring(0, 8)}`;
+        
+        if (!elementsMap.has(elementKey)) {
+          elementsMap.set(elementKey, {
+            id: elementKey,
+            title: elementTitle,
+            description: `Element containing related tasks`,
+            departmentId: task.assignee_department_id,
+            priority: task.priority,
+            tasks: []
           });
-          setAssignedUsers(userMap);
         }
-      }
+        
+        const element = elementsMap.get(elementKey)!;
+        element.tasks.push({
+          id: task.id,
+          title: task.title,
+          assignee: task.profiles?.full_name || 'Unassigned',
+          start_date: task.start_date,
+          due_date: task.due_date,
+          progress_percentage: task.progress_percentage || 0,
+          status: task.status
+        });
+      });
+      
+      // Convert map to array and calculate element dates from tasks
+      const elementsArray = Array.from(elementsMap.values()).map(element => {
+        const taskDates = element.tasks.map(t => new Date(t.start_date).getTime());
+        const taskDueDates = element.tasks.map(t => new Date(t.due_date).getTime());
+        
+        return {
+          ...element,
+          start_date: format(new Date(Math.min(...taskDates)), 'yyyy-MM-dd'),
+          due_date: format(new Date(Math.max(...taskDueDates)), 'yyyy-MM-dd')
+        };
+      });
+      
+      setElements(elementsArray);
+      
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast({
@@ -220,46 +223,52 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     return DEPT_COLORS[index % DEPT_COLORS.length];
   };
 
-  // Toggle task expansion
-  const toggleTaskExpansion = (taskId: string) => {
-    setExpandedTasks(prev => {
+  // Toggle element expansion
+  const toggleElementExpansion = (elementId: string) => {
+    setExpandedElements(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(taskId)) {
-        newSet.delete(taskId);
+      if (newSet.has(elementId)) {
+        newSet.delete(elementId);
       } else {
-        newSet.add(taskId);
+        newSet.add(elementId);
       }
       return newSet;
     });
   };
 
-  // Filter tasks
-  const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
-      if (filterDepartment !== 'all' && task.assignee_department_id !== filterDepartment) {
+  // Filter elements
+  const filteredElements = useMemo(() => {
+    return elements.filter(element => {
+      if (filterDepartment !== 'all' && element.departmentId !== filterDepartment) {
         return false;
       }
-      if (filterStatus !== 'all' && task.status !== filterStatus) {
-        return false;
+      if (filterStatus !== 'all') {
+        // Filter by task status within element
+        const hasMatchingStatus = element.tasks.some(task => task.status === filterStatus);
+        if (!hasMatchingStatus) return false;
       }
       return true;
     });
-  }, [tasks, filterDepartment, filterStatus]);
+  }, [elements, filterDepartment, filterStatus]);
 
   const dateRange = useMemo(() => {
-    if (filteredTasks.length === 0) return [];
+    if (filteredElements.length === 0) return [];
     
-    const allStartDates = filteredTasks.map(t => new Date(t.start_date));
-    const allDueDates = filteredTasks.map(t => new Date(t.due_date));
-    const minDate = new Date(Math.min(...allStartDates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...allDueDates.map(d => d.getTime())));
+    const allDates = filteredElements.flatMap(element => 
+      element.tasks.map(task => [new Date(task.start_date), new Date(task.due_date)])
+    ).flat();
+    
+    if (allDates.length === 0) return [];
+    
+    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
     
     // Add padding
     const paddedStart = addDays(minDate, -7);
     const paddedEnd = addDays(maxDate, 7);
     
     return eachDayOfInterval({ start: paddedStart, end: paddedEnd });
-  }, [filteredTasks]);
+  }, [filteredElements]);
 
   const visibleDays = useMemo(() => {
     const daysToShow = viewMode === 'day' ? 14 : viewMode === 'week' ? 30 : 60;
@@ -303,24 +312,24 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     }
   };
 
-  const calculateTaskPosition = (task: Task) => {
+  const calculatePosition = (item: { start_date: string; due_date: string }) => {
     if (visibleDays.length === 0) return null;
     
-    const startDate = new Date(task.start_date);
-    const dueDate = new Date(task.due_date);
+    const startDate = new Date(item.start_date);
+    const dueDate = new Date(item.due_date);
     const firstVisibleDay = visibleDays[0];
     const lastVisibleDay = visibleDays[visibleDays.length - 1];
     
-    // Check if task overlaps with visible range
+    // Check if item overlaps with visible range
     if (dueDate < firstVisibleDay || startDate > lastVisibleDay) {
       return null;
     }
     
-    const taskStart = startDate < firstVisibleDay ? firstVisibleDay : startDate;
-    const taskEnd = dueDate > lastVisibleDay ? lastVisibleDay : dueDate;
+    const itemStart = startDate < firstVisibleDay ? firstVisibleDay : startDate;
+    const itemEnd = dueDate > lastVisibleDay ? lastVisibleDay : dueDate;
     
-    const startIndex = differenceInDays(taskStart, firstVisibleDay);
-    const duration = differenceInDays(taskEnd, taskStart) + 1;
+    const startIndex = differenceInDays(itemStart, firstVisibleDay);
+    const duration = differenceInDays(itemEnd, itemStart) + 1;
     
     const cellWidth = 100 / visibleDays.length;
     const left = startIndex * cellWidth;
@@ -385,48 +394,45 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         description: 'Please wait while we export your Gantt chart'
       });
 
-      // Prepare data for Excel export with elements
+      // Prepare data for Excel export with elements and tasks
       const excelData: any[] = [];
       
-      filteredTasks.forEach(task => {
-        const dept = departments.find(d => d.id === task.assignee_department_id);
-        const assignee = task.assignee_user_id ? assignedUsers[task.assignee_user_id] : 'Unassigned';
-        const duration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
+      filteredElements.forEach(element => {
+        const dept = departments.find(d => d.id === element.departmentId);
         
-        // Add main task row
+        // Add element header row
         excelData.push({
           'Department': dept?.name || 'Unknown',
-          'Task Title': task.title,
-          'Element': 'Main Task',
-          'Description': task.description || '',
-          'Status': task.status.replace('_', ' ').toUpperCase(),
-          'Priority': task.priority.toUpperCase(),
-          'Progress (%)': task.progress_percentage || 0,
-          'Start Date': format(new Date(task.start_date), 'yyyy-MM-dd'),
-          'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
-          'Duration (days)': duration,
-          'Assigned To': assignee
+          'Element Title': element.title,
+          'Task Title': '',
+          'Description': element.description || '',
+          'Status': '',
+          'Priority': element.priority?.toUpperCase() || '',
+          'Progress (%)': '',
+          'Start Date': element.start_date ? format(new Date(element.start_date), 'yyyy-MM-dd') : '',
+          'Due Date': element.due_date ? format(new Date(element.due_date), 'yyyy-MM-dd') : '',
+          'Duration (days)': element.start_date && element.due_date ? 
+            differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1 : '',
+          'Assigned To': ''
         });
 
-        // Add element rows if they exist
-        if (task.elements && task.elements.length > 0) {
-          task.elements.forEach(element => {
-            const elemDuration = differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1;
-            excelData.push({
-              'Department': dept?.name || 'Unknown',
-              'Task Title': task.title,
-              'Element': element.name,
-              'Description': '',
-              'Status': element.status.replace('_', ' ').toUpperCase(),
-              'Priority': task.priority.toUpperCase(),
-              'Progress (%)': element.progress_percentage || 0,
-              'Start Date': format(new Date(element.start_date), 'yyyy-MM-dd'),
-              'Due Date': format(new Date(element.due_date), 'yyyy-MM-dd'),
-              'Duration (days)': elemDuration,
-              'Assigned To': assignee
-            });
+        // Add task rows under element
+        element.tasks.forEach(task => {
+          const taskDuration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
+          excelData.push({
+            'Department': dept?.name || 'Unknown',
+            'Element Title': element.title,
+            'Task Title': task.title,
+            'Description': '',
+            'Status': task.status.replace('_', ' ').toUpperCase(),
+            'Priority': element.priority?.toUpperCase() || '',
+            'Progress (%)': task.progress_percentage || 0,
+            'Start Date': format(new Date(task.start_date), 'yyyy-MM-dd'),
+            'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
+            'Duration (days)': taskDuration,
+            'Assigned To': task.assignee || 'Unassigned'
           });
-        }
+        });
       });
 
       // Create worksheet
@@ -435,8 +441,8 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       // Set column widths
       const colWidths = [
         { wch: 20 }, // Department
+        { wch: 30 }, // Element Title
         { wch: 30 }, // Task Title
-        { wch: 25 }, // Element
         { wch: 40 }, // Description
         { wch: 15 }, // Status
         { wch: 10 }, // Priority
@@ -450,23 +456,19 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
       // Create workbook and add worksheet
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart with Elements');
+      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
 
       // Add analytics sheet
       const analyticsData = departmentAnalytics.map(analytics => {
         const dept = departments.find(d => d.id === analytics.departmentId);
+        const deptElements = filteredElements.filter(e => e.departmentId === analytics.departmentId);
+        const allTasks = deptElements.flatMap(e => e.tasks);
         return {
           'Department': analytics.departmentName,
           'Total Tasks': analytics.totalTasks,
           'Completed Tasks': analytics.completedTasks,
-          'In Progress': filteredTasks.filter(t => 
-            t.assignee_department_id === analytics.departmentId && 
-            t.status === 'in_progress'
-          ).length,
-          'To Do': filteredTasks.filter(t => 
-            t.assignee_department_id === analytics.departmentId && 
-            t.status === 'todo'
-          ).length,
+          'In Progress': allTasks.filter(t => t.status === 'in_progress').length,
+          'To Do': allTasks.filter(t => t.status === 'todo').length,
           'Completion (%)': analytics.percentage
         };
       });
@@ -483,11 +485,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       XLSX.utils.book_append_sheet(wb, wsAnalytics, 'Analytics');
 
       // Save file
-      XLSX.writeFile(wb, `gantt-chart-with-elements-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      XLSX.writeFile(wb, `gantt-chart-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart with elements exported as Excel'
+        description: 'Gantt chart exported as Excel'
       });
     } catch (error) {
       console.error('Excel export error:', error);
@@ -518,9 +520,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   // Analytics calculations
   const departmentAnalytics = useMemo(() => {
     return departments.map(dept => {
-      const deptTasks = filteredTasks.filter(t => t.assignee_department_id === dept.id);
-      const completed = deptTasks.filter(t => t.status === 'completed').length;
-      const total = deptTasks.length;
+      const deptElements = filteredElements.filter(e => e.departmentId === dept.id);
+      const allTasks = deptElements.flatMap(e => e.tasks);
+      const completed = allTasks.filter(t => t.status === 'completed').length;
+      const total = allTasks.length;
       const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
       
       return {
@@ -531,25 +534,27 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         percentage
       };
     });
-  }, [departments, filteredTasks]);
+  }, [departments, filteredElements]);
 
-  // Weekly task count
-  const weeklyTaskCounts = useMemo(() => {
-    const weeks: Record<string, number> = {};
+  // Daily task count
+  const dailyTaskCounts = useMemo(() => {
+    const days: Record<string, number> = {};
     
     visibleDays.forEach(date => {
-      const weekStart = format(date, 'yyyy-MM-dd');
-      const tasksOnDay = filteredTasks.filter(task => {
-        const start = new Date(task.start_date);
-        const due = new Date(task.due_date);
-        return date >= start && date <= due;
-      });
+      const dayKey = format(date, 'yyyy-MM-dd');
+      const tasksOnDay = filteredElements.flatMap(element => 
+        element.tasks.filter(task => {
+          const start = new Date(task.start_date);
+          const due = new Date(task.due_date);
+          return date >= start && date <= due;
+        })
+      );
       
-      weeks[weekStart] = (weeks[weekStart] || 0) + tasksOnDay.length;
+      days[dayKey] = tasksOnDay.length;
     });
     
-    return weeks;
-  }, [visibleDays, filteredTasks]);
+    return days;
+  }, [visibleDays, filteredElements]);
 
   // Group dates for timeline header based on view mode
   const timelineGroups = useMemo(() => {
@@ -674,7 +679,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     );
   }
 
-  if (tasks.length === 0) {
+  if (elements.length === 0) {
     return (
       <div className="w-full">
         <Card className="rounded-none border-x-0">
@@ -925,9 +930,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               <div className="divide-y">
               <AnimatePresence>
                 {departments.map((dept, deptIdx) => {
-                  const deptTasks = filteredTasks.filter(t => t.assignee_department_id === dept.id);
+                  const deptElements = filteredElements.filter(e => e.departmentId === dept.id);
                   
-                  if (deptTasks.length === 0) return null;
+                  if (deptElements.length === 0) return null;
                   
                   const deptColor = getDepartmentColor(dept.id);
                   
@@ -947,17 +952,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                               className="h-3 w-3 sm:h-4 sm:w-4 rounded-full shadow-sm flex-shrink-0" 
                               style={{ backgroundColor: deptColor }}
                             />
-                            <div className="min-w-0 flex-1 grid grid-cols-2 gap-1">
-                              <div>
-                                <div className="font-semibold text-xs sm:text-sm truncate">
-                                  {dept.name}
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                  {deptTasks.length} task{deptTasks.length !== 1 ? 's' : ''}
-                                </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-xs sm:text-sm truncate">
+                                {dept.name}
                               </div>
                               <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                Elements
+                                {deptElements.length} element{deptElements.length !== 1 ? 's' : ''}
                               </div>
                             </div>
                           </div>
@@ -990,32 +990,32 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                             </motion.div>
                           )}
                           
-                          {/* Tasks */}
+                          {/* Elements */}
                           <div className="relative" style={{ minHeight: '300px' }}>
-                            {deptTasks.map((task, taskIdx) => {
-                              const isExpanded = expandedTasks.has(task.id);
-                              const hasElements = task.elements && task.elements.length > 0;
+                            {deptElements.map((element, elemIdx) => {
+                              const isExpanded = expandedElements.has(element.id);
+                              const hasTasks = element.tasks && element.tasks.length > 0;
                               
-                              // Calculate cumulative offset for tasks with expanded elements
+                              // Calculate cumulative offset for elements with expanded tasks
                               let cumulativeOffset = 0;
-                              for (let i = 0; i < taskIdx; i++) {
-                                const prevTask = deptTasks[i];
-                                cumulativeOffset += 1; // Base task height
-                                if (expandedTasks.has(prevTask.id) && prevTask.elements) {
-                                  cumulativeOffset += prevTask.elements.length;
+                              for (let i = 0; i < elemIdx; i++) {
+                                const prevElement = deptElements[i];
+                                cumulativeOffset += 1; // Base element height
+                                if (expandedElements.has(prevElement.id) && prevElement.tasks) {
+                                  cumulativeOffset += prevElement.tasks.length;
                                 }
                               }
 
                               return (
-                                <TaskRow
-                                  key={task.id}
-                                  task={task}
-                                  taskIdx={cumulativeOffset}
+                                <ElementRow
+                                  key={element.id}
+                                  element={element}
+                                  elementIdx={cumulativeOffset}
                                   deptColor={deptColor}
                                   isExpanded={isExpanded}
-                                  onToggleExpand={() => toggleTaskExpansion(task.id)}
-                                  onTaskClick={() => setSelectedTask(task)}
-                                  calculatePosition={calculateTaskPosition}
+                                  onToggleExpand={() => toggleElementExpansion(element.id)}
+                                  onElementClick={() => setSelectedElement(element)}
+                                  calculatePosition={calculatePosition}
                                   getStatusIcon={getStatusIcon}
                                 />
                               );
@@ -1038,8 +1038,8 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     <div className="flex h-12 sm:h-16 items-end gap-px">
                       {visibleDays.map((date, idx) => {
                         const dateKey = format(date, 'yyyy-MM-dd');
-                        const count = weeklyTaskCounts[dateKey] || 0;
-                        const maxCount = Math.max(...Object.values(weeklyTaskCounts), 1);
+                        const count = dailyTaskCounts[dateKey] || 0;
+                        const maxCount = Math.max(...Object.values(dailyTaskCounts), 1);
                         const height = (count / maxCount) * 100;
                         
                         return (
@@ -1070,18 +1070,18 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             </div>
             </div>
           ) : (
-            <GanttAnalyticsView
-              departmentAnalytics={departmentAnalytics}
-              departments={departments}
-              filteredTasks={filteredTasks}
-              getDepartmentColor={getDepartmentColor}
-            />
+          <GanttAnalyticsView
+            departmentAnalytics={departmentAnalytics}
+            departments={departments}
+            filteredElements={filteredElements}
+            getDepartmentColor={getDepartmentColor}
+          />
           )}
         </CardContent>
       </Card>
 
-      {/* Task Detail Modal */}
-      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+      {/* Element Detail Modal */}
+      <Dialog open={!!selectedElement} onOpenChange={() => setSelectedElement(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-start gap-3 pr-8">
@@ -1094,107 +1094,112 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                 <AlertCircle className="h-6 w-6 text-primary" />
               </motion.div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold leading-tight">{selectedTask?.title}</h2>
+                <h2 className="text-xl font-bold leading-tight">{selectedElement?.title}</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {selectedTask && departments.find(d => d.id === selectedTask.assignee_department_id)?.name}
+                  {selectedElement && departments.find(d => d.id === selectedElement.departmentId)?.name}
                 </p>
               </div>
             </DialogTitle>
           </DialogHeader>
 
-          {selectedTask && (
+          {selectedElement && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
               className="space-y-6 pt-4"
             >
-              {/* Status & Priority Row */}
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-lg">
-                  {getStatusIcon(selectedTask.status) === CheckCircle2 && (
-                    <CheckCircle2 className="h-5 w-5 text-success" />
-                  )}
-                  {getStatusIcon(selectedTask.status) === Clock && (
-                    <Clock className="h-5 w-5 text-primary" />
-                  )}
-                  {getStatusIcon(selectedTask.status) === Circle && (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  <div>
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <p className="font-semibold capitalize">
-                      {selectedTask.status.replace('_', ' ')}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-lg">
-                  <Flag className={`h-5 w-5 ${
-                    selectedTask.priority === 'high' ? 'text-destructive' :
-                    selectedTask.priority === 'medium' ? 'text-warning' : 'text-success'
-                  }`} />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Priority</p>
-                    <p className="font-semibold capitalize">{selectedTask.priority}</p>
-                  </div>
-                </div>
-              </div>
-
               {/* Progress */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-semibold">{selectedTask.progress_percentage || 0}%</span>
+                  <span className="text-muted-foreground">Overall Progress</span>
+                  <span className="font-semibold">
+                    {Math.round(
+                      selectedElement.tasks.reduce((sum, task) => sum + (task.progress_percentage || 0), 0) / 
+                      selectedElement.tasks.length
+                    )}%
+                  </span>
                 </div>
-                <Progress value={selectedTask.progress_percentage || 0} className="h-3" />
+                <Progress 
+                  value={
+                    selectedElement.tasks.reduce((sum, task) => sum + (task.progress_percentage || 0), 0) / 
+                    selectedElement.tasks.length
+                  } 
+                  className="h-3" 
+                />
               </div>
 
               {/* Timeline */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">Start Date</span>
+              {selectedElement.start_date && selectedElement.due_date && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 rounded-lg border bg-card">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-sm">Start Date</span>
+                    </div>
+                    <p className="font-semibold text-lg">
+                      {format(new Date(selectedElement.start_date), 'MMM d, yyyy')}
+                    </p>
                   </div>
-                  <p className="font-semibold text-lg">
-                    {format(new Date(selectedTask.start_date), 'MMM d, yyyy')}
-                  </p>
-                </div>
-                
-                <div className="space-y-2 p-4 rounded-lg border bg-card">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-sm">Due Date</span>
-                  </div>
-                  <p className="font-semibold text-lg">
-                    {format(new Date(selectedTask.due_date), 'MMM d, yyyy')}
-                  </p>
-                </div>
-              </div>
-
-              {/* Assignee */}
-              {selectedTask.assignee_user_id && assignedUsers[selectedTask.assignee_user_id] && (
-                <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold">
-                    {assignedUsers[selectedTask.assignee_user_id].charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Assigned to</p>
-                    <p className="font-semibold">{assignedUsers[selectedTask.assignee_user_id]}</p>
+                  
+                  <div className="space-y-2 p-4 rounded-lg border bg-card">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-sm">Due Date</span>
+                    </div>
+                    <p className="font-semibold text-lg">
+                      {format(new Date(selectedElement.due_date), 'MMM d, yyyy')}
+                    </p>
                   </div>
                 </div>
               )}
 
+              {/* Tasks List */}
+              <div className="space-y-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <div className="h-1 w-1 rounded-full bg-primary" />
+                  Tasks ({selectedElement.tasks.length})
+                </h3>
+                <div className="space-y-2">
+                  {selectedElement.tasks.map(task => (
+                    <div key={task.id} className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1">
+                          {getStatusIcon(task.status) === CheckCircle2 && (
+                            <CheckCircle2 className="h-4 w-4 text-success" />
+                          )}
+                          {getStatusIcon(task.status) === Clock && (
+                            <Clock className="h-4 w-4 text-primary" />
+                          )}
+                          {getStatusIcon(task.status) === Circle && (
+                            <Circle className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm font-medium">{task.title}</span>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {task.progress_percentage || 0}%
+                        </Badge>
+                      </div>
+                      {task.assignee && (
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          <span>{task.assignee}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Description */}
-              {selectedTask.description && (
+              {selectedElement.description && (
                 <div className="space-y-2">
                   <h3 className="font-semibold flex items-center gap-2">
                     <div className="h-1 w-1 rounded-full bg-primary" />
                     Description
                   </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed p-4 rounded-lg bg-muted/30">
-                    {selectedTask.description}
+                    {selectedElement.description}
                   </p>
                 </div>
               )}

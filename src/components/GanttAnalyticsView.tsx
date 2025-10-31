@@ -5,8 +5,19 @@ import { CheckCircle2, Clock, Circle, BarChart3 } from 'lucide-react';
 
 interface Task {
   id: string;
+  title: string;
+  assignee?: string;
+  start_date: string;
+  due_date: string;
+  progress_percentage: number;
   status: string;
-  assignee_department_id: string;
+}
+
+interface Element {
+  id: string;
+  title: string;
+  departmentId: string;
+  tasks: Task[];
 }
 
 interface Department {
@@ -25,14 +36,14 @@ interface DepartmentAnalytic {
 interface GanttAnalyticsViewProps {
   departmentAnalytics: DepartmentAnalytic[];
   departments: Department[];
-  filteredTasks: Task[];
+  filteredElements: Element[];
   getDepartmentColor: (deptId: string) => string;
 }
 
 export function GanttAnalyticsView({
   departmentAnalytics,
   departments,
-  filteredTasks,
+  filteredElements,
   getDepartmentColor
 }: GanttAnalyticsViewProps) {
   return (
@@ -43,9 +54,10 @@ export function GanttAnalyticsView({
           if (!dept) return null;
           
           const deptColor = getDepartmentColor(dept.id);
-          const deptTasks = filteredTasks.filter(t => t.assignee_department_id === dept.id);
-          const inProgress = deptTasks.filter(t => t.status === 'in_progress').length;
-          const todo = deptTasks.filter(t => t.status === 'todo').length;
+          const deptElements = filteredElements.filter(e => e.departmentId === dept.id);
+          const allTasks = deptElements.flatMap(e => e.tasks);
+          const inProgress = allTasks.filter(t => t.status === 'in_progress').length;
+          const todo = allTasks.filter(t => t.status === 'todo').length;
           
           return (
             <motion.div
@@ -114,25 +126,25 @@ export function GanttAnalyticsView({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <p className="text-3xl font-bold text-primary">
-              {filteredTasks.length}
+              {filteredElements.flatMap(e => e.tasks).length}
             </p>
             <p className="text-sm text-muted-foreground">Total Tasks</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-success">
-              {filteredTasks.filter(t => t.status === 'completed').length}
+              {filteredElements.flatMap(e => e.tasks).filter(t => t.status === 'completed').length}
             </p>
             <p className="text-sm text-muted-foreground">Completed</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-primary">
-              {filteredTasks.filter(t => t.status === 'in_progress').length}
+              {filteredElements.flatMap(e => e.tasks).filter(t => t.status === 'in_progress').length}
             </p>
             <p className="text-sm text-muted-foreground">In Progress</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-muted-foreground">
-              {filteredTasks.filter(t => t.status === 'todo').length}
+              {filteredElements.flatMap(e => e.tasks).filter(t => t.status === 'todo').length}
             </p>
             <p className="text-sm text-muted-foreground">To Do</p>
           </div>
