@@ -27,7 +27,9 @@ import {
   AlertCircle,
   X,
   BarChart3,
-  GanttChartSquare
+  GanttChartSquare,
+  FileSpreadsheet,
+  FileText
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,7 +41,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, eachDayOfInterval, differenceInDays, addDays, isToday } from 'date-fns';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Task {
   id: string;
@@ -298,13 +307,111 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported successfully'
+        description: 'Gantt chart exported as PDF'
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
         title: 'Export failed',
         description: 'Failed to export Gantt chart',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      toast({
+        title: 'Generating Excel...',
+        description: 'Please wait while we export your Gantt chart'
+      });
+
+      // Prepare data for Excel export
+      const excelData = filteredTasks.map(task => {
+        const dept = departments.find(d => d.id === task.assignee_department_id);
+        const assignee = task.assignee_user_id ? assignedUsers[task.assignee_user_id] : 'Unassigned';
+        const duration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
+        
+        return {
+          'Task ID': task.id,
+          'Task Title': task.title,
+          'Description': task.description || '',
+          'Department': dept?.name || 'Unknown',
+          'Status': task.status.replace('_', ' ').toUpperCase(),
+          'Priority': task.priority.toUpperCase(),
+          'Progress (%)': task.progress_percentage || 0,
+          'Start Date': format(new Date(task.start_date), 'yyyy-MM-dd'),
+          'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
+          'Duration (days)': duration,
+          'Assigned To': assignee
+        };
+      });
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      const colWidths = [
+        { wch: 12 }, // Task ID
+        { wch: 30 }, // Task Title
+        { wch: 40 }, // Description
+        { wch: 20 }, // Department
+        { wch: 15 }, // Status
+        { wch: 10 }, // Priority
+        { wch: 12 }, // Progress
+        { wch: 12 }, // Start Date
+        { wch: 12 }, // Due Date
+        { wch: 15 }, // Duration
+        { wch: 20 }, // Assigned To
+      ];
+      ws['!cols'] = colWidths;
+
+      // Create workbook and add worksheet
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
+
+      // Add analytics sheet
+      const analyticsData = departmentAnalytics.map(analytics => {
+        const dept = departments.find(d => d.id === analytics.departmentId);
+        return {
+          'Department': analytics.departmentName,
+          'Total Tasks': analytics.totalTasks,
+          'Completed Tasks': analytics.completedTasks,
+          'In Progress': filteredTasks.filter(t => 
+            t.assignee_department_id === analytics.departmentId && 
+            t.status === 'in_progress'
+          ).length,
+          'To Do': filteredTasks.filter(t => 
+            t.assignee_department_id === analytics.departmentId && 
+            t.status === 'todo'
+          ).length,
+          'Completion (%)': analytics.percentage
+        };
+      });
+
+      const wsAnalytics = XLSX.utils.json_to_sheet(analyticsData);
+      wsAnalytics['!cols'] = [
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 15 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsAnalytics, 'Analytics');
+
+      // Save file
+      XLSX.writeFile(wb, `gantt-chart-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      toast({
+        title: 'Success!',
+        description: 'Gantt chart exported as Excel'
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export Excel file',
         variant: 'destructive'
       });
     }
@@ -471,16 +578,29 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   </Button>
                 </div>
 
-                {/* Export Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportPDF}
-                  className="h-8 gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Export
-                </Button>
+                {/* Export Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportPDF}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportExcel}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Export as Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
