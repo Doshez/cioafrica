@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { format, eachDayOfInterval, isSameDay, isWithinInterval } from 'date-fns';
-import { Calendar } from 'lucide-react';
+import { Calendar, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { useToast } from '@/hooks/use-toast';
 
 interface Task {
   id: string;
@@ -29,6 +34,7 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<Date[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchData();
@@ -122,6 +128,106 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
     return dept ? dept.name : 'Unassigned';
   };
 
+  const exportToExcel = () => {
+    try {
+      const workbook = XLSX.utils.book_new();
+      
+      // Prepare data for Excel
+      const excelData: any[] = [];
+      
+      // Add headers
+      const headers = ['Department', 'Task', 'Priority', 'Status', 'Start Date', 'Due Date', ...dateRange.map(d => format(d, 'MM/dd'))];
+      excelData.push(headers);
+      
+      // Add data rows
+      departments.forEach((dept) => {
+        const deptTasks = tasks.filter(t => t.assignee_department_id === dept.id);
+        if (deptTasks.length === 0) return;
+        
+        deptTasks.forEach((task) => {
+          const row = [
+            dept.name,
+            task.title,
+            task.priority,
+            task.status,
+            task.start_date ? format(new Date(task.start_date), 'MM/dd/yyyy') : '',
+            task.due_date ? format(new Date(task.due_date), 'MM/dd/yyyy') : '',
+          ];
+          
+          // Add task duration bars
+          dateRange.forEach((date) => {
+            const isOnDate = isTaskOnDate(task, date);
+            row.push(isOnDate ? '█' : '');
+          });
+          
+          excelData.push(row);
+        });
+      });
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+      
+      // Set column widths
+      const colWidths = [
+        { wch: 20 }, // Department
+        { wch: 30 }, // Task
+        { wch: 10 }, // Priority
+        { wch: 12 }, // Status
+        { wch: 12 }, // Start Date
+        { wch: 12 }, // Due Date
+        ...dateRange.map(() => ({ wch: 4 })) // Date columns
+      ];
+      worksheet['!cols'] = colWidths;
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Gantt Chart');
+      XLSX.writeFile(workbook, `project-gantt-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      toast({
+        title: 'Success',
+        description: 'Gantt chart exported to Excel successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export to Excel',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const element = document.getElementById('gantt-chart-container');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`project-gantt-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      
+      toast({
+        title: 'Success',
+        description: 'Gantt chart exported to PDF successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export to PDF',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return <div className="p-4">Loading Gantt chart...</div>;
   }
@@ -139,12 +245,34 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Project Gantt Chart
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Project Gantt Chart
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToExcel}
+              className="flex items-center gap-2"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export to Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToPDF}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export to PDF
+            </Button>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="p-0" id="gantt-chart-container">
         <div className="flex border-b">
           {/* Left side - Task Details */}
           <div className="w-[400px] border-r">

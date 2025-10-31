@@ -16,10 +16,10 @@ import {
   ListTodo,
   Calendar,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import { ProjectGanttChart } from '@/components/ProjectGanttChart';
 
 interface Project {
   id: string;
@@ -184,22 +184,29 @@ export default function ProjectDetails() {
             <p className="text-muted-foreground">{project.description}</p>
           </div>
         </div>
-        {(isAdmin || isProjectManager) && (
-          <div className="flex gap-2">
-            <CreateDepartmentDialog 
-              projectId={projectId!} 
-              onDepartmentCreated={fetchProjectData}
-            />
-            <CreateTaskDialog 
-              projectId={projectId}
-              onTaskCreated={fetchProjectData}
-            />
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/projects/${projectId}/gantt`)}
+            className="flex items-center gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            View Gantt Chart
+          </Button>
+          {(isAdmin || isProjectManager) && (
+            <>
+              <CreateDepartmentDialog 
+                projectId={projectId!} 
+                onDepartmentCreated={fetchProjectData}
+              />
+              <CreateTaskDialog 
+                projectId={projectId}
+                onTaskCreated={fetchProjectData}
+              />
+            </>
+          )}
+        </div>
       </div>
-
-      {/* Gantt Chart */}
-      <ProjectGanttChart projectId={projectId!} />
 
       {/* Project Overview */}
       <Card>
