@@ -105,11 +105,15 @@ export default function UserManagement() {
   const updateUserRole = async (userId: string, role: string, action: 'add' | 'remove') => {
     try {
       if (action === 'add') {
+        // Use upsert to avoid duplicate key errors
         const { error } = await supabase
           .from('user_roles')
-          .insert({ 
+          .upsert({ 
             user_id: userId, 
             role: role as 'admin' | 'project_manager' | 'member' | 'viewer'
+          }, {
+            onConflict: 'user_id,role',
+            ignoreDuplicates: true
           });
         
         if (error) throw error;
@@ -128,11 +132,13 @@ export default function UserManagement() {
         description: `Role ${action === 'add' ? 'added' : 'removed'} successfully`,
       });
 
-      fetchUsers();
+      // Automatically refresh the user list
+      await fetchUsers();
     } catch (error: any) {
+      console.error('Role update error:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || `Failed to ${action} role`,
         variant: "destructive",
       });
     }
