@@ -89,6 +89,74 @@ export type Database = {
           },
         ]
       }
+      elements: {
+        Row: {
+          created_at: string | null
+          department_id: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          project_id: string
+          start_date: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          project_id: string
+          start_date?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          project_id?: string
+          start_date?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "elements_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "elements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -402,6 +470,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           due_date: string | null
+          element_id: string | null
           estimate_hours: number | null
           id: string
           labels: string[] | null
@@ -422,6 +491,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           due_date?: string | null
+          element_id?: string | null
           estimate_hours?: number | null
           id?: string
           labels?: string[] | null
@@ -442,6 +512,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           due_date?: string | null
+          element_id?: string | null
           estimate_hours?: number | null
           id?: string
           labels?: string[] | null
@@ -468,6 +539,13 @@ export type Database = {
             columns: ["assignee_department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_element_id_fkey"
+            columns: ["element_id"]
+            isOneToOne: false
+            referencedRelation: "elements"
             referencedColumns: ["id"]
           },
           {

@@ -142,6 +142,15 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       if (deptError) throw deptError;
       setDepartments(deptData || []);
 
+      // Fetch elements from database
+      const { data: elementsData, error: elementsError } = await supabase
+        .from('elements')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at');
+
+      if (elementsError) throw elementsError;
+
       // Fetch tasks with valid dates
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
@@ -174,34 +183,31 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         }
       }
       
-      // Group tasks into elements by department
-      // Mock data: Create elements as parent entities with tasks as children
+      // Group tasks by their element_id
       const elementsMap = new Map<string, Element>();
       
+      // First, add all database elements
+      (elementsData || []).forEach((element: any) => {
+        elementsMap.set(element.id, {
+          id: element.id,
+          title: element.title,
+          description: element.description,
+          departmentId: element.department_id,
+          priority: element.priority,
+          start_date: element.start_date,
+          due_date: element.due_date,
+          tasks: []
+        });
+      });
+      
+      // Create a default element for tasks without an element_id
+      const ungroupedTasks: Task[] = [];
+      
+      // Add tasks to their respective elements
       (tasksData || []).forEach((task: any) => {
         if (!task.start_date || !task.due_date) return;
         
-        // Create element key based on department or task grouping
-        // In production, fetch actual element data from database
-        const elementKey = `${task.assignee_department_id}-element`;
-        const elementTitle = task.title.toLowerCase().includes('banner') ? 'Design Banner' :
-                           task.title.toLowerCase().includes('setup') ? 'Venue Setup' :
-                           task.title.toLowerCase().includes('marketing') ? 'Marketing Campaign' :
-                           `Element Group ${task.assignee_department_id?.substring(0, 8)}`;
-        
-        if (!elementsMap.has(elementKey)) {
-          elementsMap.set(elementKey, {
-            id: elementKey,
-            title: elementTitle,
-            description: `Element containing related tasks`,
-            departmentId: task.assignee_department_id,
-            priority: task.priority,
-            tasks: []
-          });
-        }
-        
-        const element = elementsMap.get(elementKey)!;
-        element.tasks.push({
+        const taskObj: Task = {
           id: task.id,
           title: task.title,
           assignee: task.assignee_user_id ? (userMap[task.assignee_user_id] || 'Unassigned') : 'Unassigned',
@@ -209,20 +215,62 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
           due_date: task.due_date,
           progress_percentage: task.progress_percentage || 0,
           status: task.status
+        };
+        
+        if (task.element_id && elementsMap.has(task.element_id)) {
+          elementsMap.get(task.element_id)!.tasks.push(taskObj);
+        } else {
+          // Task doesn't have an element or element not found
+          ungroupedTasks.push(taskObj);
+        }
+      });
+      
+      // Create default elements for ungrouped tasks by department
+      const ungroupedByDept = new Map<string, Task[]>();
+      ungroupedTasks.forEach(task => {
+        const deptId = (tasksData || []).find((t: any) => t.id === task.id)?.assignee_department_id;
+        if (deptId) {
+          if (!ungroupedByDept.has(deptId)) {
+            ungroupedByDept.set(deptId, []);
+          }
+          ungroupedByDept.get(deptId)!.push(task);
+        }
+      });
+      
+      // Create default elements for ungrouped tasks
+      ungroupedByDept.forEach((tasks, deptId) => {
+        const dept = deptData?.find(d => d.id === deptId);
+        const defaultElementId = `ungrouped-${deptId}`;
+        
+        const taskDates = tasks.map(t => new Date(t.start_date).getTime());
+        const taskDueDates = tasks.map(t => new Date(t.due_date).getTime());
+        
+        elementsMap.set(defaultElementId, {
+          id: defaultElementId,
+          title: `${dept?.name || 'Ungrouped'} Tasks`,
+          description: 'Tasks without an assigned element',
+          departmentId: deptId,
+          priority: 'medium',
+          start_date: format(new Date(Math.min(...taskDates)), 'yyyy-MM-dd'),
+          due_date: format(new Date(Math.max(...taskDueDates)), 'yyyy-MM-dd'),
+          tasks: tasks
         });
       });
       
-      // Convert map to array and calculate element dates from tasks
+      // Calculate dates for elements that don't have them set
       const elementsArray = Array.from(elementsMap.values()).map(element => {
-        const taskDates = element.tasks.map(t => new Date(t.start_date).getTime());
-        const taskDueDates = element.tasks.map(t => new Date(t.due_date).getTime());
-        
-        return {
-          ...element,
-          start_date: format(new Date(Math.min(...taskDates)), 'yyyy-MM-dd'),
-          due_date: format(new Date(Math.max(...taskDueDates)), 'yyyy-MM-dd')
-        };
-      });
+        if (element.tasks.length > 0 && (!element.start_date || !element.due_date)) {
+          const taskDates = element.tasks.map(t => new Date(t.start_date).getTime());
+          const taskDueDates = element.tasks.map(t => new Date(t.due_date).getTime());
+          
+          return {
+            ...element,
+            start_date: element.start_date || format(new Date(Math.min(...taskDates)), 'yyyy-MM-dd'),
+            due_date: element.due_date || format(new Date(Math.max(...taskDueDates)), 'yyyy-MM-dd')
+          };
+        }
+        return element;
+      }).filter(element => element.tasks.length > 0); // Only show elements with tasks
       
       setElements(elementsArray);
       

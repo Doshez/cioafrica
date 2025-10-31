@@ -33,6 +33,12 @@ interface Department {
   project_id: string;
 }
 
+interface Element {
+  id: string;
+  title: string;
+  department_id: string;
+}
+
 export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: CreateTaskDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -41,6 +47,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [elements, setElements] = useState<Element[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
@@ -49,6 +56,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
     project_id: projectId || '',
     assignee_user_id: '',
     assignee_department_id: departmentId || '',
+    element_id: '',
     status: 'todo',
     priority: 'medium',
     start_date: '',
@@ -69,7 +77,8 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
   useEffect(() => {
     if (selectedProjectId) {
       fetchDepartments(selectedProjectId);
-      setFormData(prev => ({ ...prev, project_id: selectedProjectId, assignee_department_id: departmentId || '' }));
+      fetchElements(selectedProjectId);
+      setFormData(prev => ({ ...prev, project_id: selectedProjectId, assignee_department_id: departmentId || '', element_id: '' }));
     }
   }, [selectedProjectId]);
 
@@ -105,6 +114,22 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
     }
   };
 
+  const fetchElements = async (projId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('elements')
+        .select('id, title, department_id')
+        .eq('project_id', projId)
+        .order('title');
+
+      if (error) throw error;
+      setElements(data || []);
+    } catch (error: any) {
+      console.error('Error fetching elements:', error);
+      setElements([]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -128,6 +153,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
           project_id: formData.project_id,
           assignee_user_id: formData.assignee_user_id || null,
           assignee_department_id: formData.assignee_department_id,
+          element_id: formData.element_id || null,
           status: formData.status,
           priority: formData.priority,
           start_date: formData.start_date || null,
@@ -194,6 +220,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
         project_id: projectId || '',
         assignee_user_id: '',
         assignee_department_id: departmentId || '',
+        element_id: '',
         status: 'todo',
         priority: 'medium',
         start_date: '',
@@ -271,7 +298,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
             <Label htmlFor="department">Department *</Label>
             <Select
               value={formData.assignee_department_id}
-              onValueChange={(value) => setFormData({ ...formData, assignee_department_id: value })}
+              onValueChange={(value) => setFormData({ ...formData, assignee_department_id: value, element_id: '' })}
               disabled={!selectedProjectId || departments.length === 0}
             >
               <SelectTrigger>
@@ -289,6 +316,34 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
                     {dept.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="element">Element (Optional)</Label>
+            <Select
+              value={formData.element_id}
+              onValueChange={(value) => setFormData({ ...formData, element_id: value })}
+              disabled={!formData.assignee_department_id || elements.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  !formData.assignee_department_id
+                    ? "Select a department first" 
+                    : elements.filter(e => e.department_id === formData.assignee_department_id).length === 0 
+                    ? "No elements available" 
+                    : "Select element (optional)"
+                } />
+              </SelectTrigger>
+              <SelectContent>
+                {elements
+                  .filter(elem => elem.department_id === formData.assignee_department_id)
+                  .map((elem) => (
+                    <SelectItem key={elem.id} value={elem.id}>
+                      {elem.title}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
