@@ -319,7 +319,18 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const handleElementClick = async (element: Element) => {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please log in to view task details.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    console.log('Checking permissions for element:', element.title);
+    console.log('Current user ID:', user.id);
+    console.log('Element tasks:', element.tasks.map(t => ({ title: t.title, assignee_id: t.assignee_user_id })));
 
     // Check if user is admin or project manager
     const { data: userRoles } = await supabase
@@ -330,21 +341,27 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     const isAdmin = userRoles?.some(r => r.role === 'admin');
     const isProjectManager = userRoles?.some(r => r.role === 'project_manager');
 
+    console.log('User roles:', userRoles, 'isAdmin:', isAdmin, 'isPM:', isProjectManager);
+
     if (isAdmin || isProjectManager) {
+      console.log('Access granted: Admin or PM');
       setSelectedElement(element);
       return;
     }
 
     // Check if user is assigned to any task in this element
     const isAssignedToTask = element.tasks.some(task => task.assignee_user_id === user.id);
+    console.log('Is assigned to task:', isAssignedToTask);
 
     if (isAssignedToTask) {
+      console.log('Access granted: Assigned to task');
       setSelectedElement(element);
     } else {
+      console.log('Access denied: Not assigned to any task');
       toast({
         title: 'Access Restricted',
-        description: 'You can only view details of tasks you are assigned to.',
-        variant: 'default'
+        description: 'You can only view details of elements where you are assigned to at least one task.',
+        variant: 'destructive'
       });
     }
   };
