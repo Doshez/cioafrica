@@ -33,6 +33,8 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
   const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
+  const leftScrollRef = useState<HTMLDivElement | null>(null)[0];
+  const rightScrollRef = useState<HTMLDivElement | null>(null)[0];
 
   useEffect(() => {
     const convertToGanttTasks = () => {
@@ -214,59 +216,32 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
           
           <div className="flex h-[600px]">
             {/* Left side - Task List */}
-            <div className="w-[400px] border-r shrink-0 overflow-y-auto">
-              <div className="divide-y">
+            <div 
+              className="w-[400px] border-r shrink-0 overflow-y-auto"
+              onScroll={(e) => {
+                if (rightScrollRef) {
+                  rightScrollRef.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+              ref={(ref) => {
+                if (ref) (leftScrollRef as any) = ref;
+              }}
+            >
+              <div>
                 {tasks.map((task) => {
                   const progress = task.progress_percentage ?? getTaskProgress(task.status);
                   return (
-                    <div key={task.id} className="p-4 hover:bg-muted/50 transition-colors h-[60px] flex items-center">
-                      <div className="w-full space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm leading-tight line-clamp-1">{task.title}</p>
-                          <Badge 
-                            variant={task.priority === 'high' ? 'destructive' : 'default'}
-                            className="shrink-0 text-xs h-5"
-                          >
-                            {task.priority}
-                          </Badge>
+                    <div key={task.id} className="p-3 hover:bg-muted/50 transition-colors border-b" style={{ height: '50px' }}>
+                      <div className="w-full flex items-center justify-between gap-2 h-full">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm leading-tight truncate">{task.title}</p>
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Select 
-                            value={task.status} 
-                            onValueChange={(value) => handleStatusUpdate(task.id, value)}
-                          >
-                            <SelectTrigger className="h-6 text-xs w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="todo">Not Started</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <div className="flex items-center gap-1">
-                            {task.status === 'in_progress' ? (
-                              <>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={progress}
-                                  onChange={(e) => {
-                                    const value = Math.min(100, Math.max(0, Number(e.target.value)));
-                                    handleProgressUpdate(task.id, value);
-                                  }}
-                                  className="w-12 h-6 text-xs"
-                                />
-                                <span className="text-xs">%</span>
-                              </>
-                            ) : (
-                              <span className="text-xs font-medium">{progress}%</span>
-                            )}
-                          </div>
-                        </div>
+                        <Badge 
+                          variant={task.priority === 'high' ? 'destructive' : 'default'}
+                          className="shrink-0 text-xs h-5"
+                        >
+                          {task.priority}
+                        </Badge>
                       </div>
                     </div>
                   );
@@ -275,14 +250,24 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
             </div>
 
             {/* Right side - Gantt Chart */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto">
+            <div 
+              className="flex-1 overflow-auto"
+              onScroll={(e) => {
+                if (leftScrollRef) {
+                  leftScrollRef.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+              ref={(ref) => {
+                if (ref) (rightScrollRef as any) = ref;
+              }}
+            >
               <div className="min-w-max">
                 <Gantt
                   tasks={ganttTasks}
                   viewMode={viewMode}
                   onDateChange={handleTaskChange}
                   listCellWidth="0"
-                  rowHeight={60}
+                  rowHeight={50}
                   columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
                 />
               </div>
