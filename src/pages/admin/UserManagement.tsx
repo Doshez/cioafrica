@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -237,64 +238,8 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Role Guide Card */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Info className="h-5 w-5 text-primary" />
-            <CardTitle>User Role Permissions</CardTitle>
-          </div>
-          <CardDescription>
-            Understand what each user role can access and do in the system
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full">
-            {roleDescriptions.map((roleDesc) => {
-              const Icon = roleDesc.icon;
-              return (
-                <AccordionItem key={roleDesc.role} value={roleDesc.role}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-3">
-                      <Icon className={`h-5 w-5 ${roleDesc.color}`} />
-                      <div className="text-left">
-                        <div className="font-semibold">{roleDesc.title}</div>
-                        <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="pl-8 space-y-2 pt-2">
-                      <ul className="space-y-1.5">
-                        {roleDesc.permissions.map((permission, idx) => (
-                          <li key={idx} className="text-sm flex items-start gap-2">
-                            <span className={permission.startsWith('✗') ? 'text-red-500' : 'text-green-500'}>
-                              {permission.slice(0, 1)}
-                            </span>
-                            <span className={permission.startsWith('✗') ? 'text-muted-foreground' : ''}>
-                              {permission.slice(2)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-          
-          <Alert className="mt-4">
-            <Info className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              <strong>Note:</strong> Beyond these system roles, you can also assign project-specific permissions when adding members to individual projects.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-
-      {/* Header with Create User Button */}
-      <div className="flex items-center justify-between">
+      {/* Header with Create User Button and Role Guide */}
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground mt-2">
@@ -302,116 +247,182 @@ export default function UserManagement() {
           </p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Create User
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Create a new user account. They will receive an email with their login credentials.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="user@example.com"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                />
-              </div>
+        <div className="flex gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Info className="h-4 w-4 mr-2" />
+                Role Guide
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  User Role Permissions
+                </SheetTitle>
+                <SheetDescription>
+                  Understand what each user role can access and do in the system
+                </SheetDescription>
+              </SheetHeader>
               
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={newUserRole} onValueChange={setNewUserRole}>
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">Viewer</div>
-                          <div className="text-xs text-muted-foreground">Read-only access</div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="member">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">Member</div>
-                          <div className="text-xs text-muted-foreground">Create & manage tasks</div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="project_manager">
-                      <div className="flex items-center gap-2">
-                        <UserCog className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">Project Manager</div>
-                          <div className="text-xs text-muted-foreground">Manage projects & teams</div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        <div>
-                          <div className="font-medium">Admin</div>
-                          <div className="text-xs text-muted-foreground">Full system access</div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="mt-6 space-y-4">
+                <Accordion type="single" collapsible className="w-full">
+                  {roleDescriptions.map((roleDesc) => {
+                    const Icon = roleDesc.icon;
+                    return (
+                      <AccordionItem key={roleDesc.role} value={roleDesc.role}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            <Icon className={`h-5 w-5 ${roleDesc.color}`} />
+                            <div className="text-left">
+                              <div className="font-semibold">{roleDesc.title}</div>
+                              <div className="text-sm text-muted-foreground">{roleDesc.description}</div>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="pl-8 space-y-2 pt-2">
+                            <ul className="space-y-1.5">
+                              {roleDesc.permissions.map((permission, idx) => (
+                                <li key={idx} className="text-sm flex items-start gap-2">
+                                  <span className={permission.startsWith('✗') ? 'text-red-500' : 'text-green-500'}>
+                                    {permission.slice(0, 1)}
+                                  </span>
+                                  <span className={permission.startsWith('✗') ? 'text-muted-foreground' : ''}>
+                                    {permission.slice(2)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+                
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    {newUserRole === 'admin' && 'Full access to all features including user management'}
-                    {newUserRole === 'project_manager' && 'Can manage projects, departments, and assign tasks'}
-                    {newUserRole === 'member' && 'Can view projects, create tasks, and update assigned tasks'}
-                    {newUserRole === 'viewer' && 'Read-only access to assigned projects and Gantt charts'}
+                    <strong>Note:</strong> Beyond these system roles, you can also assign project-specific permissions when adding members to individual projects.
                   </AlertDescription>
                 </Alert>
               </div>
-            </div>
-            
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={isCreatingUser}
-              >
-                Cancel
-              </Button>
-              <Button onClick={createUser} disabled={isCreatingUser}>
-                {isCreatingUser && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            </SheetContent>
+          </Sheet>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
                 Create User
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New User</DialogTitle>
+                <DialogDescription>
+                  Create a new user account. They will receive an email with their login credentials.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select value={newUserRole} onValueChange={setNewUserRole}>
+                    <SelectTrigger id="role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Viewer</div>
+                            <div className="text-xs text-muted-foreground">Read-only access</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="member">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Member</div>
+                            <div className="text-xs text-muted-foreground">Create & manage tasks</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="project_manager">
+                        <div className="flex items-center gap-2">
+                          <UserCog className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Project Manager</div>
+                            <div className="text-xs text-muted-foreground">Manage projects & teams</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Admin</div>
+                            <div className="text-xs text-muted-foreground">Full system access</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      {newUserRole === 'admin' && 'Full access to all features including user management'}
+                      {newUserRole === 'project_manager' && 'Can manage projects, departments, and assign tasks'}
+                      {newUserRole === 'member' && 'Can view projects, create tasks, and update assigned tasks'}
+                      {newUserRole === 'viewer' && 'Read-only access to assigned projects and Gantt charts'}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  disabled={isCreatingUser}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={createUser} disabled={isCreatingUser}>
+                  {isCreatingUser && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create User
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4">
