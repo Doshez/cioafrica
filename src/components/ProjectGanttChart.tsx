@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format, eachDayOfInterval, isSameDay, isWithinInterval } from 'date-fns';
-import { Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { format, eachDayOfInterval, isSameDay, isWithinInterval, differenceInDays } from 'date-fns';
+import { Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface Task {
   id: string;
@@ -24,11 +27,15 @@ interface ProjectGanttChartProps {
   projectId: string;
 }
 
+const DEPT_COLORS = ['#3B82F6', '#F59E0B', '#8B5CF6', '#10B981', '#EF4444', '#EC4899', '#14B8A6', '#F97316'];
+
 export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<Date[]>([]);
+  const [viewStart, setViewStart] = useState(0);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -122,6 +129,62 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
     return dept ? dept.name : 'Unassigned';
   };
 
+  const getDepartmentColor = (departmentId: string) => {
+    const index = departments.findIndex(d => d.id === departmentId);
+    return index >= 0 ? DEPT_COLORS[index % DEPT_COLORS.length] : '#94a3b8';
+  };
+
+  const visibleDays = dateRange.slice(viewStart, viewStart + 30);
+  const canScrollLeft = viewStart > 0;
+  const canScrollRight = viewStart + 30 < dateRange.length;
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (direction === 'left' && canScrollLeft) {
+      setViewStart(Math.max(0, viewStart - 7));
+    } else if (direction === 'right' && canScrollRight) {
+      setViewStart(Math.min(dateRange.length - 30, viewStart + 7));
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const element = document.getElementById('gantt-container');
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const imgWidth = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`gantt-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
+  const getTaskPosition = (task: Task) => {
+    if (visibleDays.length === 0) return null;
+    const startDate = new Date(task.start_date);
+    const dueDate = new Date(task.due_date);
+    const firstDay = visibleDays[0];
+    const lastDay = visibleDays[visibleDays.length - 1];
+    
+    if (dueDate < firstDay || startDate > lastDay) return null;
+    
+    const taskStart = startDate < firstDay ? firstDay : startDate;
+    const taskEnd = dueDate > lastDay ? lastDay : dueDate;
+    
+    const startIdx = differenceInDays(taskStart, firstDay);
+    const duration = differenceInDays(taskEnd, taskStart) + 1;
+    
+    const cellWidth = 100 / visibleDays.length;
+    return {
+      left: `${startIdx * cellWidth}%`,
+      width: `${duration * cellWidth}%`
+    };
+  };
+
   if (loading) {
     return <div className="p-4">Loading Gantt chart...</div>;
   }
@@ -137,12 +200,59 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Project Gantt Chart
-        </CardTitle>
+    <Card className="w-full shadow-lg" id="gantt-container">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            <span>Project Timeline</span>
+          </CardTitle>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-lg p-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleScroll('left')}
+                disabled={!canScrollLeft}
+                className="h-8 w-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleScroll('right')}
+                disabled={!canScrollRight}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              className="h-8 gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export PDF
+            </Button>
+          </div>
+        </div>
+        
+        {/* Department Legend */}
+        <div className="flex items-center gap-3 flex-wrap mt-4">
+          {departments.map((dept, idx) => (
+            <div key={dept.id} className="flex items-center gap-1.5">
+              <div
+                className="w-3 h-3 rounded-full shadow-sm"
+                style={{ backgroundColor: DEPT_COLORS[idx % DEPT_COLORS.length] }}
+              />
+              <span className="text-xs font-medium text-muted-foreground">{dept.name}</span>
+            </div>
+          ))}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="flex border-b">
