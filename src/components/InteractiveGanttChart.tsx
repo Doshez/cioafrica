@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { GanttAnalyticsView } from '@/components/GanttAnalyticsView';
 import {
   Select,
   SelectContent,
@@ -24,7 +25,9 @@ import {
   Circle,
   Flag,
   AlertCircle,
-  X
+  X,
+  BarChart3,
+  GanttChartSquare
 } from 'lucide-react';
 import {
   Tooltip,
@@ -68,6 +71,7 @@ interface InteractiveGanttChartProps {
 }
 
 type ViewMode = 'day' | 'week' | 'month';
+type ChartMode = 'gantt' | 'analytics';
 
 // Department color palette
 const DEPT_COLORS = [
@@ -79,9 +83,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const [tasks, setTasks] = useState<Task[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [assignedUsers, setAssignedUsers] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<ViewMode>('week');
-  const [scrollOffset, setScrollOffset] = useState(0);
+  const [chartMode, setChartMode] = useState<ChartMode>('gantt');
+  const [scrollOffset, setScrollOffset] = useState<number>(0);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -321,6 +326,42 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
   const todayPosition = getTodayPosition();
 
+  // Analytics calculations
+  const departmentAnalytics = useMemo(() => {
+    return departments.map(dept => {
+      const deptTasks = filteredTasks.filter(t => t.assignee_department_id === dept.id);
+      const completed = deptTasks.filter(t => t.status === 'completed').length;
+      const total = deptTasks.length;
+      const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+      
+      return {
+        departmentId: dept.id,
+        departmentName: dept.name,
+        totalTasks: total,
+        completedTasks: completed,
+        percentage
+      };
+    });
+  }, [departments, filteredTasks]);
+
+  // Weekly task count
+  const weeklyTaskCounts = useMemo(() => {
+    const weeks: Record<string, number> = {};
+    
+    visibleDays.forEach(date => {
+      const weekStart = format(date, 'yyyy-MM-dd');
+      const tasksOnDay = filteredTasks.filter(task => {
+        const start = new Date(task.start_date);
+        const due = new Date(task.due_date);
+        return date >= start && date <= due;
+      });
+      
+      weeks[weekStart] = (weeks[weekStart] || 0) + tasksOnDay.length;
+    });
+    
+    return weeks;
+  }, [visibleDays, filteredTasks]);
+
   if (loading) {
     return (
       <Card>
@@ -359,6 +400,27 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               </CardTitle>
               
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Chart Mode Toggle */}
+                <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/30">
+                  <Button
+                    variant={chartMode === 'gantt' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setChartMode('gantt')}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    <GanttChartSquare className="h-3.5 w-3.5" />
+                    Gantt
+                  </Button>
+                  <Button
+                    variant={chartMode === 'analytics' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setChartMode('analytics')}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Analytics
+                  </Button>
+                </div>
                 {/* View Mode Toggle */}
                 <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/30">
                   <Button
@@ -477,32 +539,42 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               )}
             </div>
 
-            {/* Department Legend */}
+            {/* Department Legend with Analytics */}
             <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30">
               <span className="text-sm font-medium text-muted-foreground">Departments:</span>
-              {departments.map(dept => (
-                <div key={dept.id} className="flex items-center gap-2 text-sm">
-                  <div 
-                    className="h-3 w-3 rounded-full shadow-sm" 
-                    style={{ backgroundColor: getDepartmentColor(dept.id) }}
-                  />
-                  <span>{dept.name}</span>
-                </div>
-              ))}
+              {departmentAnalytics.map(analytics => {
+                const dept = departments.find(d => d.id === analytics.departmentId);
+                if (!dept) return null;
+                return (
+                  <div key={dept.id} className="flex items-center gap-2 text-sm">
+                    <div 
+                      className="h-3 w-3 rounded-full shadow-sm" 
+                      style={{ backgroundColor: getDepartmentColor(dept.id) }}
+                    />
+                    <span>{dept.name}</span>
+                    {chartMode === 'analytics' && (
+                      <Badge variant="secondary" className="text-xs h-5">
+                        {analytics.percentage}%
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </CardHeader>
         
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            {/* Timeline Header */}
-            <div className="flex border-b bg-muted/30 sticky top-0 z-10">
-              <div className="w-48 lg:w-64 border-r px-4 py-3 font-semibold flex-shrink-0 bg-muted/50">
-                Department / Task
-              </div>
-              <div className="flex-1 relative min-w-[600px]">
-                <div className="flex h-full">
-                  {visibleDays.map((date, idx) => {
+          {chartMode === 'gantt' ? (
+            <div className="overflow-x-auto">
+              {/* Timeline Header */}
+              <div className="flex border-b bg-muted/30 sticky top-0 z-10">
+                <div className="w-48 lg:w-64 border-r px-4 py-3 font-semibold flex-shrink-0 bg-muted/50">
+                  Department / Task
+                </div>
+                <div className="flex-1 relative min-w-[600px]">
+                  <div className="flex h-full">
+                    {visibleDays.map((date, idx) => {
                     const isTodayDate = isToday(date);
                     return (
                       <motion.div
@@ -681,8 +753,56 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   );
                 })}
               </AnimatePresence>
+
+              {/* Task Count per Week - Bar indicator under timeline */}
+              <div className="border-t bg-muted/20">
+                <div className="flex">
+                  <div className="w-48 lg:w-64 border-r px-4 py-3 text-sm font-semibold flex-shrink-0">
+                    Tasks/Day
+                  </div>
+                  <div className="flex-1 relative min-w-[600px] p-2">
+                    <div className="flex h-16 items-end gap-px">
+                      {visibleDays.map((date, idx) => {
+                        const dateKey = format(date, 'yyyy-MM-dd');
+                        const count = weeklyTaskCounts[dateKey] || 0;
+                        const maxCount = Math.max(...Object.values(weeklyTaskCounts), 1);
+                        const height = (count / maxCount) * 100;
+                        
+                        return (
+                          <TooltipProvider key={idx}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <motion.div
+                                  initial={{ height: 0 }}
+                                  animate={{ height: `${height}%` }}
+                                  transition={{ duration: 0.5, delay: idx * 0.02 }}
+                                  className="flex-1 bg-primary/60 rounded-t-sm hover:bg-primary cursor-pointer transition-colors"
+                                  style={{ minWidth: '8px' }}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  {format(date, 'MMM d')}: {count} task{count !== 1 ? 's' : ''}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+            </div>
+          ) : (
+            <GanttAnalyticsView
+              departmentAnalytics={departmentAnalytics}
+              departments={departments}
+              filteredTasks={filteredTasks}
+              getDepartmentColor={getDepartmentColor}
+            />
+          )}
         </CardContent>
       </Card>
 
