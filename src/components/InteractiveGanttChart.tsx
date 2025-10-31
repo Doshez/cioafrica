@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { GanttAnalyticsView } from '@/components/GanttAnalyticsView';
+import { TaskRow } from '@/components/TaskRow';
 import {
   Select,
   SelectContent,
@@ -74,6 +75,16 @@ interface Task {
   assignee_department_id: string;
   progress_percentage: number;
   assignee_user_id?: string;
+  elements?: TaskElement[];
+}
+
+interface TaskElement {
+  id: string;
+  name: string;
+  start_date: string;
+  due_date: string;
+  progress_percentage: number;
+  status: string;
 }
 
 interface Department {
@@ -112,6 +123,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -146,7 +158,28 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       
       const validTasks = (tasksData || []).filter(
         task => task.start_date && task.due_date
-      );
+      ).map(task => ({
+        ...task,
+        // Mock elements for demonstration - in production, fetch from elements table
+        elements: task.title.toLowerCase().includes('banner') || task.title.toLowerCase().includes('setup') ? [
+          {
+            id: `${task.id}-elem-1`,
+            name: task.title.toLowerCase().includes('banner') ? 'Digital Artwork' : 'Stage Lighting',
+            start_date: task.start_date,
+            due_date: format(addDays(new Date(task.start_date), 3), 'yyyy-MM-dd'),
+            progress_percentage: task.progress_percentage || 0,
+            status: task.status
+          },
+          {
+            id: `${task.id}-elem-2`,
+            name: task.title.toLowerCase().includes('banner') ? 'Social Teasers' : 'Sound System',
+            start_date: format(addDays(new Date(task.start_date), 1), 'yyyy-MM-dd'),
+            due_date: format(addDays(new Date(task.start_date), 4), 'yyyy-MM-dd'),
+            progress_percentage: Math.max(0, (task.progress_percentage || 0) - 20),
+            status: task.status
+          }
+        ] : undefined
+      }));
       
       setTasks(validTasks);
 
@@ -185,6 +218,19 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const getDepartmentColor = (deptId: string) => {
     const index = departments.findIndex(d => d.id === deptId);
     return DEPT_COLORS[index % DEPT_COLORS.length];
+  };
+
+  // Toggle task expansion
+  const toggleTaskExpansion = (taskId: string) => {
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
   };
 
   // Filter tasks
@@ -339,17 +385,20 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         description: 'Please wait while we export your Gantt chart'
       });
 
-      // Prepare data for Excel export
-      const excelData = filteredTasks.map(task => {
+      // Prepare data for Excel export with elements
+      const excelData: any[] = [];
+      
+      filteredTasks.forEach(task => {
         const dept = departments.find(d => d.id === task.assignee_department_id);
         const assignee = task.assignee_user_id ? assignedUsers[task.assignee_user_id] : 'Unassigned';
         const duration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
         
-        return {
-          'Task ID': task.id,
-          'Task Title': task.title,
-          'Description': task.description || '',
+        // Add main task row
+        excelData.push({
           'Department': dept?.name || 'Unknown',
+          'Task Title': task.title,
+          'Element': 'Main Task',
+          'Description': task.description || '',
           'Status': task.status.replace('_', ' ').toUpperCase(),
           'Priority': task.priority.toUpperCase(),
           'Progress (%)': task.progress_percentage || 0,
@@ -357,7 +406,27 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
           'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
           'Duration (days)': duration,
           'Assigned To': assignee
-        };
+        });
+
+        // Add element rows if they exist
+        if (task.elements && task.elements.length > 0) {
+          task.elements.forEach(element => {
+            const elemDuration = differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1;
+            excelData.push({
+              'Department': dept?.name || 'Unknown',
+              'Task Title': task.title,
+              'Element': element.name,
+              'Description': '',
+              'Status': element.status.replace('_', ' ').toUpperCase(),
+              'Priority': task.priority.toUpperCase(),
+              'Progress (%)': element.progress_percentage || 0,
+              'Start Date': format(new Date(element.start_date), 'yyyy-MM-dd'),
+              'Due Date': format(new Date(element.due_date), 'yyyy-MM-dd'),
+              'Duration (days)': elemDuration,
+              'Assigned To': assignee
+            });
+          });
+        }
       });
 
       // Create worksheet
@@ -365,10 +434,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
       // Set column widths
       const colWidths = [
-        { wch: 12 }, // Task ID
-        { wch: 30 }, // Task Title
-        { wch: 40 }, // Description
         { wch: 20 }, // Department
+        { wch: 30 }, // Task Title
+        { wch: 25 }, // Element
+        { wch: 40 }, // Description
         { wch: 15 }, // Status
         { wch: 10 }, // Priority
         { wch: 12 }, // Progress
@@ -381,7 +450,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
       // Create workbook and add worksheet
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
+      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart with Elements');
 
       // Add analytics sheet
       const analyticsData = departmentAnalytics.map(analytics => {
@@ -414,11 +483,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       XLSX.utils.book_append_sheet(wb, wsAnalytics, 'Analytics');
 
       // Save file
-      XLSX.writeFile(wb, `gantt-chart-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      XLSX.writeFile(wb, `gantt-chart-with-elements-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported as Excel'
+        description: 'Gantt chart with elements exported as Excel'
       });
     } catch (error) {
       console.error('Excel export error:', error);
@@ -814,8 +883,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             <div className="overflow-x-auto">
               {/* Timeline Header */}
               <div className="flex border-b bg-muted/30 sticky top-0 z-10">
-                <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 font-semibold flex-shrink-0 bg-muted/50 text-xs sm:text-sm">
-                  Department / Task
+                <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 flex-shrink-0 bg-muted/50">
+                  <div className="grid grid-cols-2 gap-1 text-xs sm:text-sm font-semibold">
+                    <div>Department / Task</div>
+                    <div className="text-muted-foreground">Element</div>
+                  </div>
                 </div>
                 <div className="flex-1 relative min-w-[400px] sm:min-w-[600px]">
                   <div className="flex h-full">
@@ -875,17 +947,22 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                               className="h-3 w-3 sm:h-4 sm:w-4 rounded-full shadow-sm flex-shrink-0" 
                               style={{ backgroundColor: deptColor }}
                             />
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-xs sm:text-sm truncate">
-                                {dept.name}
+                            <div className="min-w-0 flex-1 grid grid-cols-2 gap-1">
+                              <div>
+                                <div className="font-semibold text-xs sm:text-sm truncate">
+                                  {dept.name}
+                                </div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                  {deptTasks.length} task{deptTasks.length !== 1 ? 's' : ''}
+                                </div>
                               </div>
                               <div className="text-[10px] sm:text-xs text-muted-foreground">
-                                {deptTasks.length} task{deptTasks.length !== 1 ? 's' : ''}
+                                Elements
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div className="flex-1 relative min-h-[100px] sm:min-h-[120px] p-2 sm:p-4" style={{ minWidth: '400px' }}>
+                        <div className="flex-1 relative p-2 sm:p-4" style={{ minWidth: '400px', minHeight: '200px' }}>
                           {/* Timeline Grid */}
                           <div className="absolute inset-0 flex">
                             {visibleDays.map((date, idx) => (
@@ -914,87 +991,35 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           )}
                           
                           {/* Tasks */}
-                          <div className="relative space-y-2">
-                            <TooltipProvider>
-                              {deptTasks.map((task, taskIdx) => {
-                                 const position = calculateTaskPosition(task);
-                                if (!position) return null;
-                                
-                                const StatusIcon = getStatusIcon(task.status);
-                                
-                                return (
-                                  <Tooltip key={task.id}>
-                                    <TooltipTrigger asChild>
-                                      <motion.div
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ duration: 0.3, delay: taskIdx * 0.05 }}
-                                        whileHover={{ scale: 1.02, zIndex: 50 }}
-                                        onClick={() => setSelectedTask(task)}
-                                        className="absolute cursor-pointer rounded-md sm:rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-smooth"
-                                        style={{
-                                          ...position,
-                                          height: '32px',
-                                          top: `${taskIdx * 40}px`,
-                                          background: `linear-gradient(135deg, ${deptColor}E6, ${deptColor}B3)`
-                                        }}
-                                      >
-                                        {/* Progress Bar */}
-                                        <motion.div
-                                          initial={{ width: 0 }}
-                                          animate={{ width: `${task.progress_percentage || 0}%` }}
-                                          transition={{ duration: 0.8, delay: 0.3 }}
-                                          className="absolute inset-0 bg-white/30"
-                                        />
-                                        
-                                        {/* Task Content */}
-                                        <div className="relative h-full px-2 sm:px-3 flex items-center justify-between gap-1 sm:gap-2 text-white">
-                                          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1">
-                                            <StatusIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                                            <span className="text-[10px] sm:text-xs font-semibold truncate">
-                                              {task.title}
-                                            </span>
-                                          </div>
-                                          <Badge 
-                                            variant="secondary" 
-                                            className="bg-white/90 text-foreground text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-4 sm:h-5 flex-shrink-0"
-                                          >
-                                            {task.progress_percentage || 0}%
-                                          </Badge>
-                                        </div>
-                                      </motion.div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-xs z-50">
-                                      <div className="space-y-2">
-                                        <div>
-                                          <p className="font-semibold text-sm">{task.title}</p>
-                                          <p className="text-xs text-muted-foreground">
-                                            {dept.name}
-                                          </p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                          <div>
-                                            <span className="text-muted-foreground">Start:</span>
-                                            <p className="font-medium">
-                                              {format(new Date(task.start_date), 'MMM d')}
-                                            </p>
-                                          </div>
-                                          <div>
-                                            <span className="text-muted-foreground">Due:</span>
-                                            <p className="font-medium">
-                                              {format(new Date(task.due_date), 'MMM d')}
-                                            </p>
-                                          </div>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                          Click to view details
-                                        </p>
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                );
-                              })}
-                            </TooltipProvider>
+                          <div className="relative" style={{ minHeight: '300px' }}>
+                            {deptTasks.map((task, taskIdx) => {
+                              const isExpanded = expandedTasks.has(task.id);
+                              const hasElements = task.elements && task.elements.length > 0;
+                              
+                              // Calculate cumulative offset for tasks with expanded elements
+                              let cumulativeOffset = 0;
+                              for (let i = 0; i < taskIdx; i++) {
+                                const prevTask = deptTasks[i];
+                                cumulativeOffset += 1; // Base task height
+                                if (expandedTasks.has(prevTask.id) && prevTask.elements) {
+                                  cumulativeOffset += prevTask.elements.length;
+                                }
+                              }
+
+                              return (
+                                <TaskRow
+                                  key={task.id}
+                                  task={task}
+                                  taskIdx={cumulativeOffset}
+                                  deptColor={deptColor}
+                                  isExpanded={isExpanded}
+                                  onToggleExpand={() => toggleTaskExpansion(task.id)}
+                                  onTaskClick={() => setSelectedTask(task)}
+                                  calculatePosition={calculateTaskPosition}
+                                  getStatusIcon={getStatusIcon}
+                                />
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
