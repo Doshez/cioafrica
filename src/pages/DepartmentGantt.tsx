@@ -119,7 +119,7 @@ export default function DepartmentGantt() {
               .from('profiles')
               .select('full_name, email')
               .eq('id', task.assignee_user_id)
-              .single();
+              .maybeSingle();
             
             return {
               ...task,
