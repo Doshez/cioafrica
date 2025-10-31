@@ -985,6 +985,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   <div className="h-3 w-3 rounded-full bg-[#10B981]" />
                   <span>Completed</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-[#EF4444] animate-pulse" />
+                  <span className="text-destructive font-medium">Overdue</span>
+                </div>
               </div>
 
               {/* Timeline Header */}
