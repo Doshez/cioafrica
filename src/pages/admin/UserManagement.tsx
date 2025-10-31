@@ -185,23 +185,10 @@ export default function UserManagement() {
 
   const deleteUser = async (userId: string) => {
     try {
-      // First delete user roles
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      // Delete project memberships
-      await supabase
-        .from('project_members')
-        .delete()
-        .eq('user_id', userId);
-
-      // Delete profile
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
+      // Call edge function to delete user completely
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { user_id: userId },
+      });
 
       if (error) throw error;
 
@@ -215,7 +202,7 @@ export default function UserManagement() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to delete user",
         variant: "destructive",
       });
     }
