@@ -84,12 +84,20 @@ export default function DepartmentGantt() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingElement, setEditingElement] = useState<{ id: string; title: string; description?: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [hasAssignedTasks, setHasAssignedTasks] = useState(false);
 
   useEffect(() => {
     if (departmentId && projectId) {
+      fetchCurrentUser();
       fetchData();
     }
   }, [departmentId, projectId]);
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
 
   const fetchData = async () => {
     try {
@@ -208,6 +216,15 @@ export default function DepartmentGantt() {
       }) || [];
 
       setTasks(tasksWithProfiles);
+
+      // Check if current user has any assigned tasks in this department
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !isAdmin && !isProjectManager) {
+        const userHasTasks = tasksWithProfiles.some(task => task.assignee_user_id === user.id);
+        setHasAssignedTasks(userHasTasks);
+      } else {
+        setHasAssignedTasks(true); // Admin/PM always have access
+      }
 
       // Fetch analytics
       const { data: analyticsData, error: analyticsError } = await supabase
@@ -445,9 +462,21 @@ export default function DepartmentGantt() {
         </Card>
       </div>
 
-      <Tabs defaultValue="list" className="w-full">
+      {!hasAssignedTasks && !isAdmin && !isProjectManager && (
+        <Card className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+          <CardContent className="pt-6">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+              You are viewing this department in read-only mode. You can see the Gantt chart but cannot view or edit task details as you are not assigned to any tasks in this department.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager ? "list" : "gantt"} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="list" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager}>
+            List View
+          </TabsTrigger>
           <TabsTrigger value="gantt">Gantt Chart</TabsTrigger>
         </TabsList>
 
