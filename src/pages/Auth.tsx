@@ -76,7 +76,8 @@ export default function Auth() {
       <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={cioDxLogo} alt="CIO Africa DX5" className="mx-auto mb-4 h-24" />
+          <img src={cioDxLogo} alt="CIO Africa DX5" className="mx-auto mb-3 h-16" />
+          <h1 className="text-3xl font-bold">Project Planner</h1>
         </div>
 
         <Card className="shadow-lg border-border/50">
