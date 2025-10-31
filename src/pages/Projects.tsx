@@ -30,17 +30,38 @@ export default function Projects() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && (isAdmin !== undefined && isProjectManager !== undefined)) {
       fetchProjects();
     }
-  }, [user]);
+  }, [user, isAdmin, isProjectManager]);
 
   const fetchProjects = async () => {
     try {
-      const { data, error } = await supabase
+      let projectsQuery = supabase
         .from('projects')
         .select('id, name, description, status, start_date, end_date')
         .order('created_at', { ascending: false });
+
+      // If user is not admin or project manager, filter by assigned projects
+      if (!isAdmin && !isProjectManager) {
+        // Get user's assigned projects
+        const { data: assignedProjects } = await supabase
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', user?.id);
+
+        if (assignedProjects && assignedProjects.length > 0) {
+          const projectIds = assignedProjects.map(p => p.project_id);
+          projectsQuery = projectsQuery.in('id', projectIds);
+        } else {
+          // User has no assigned projects, return empty
+          setProjects([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await projectsQuery;
 
       if (error) throw error;
       setProjects(data || []);

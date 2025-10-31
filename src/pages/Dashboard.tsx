@@ -44,20 +44,46 @@ export default function Dashboard() {
   const [recentProjects, setRecentProjects] = useState<ProjectWithProgress[]>([]);
 
   useEffect(() => {
-    if (user) {
+    if (user && (isAdmin !== undefined && isProjectManager !== undefined)) {
       fetchDashboardData();
     }
-  }, [user]);
+  }, [user, isAdmin, isProjectManager]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
 
-      // Fetch user's projects
-      const { data: projects, error: projectsError } = await supabase
+      let projectsQuery = supabase
         .from('projects')
         .select('id, name, description, status')
         .order('created_at', { ascending: false });
+
+      // If user is not admin or project manager, filter by assigned projects
+      if (!isAdmin && !isProjectManager) {
+        // Get user's assigned projects
+        const { data: assignedProjects } = await supabase
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', user?.id);
+
+        if (assignedProjects && assignedProjects.length > 0) {
+          const projectIds = assignedProjects.map(p => p.project_id);
+          projectsQuery = projectsQuery.in('id', projectIds);
+        } else {
+          // User has no assigned projects, return empty
+          setStats({
+            activeProjects: 0,
+            completedTasks: 0,
+            overdueTasks: 0,
+            totalTasks: 0,
+          });
+          setRecentProjects([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
 
       if (projectsError) throw projectsError;
 

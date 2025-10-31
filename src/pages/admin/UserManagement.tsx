@@ -397,15 +397,15 @@ export default function UserManagement() {
                 Create User
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
+            <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
+              <DialogHeader className="flex-shrink-0">
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
                   Create a new user account. They will receive an email with their login credentials.
                 </DialogDescription>
               </DialogHeader>
               
-              <div className="space-y-4 py-4">
+              <div className="flex-1 overflow-y-auto py-4 px-1 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -486,7 +486,7 @@ export default function UserManagement() {
 
                 <div className="space-y-2">
                   <Label>Assign to Projects (Optional)</Label>
-                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
+                  <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-2 bg-muted/20">
                     {projects.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No projects available</p>
                     ) : (
@@ -519,7 +519,7 @@ export default function UserManagement() {
                 </div>
               </div>
               
-              <DialogFooter>
+              <DialogFooter className="flex-shrink-0 pt-4 border-t">
                 <Button
                   variant="outline"
                   onClick={() => setDialogOpen(false)}
