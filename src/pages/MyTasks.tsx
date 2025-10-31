@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle2, Clock, AlertCircle, Search, Filter, Plus } from "lucide-react";
+import { Loader2, Clock, Search, Filter, Plus, Percent } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 
 interface Task {
@@ -158,10 +159,22 @@ export default function MyTasks() {
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
+      let newPercentage = tasks.find(t => t.id === taskId)?.progress_percentage || 0;
+      
+      // Sync percentage with status
+      if (newStatus === 'todo') {
+        newPercentage = 0;
+      } else if (newStatus === 'in_progress' && newPercentage === 0) {
+        newPercentage = 1;
+      } else if (newStatus === 'done') {
+        newPercentage = 100;
+      }
+
       const { error } = await supabase
         .from('tasks')
         .update({ 
           status: newStatus,
+          progress_percentage: newPercentage,
           ...(newStatus === 'done' && { completed_at: new Date().toISOString() })
         })
         .eq('id', taskId);
@@ -169,7 +182,7 @@ export default function MyTasks() {
       if (error) throw error;
 
       setTasks(tasks.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
+        task.id === taskId ? { ...task, status: newStatus, progress_percentage: newPercentage } : task
       ));
 
       toast({
@@ -185,11 +198,57 @@ export default function MyTasks() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const updateTaskProgress = async (taskId: string, newProgress: number) => {
+    try {
+      // Determine status based on percentage
+      let newStatus = 'todo';
+      if (newProgress === 0) {
+        newStatus = 'todo';
+      } else if (newProgress > 0 && newProgress < 100) {
+        newStatus = 'in_progress';
+      } else if (newProgress === 100) {
+        newStatus = 'done';
+      }
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          progress_percentage: newProgress,
+          status: newStatus,
+          ...(newStatus === 'done' && { completed_at: new Date().toISOString() })
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks(tasks.map(task => 
+        task.id === taskId ? { ...task, progress_percentage: newProgress, status: newStatus } : task
+      ));
+
+      toast({
+        title: "Success",
+        description: "Task progress updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const isOverdue = (dueDate: string | null, status: string) => {
+    if (!dueDate || status === 'done') return false;
+    return new Date(dueDate) < new Date();
+  };
+
+  const getStatusColor = (status: string, isTaskOverdue: boolean = false) => {
+    if (isTaskOverdue) return 'bg-destructive text-destructive-foreground';
+    
     switch (status) {
       case 'todo': return 'bg-secondary text-secondary-foreground';
       case 'in_progress': return 'bg-primary text-primary-foreground';
-      case 'review': return 'bg-accent text-accent-foreground';
       case 'done': return 'bg-green-500 text-white';
       default: return 'bg-muted text-muted-foreground';
     }
@@ -201,15 +260,6 @@ export default function MyTasks() {
       case 'medium': return 'bg-accent text-accent-foreground';
       case 'low': return 'bg-muted text-muted-foreground';
       default: return 'bg-secondary text-secondary-foreground';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'done': return <CheckCircle2 className="h-4 w-4" />;
-      case 'in_progress': return <Clock className="h-4 w-4" />;
-      case 'todo': return <AlertCircle className="h-4 w-4" />;
-      default: return null;
     }
   };
 
@@ -293,73 +343,85 @@ export default function MyTasks() {
               <CardContent className="p-0">
                 <ScrollArea className="w-full">
                   <div className="flex gap-4 p-4 overflow-x-auto">
-                    {group.tasks.map((task) => (
-                      <Card 
-                        key={task.id} 
-                        className="min-w-[320px] flex-shrink-0 hover:shadow-md transition-shadow"
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-base line-clamp-2">
-                              {task.title}
-                            </CardTitle>
-                            {getStatusIcon(task.status)}
-                          </div>
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
-                              {task.description}
-                            </p>
-                          )}
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="flex flex-wrap gap-2">
-                            {task.projects && (
-                              <Badge variant="outline" className="text-xs">
-                                {task.projects.name}
+                    {group.tasks.map((task) => {
+                      const taskOverdue = isOverdue(task.due_date, task.status);
+                      return (
+                        <Card 
+                          key={task.id} 
+                          className={`min-w-[340px] flex-shrink-0 hover:shadow-md transition-shadow ${
+                            taskOverdue ? 'border-destructive' : ''
+                          }`}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <CardTitle className="text-base line-clamp-2">
+                                {task.title}
+                              </CardTitle>
+                              <Badge className={getStatusColor(task.status, taskOverdue)}>
+                                {taskOverdue ? 'Overdue' : task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : 'To Do'}
                               </Badge>
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
+                                {task.description}
+                              </p>
                             )}
-                            <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
-                              {task.priority}
-                            </Badge>
-                          </div>
-
-                          {task.due_date && (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              Due: {new Date(task.due_date).toLocaleDateString()}
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                              {task.projects && (
+                                <Badge variant="outline" className="text-xs">
+                                  {task.projects.name}
+                                </Badge>
+                              )}
+                              <Badge className={`${getPriorityColor(task.priority)} text-xs`}>
+                                {task.priority}
+                              </Badge>
                             </div>
-                          )}
 
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Progress</span>
-                              <span className="font-medium">{task.progress_percentage || 0}%</span>
-                            </div>
-                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary transition-all"
-                                style={{ width: `${task.progress_percentage || 0}%` }}
+                            {task.due_date && (
+                              <div className={`flex items-center gap-2 text-xs ${
+                                taskOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'
+                              }`}>
+                                <Clock className="h-3 w-3" />
+                                Due: {new Date(task.due_date).toLocaleDateString()}
+                              </div>
+                            )}
+
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1">
+                                  <Percent className="h-3 w-3" />
+                                  <span className="text-muted-foreground">Progress</span>
+                                </div>
+                                <span className="font-medium text-base">{task.progress_percentage || 0}%</span>
+                              </div>
+                              <Slider
+                                value={[task.progress_percentage || 0]}
+                                onValueChange={(value) => updateTaskProgress(task.id, value[0])}
+                                max={100}
+                                step={1}
+                                className="w-full"
                               />
                             </div>
-                          </div>
 
-                          <Select
-                            value={task.status}
-                            onValueChange={(value) => updateTaskStatus(task.id, value)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="todo">To Do</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="review">In Review</SelectItem>
-                              <SelectItem value="done">Done</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            <Select
+                              value={task.status}
+                              onValueChange={(value) => updateTaskStatus(task.id, value)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="todo">To Do (0%)</SelectItem>
+                                <SelectItem value="in_progress">In Progress (1-99%)</SelectItem>
+                                <SelectItem value="done">Done (100%)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               </CardContent>
