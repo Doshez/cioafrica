@@ -97,7 +97,7 @@ export function ProjectGanttChart({ projectId }: ProjectGanttChartProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'done':
         return '#22c55e';
       case 'in_progress':
         return '#3b82f6';

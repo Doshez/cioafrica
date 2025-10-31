@@ -97,12 +97,12 @@ export default function Dashboard() {
 
       // Calculate stats
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
-      const completedTasks = tasks?.filter(t => t.status === 'completed').length || 0;
+      const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
       const totalTasks = tasks?.length || 0;
       
       const today = new Date();
       const overdueTasks = tasks?.filter(t => {
-        if (!t.due_date || t.status === 'completed') return false;
+        if (!t.due_date || t.status === 'done') return false;
         return new Date(t.due_date) < today;
       }).length || 0;
 
@@ -116,7 +116,7 @@ export default function Dashboard() {
       // Calculate project progress
       const projectsWithProgress = projects?.slice(0, 3).map(project => {
         const projectTasks = tasks?.filter(t => t.project_id === project.id) || [];
-        const completedProjectTasks = projectTasks.filter(t => t.status === 'completed');
+        const completedProjectTasks = projectTasks.filter(t => t.status === 'done');
         const progress = projectTasks.length > 0 
           ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
           : 0;

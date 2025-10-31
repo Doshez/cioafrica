@@ -85,13 +85,13 @@ export function ExpandableElementRow({
   
   // Determine element status based on tasks
   const elementStatus = hasTasks 
-    ? (element.tasks.every(t => t.status === 'completed' || t.status === 'done') ? 'completed' : 
+    ? (element.tasks.every(t => t.status === 'done') ? 'done' : 
        element.tasks.some(t => t.status === 'in_progress') ? 'in_progress' : 'todo')
     : 'todo';
   
   const StatusIcon = getStatusIcon(elementStatus);
 
-  const completedTasks = element.tasks.filter(t => t.status === 'completed' || t.status === 'done').length;
+  const completedTasks = element.tasks.filter(t => t.status === 'done').length;
 
   return (
     <>
@@ -305,7 +305,7 @@ export function ExpandableElementRow({
                             ? `linear-gradient(90deg, ${overdueColor}, ${overdueColor}99)`
                             : task.status === 'in_progress' || task.status === 'in-progress'
                             ? `linear-gradient(90deg, ${getStatusColor(task.status)}, ${getStatusColor(task.status)}99)`
-                            : task.status === 'completed' || task.status === 'done'
+                            : task.status === 'done'
                             ? getStatusColor(task.status)
                             : `${getStatusColor(task.status)}55`,
                           border: `2px solid ${isOverdue ? overdueColor : getStatusColor(task.status)}`

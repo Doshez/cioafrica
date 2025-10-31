@@ -132,7 +132,7 @@ export function GanttAnalyticsView({
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-success">
-              {filteredElements.flatMap(e => e.tasks).filter(t => t.status === 'completed').length}
+              {filteredElements.flatMap(e => e.tasks).filter(t => t.status === 'done').length}
             </p>
             <p className="text-sm text-muted-foreground">Completed</p>
           </div>

@@ -144,7 +144,7 @@ export default function ProjectDetails() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'done':
         return 'bg-green-500';
       case 'in_progress':
         return 'bg-blue-500';
@@ -181,7 +181,7 @@ export default function ProjectDetails() {
   }
 
   const projectProgress = tasks.length > 0 
-    ? Math.round((tasks.filter(t => t.status === 'completed').length / tasks.length) * 100)
+    ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100)
     : 0;
 
   return (
@@ -256,7 +256,7 @@ export default function ProjectDetails() {
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Completed</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {tasks.filter(t => t.status === 'completed').length}
+                  {tasks.filter(t => t.status === 'done').length}
                 </p>
               </div>
               <div className="space-y-1">

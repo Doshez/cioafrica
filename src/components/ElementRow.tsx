@@ -77,7 +77,7 @@ export function ElementRow({
   
   // Determine element status based on tasks
   const elementStatus = hasTasks 
-    ? (element.tasks.every(t => t.status === 'completed') ? 'completed' : 
+    ? (element.tasks.every(t => t.status === 'done') ? 'done' : 
        element.tasks.some(t => t.status === 'in_progress') ? 'in_progress' : 'todo')
     : 'todo';
   

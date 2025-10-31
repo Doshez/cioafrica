@@ -41,7 +41,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
       const converted: GanttTask[] = tasks
         .filter(task => task.start_date && task.due_date)
         .map(task => {
-          const progress = task.status === 'completed' ? 100 : task.status === 'in_progress' ? 50 : 0;
+          const progress = task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0;
           
           return {
             id: task.id,
@@ -67,7 +67,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
 
   const getProgressColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'done':
         return '#22c55e';
       case 'in_progress':
         return '#3b82f6';
@@ -123,7 +123,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
         .from('tasks')
         .update({ 
           status: newStatus,
-          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+          completed_at: newStatus === 'done' ? new Date().toISOString() : null 
         })
         .eq('id', taskId);
 
@@ -184,7 +184,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
 
   const getTaskProgress = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'done':
         return 100;
       case 'in_progress':
         return 50;

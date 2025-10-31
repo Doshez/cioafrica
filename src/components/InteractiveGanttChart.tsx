@@ -363,7 +363,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'done':
         return CheckCircle2;
       case 'in_progress':
         return Clock;
@@ -606,7 +606,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     return departments.map(dept => {
       const deptElements = filteredElements.filter(e => e.departmentId === dept.id);
       const allTasks = deptElements.flatMap(e => e.tasks);
-      const completed = allTasks.filter(t => t.status === 'completed').length;
+      const completed = allTasks.filter(t => t.status === 'done').length;
       const total = allTasks.length;
       const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
       
