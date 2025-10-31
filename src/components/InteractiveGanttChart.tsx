@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { GanttAnalyticsView } from '@/components/GanttAnalyticsView';
-import { ElementRow } from '@/components/ElementRow';
+import { ExpandableElementRow } from '@/components/ExpandableElementRow';
 import {
   Select,
   SelectContent,
@@ -1011,10 +1011,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: deptIdx * 0.1 }}
-                      className="bg-card hover:bg-muted/20 transition-colors"
                     >
                       {/* Department Header */}
-                      <div className="flex">
+                      <div className="flex border-b bg-muted/30">
                         <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 flex-shrink-0">
                           <div className="flex items-center gap-2">
                             <div 
@@ -1031,13 +1030,13 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                             </div>
                           </div>
                         </div>
-                        <div className="flex-1 relative p-2 sm:p-4" style={{ minWidth: '400px', minHeight: '200px' }}>
-                          {/* Timeline Grid */}
-                          <div className="absolute inset-0 flex">
+                        <div className="flex-1 relative p-2" style={{ minWidth: '400px', minHeight: '48px' }}>
+                          {/* Timeline Grid Background */}
+                          <div className="absolute inset-0 flex pointer-events-none">
                             {visibleDays.map((date, idx) => (
                               <div
                                 key={idx}
-                                className={`flex-1 border-r border-border/50 ${
+                                className={`flex-1 border-r border-border/30 ${
                                   isToday(date) ? 'bg-primary/5' : ''
                                 }`}
                                 style={{ minWidth: '30px' }}
@@ -1050,7 +1049,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                             <motion.div
                               initial={{ opacity: 0, scaleY: 0 }}
                               animate={{ opacity: 1, scaleY: 1 }}
-                              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 shadow-glow"
+                              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 shadow-glow pointer-events-none"
                               style={{ left: todayPosition }}
                             >
                               <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-semibold">
@@ -1058,40 +1057,23 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                               </div>
                             </motion.div>
                           )}
-                          
-                          {/* Elements */}
-                          <div className="relative" style={{ minHeight: '300px' }}>
-                            {deptElements.map((element, elemIdx) => {
-                              const isExpanded = expandedElements.has(element.id);
-                              const hasTasks = element.tasks && element.tasks.length > 0;
-                              
-                              // Calculate cumulative offset for elements with expanded tasks
-                              let cumulativeOffset = 0;
-                              for (let i = 0; i < elemIdx; i++) {
-                                const prevElement = deptElements[i];
-                                cumulativeOffset += 1; // Base element height
-                                if (expandedElements.has(prevElement.id) && prevElement.tasks) {
-                                  cumulativeOffset += prevElement.tasks.length;
-                                }
-                              }
-
-                              return (
-                                <ElementRow
-                                  key={element.id}
-                                  element={element}
-                                  elementIdx={cumulativeOffset}
-                                  deptColor={deptColor}
-                                  isExpanded={isExpanded}
-                                  onToggleExpand={() => toggleElementExpansion(element.id)}
-                                  onElementClick={() => setSelectedElement(element)}
-                                  calculatePosition={calculatePosition}
-                                  getStatusIcon={getStatusIcon}
-                                />
-                              );
-                            })}
-                          </div>
                         </div>
                       </div>
+
+                      {/* Elements and their Tasks */}
+                      {deptElements.map((element) => (
+                        <ExpandableElementRow
+                          key={element.id}
+                          element={element}
+                          deptColor={deptColor}
+                          deptName={dept.name}
+                          isExpanded={expandedElements.has(element.id)}
+                          onToggleExpand={() => toggleElementExpansion(element.id)}
+                          onElementClick={() => setSelectedElement(element)}
+                          calculatePosition={calculatePosition}
+                          getStatusIcon={getStatusIcon}
+                        />
+                      ))}
                     </motion.div>
                   );
                 })}
