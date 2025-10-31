@@ -211,6 +211,17 @@ export default function DepartmentGantt() {
   });
 
   const handleStatusUpdate = async (taskId: string, newStatus: string) => {
+    // Sync percentage with status
+    let newPercentage = tasks.find(t => t.id === taskId)?.progress_percentage || 0;
+    
+    if (newStatus === 'todo') {
+      newPercentage = 0;
+    } else if (newStatus === 'in_progress' && newPercentage === 0) {
+      newPercentage = 1;
+    } else if (newStatus === 'done') {
+      newPercentage = 100;
+    }
+
     // Optimistically update local state
     setTasks(prevTasks => 
       prevTasks.map(task => 
@@ -218,7 +229,8 @@ export default function DepartmentGantt() {
           ? { 
               ...task, 
               status: newStatus,
-              completed_at: newStatus === 'completed' ? new Date().toISOString() : null
+              progress_percentage: newPercentage,
+              completed_at: newStatus === 'done' ? new Date().toISOString() : null
             } 
           : task
       )
@@ -229,7 +241,8 @@ export default function DepartmentGantt() {
         .from('tasks')
         .update({ 
           status: newStatus,
-          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+          progress_percentage: newPercentage,
+          completed_at: newStatus === 'done' ? new Date().toISOString() : null 
         })
         .eq('id', taskId);
 
@@ -264,11 +277,13 @@ export default function DepartmentGantt() {
     let newStatus = 'todo';
     let completedAt = null;
     
-    if (progress >= 100) {
-      newStatus = 'completed';
-      completedAt = new Date().toISOString();
+    if (progress === 0) {
+      newStatus = 'todo';
     } else if (progress > 0 && progress < 100) {
       newStatus = 'in_progress';
+    } else if (progress === 100) {
+      newStatus = 'done';
+      completedAt = new Date().toISOString();
     }
 
     // Optimistically update local state
@@ -301,7 +316,7 @@ export default function DepartmentGantt() {
 
       toast({
         title: 'Success',
-        description: progress >= 100 ? 'Task completed!' : 'Progress updated successfully',
+        description: progress === 100 ? 'Task completed!' : 'Progress updated successfully',
       });
 
       // Silently refresh analytics without showing loading

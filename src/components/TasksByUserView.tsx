@@ -1,10 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Percent } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Slider } from '@/components/ui/slider';
 
 interface AssignedUser {
   id: string;
@@ -88,6 +87,11 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
       .slice(0, 2);
   };
 
+  const isOverdue = (dueDate: string, status: string) => {
+    if (!dueDate || status === 'done') return false;
+    return new Date(dueDate) < new Date();
+  };
+
   return (
     <div className="w-full overflow-x-auto pb-4">
       <div className="flex gap-6 min-w-max">
@@ -116,19 +120,27 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
             {/* Tasks - Scrollable */}
             <div className="space-y-3 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
               {userData.tasks.map((task) => {
-                const progress = task.progress_percentage ?? (task.status === 'completed' ? 100 : task.status === 'in_progress' ? 50 : 0);
+                const progress = task.progress_percentage ?? (task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0);
+                const taskOverdue = isOverdue(task.due_date, task.status);
                 
                 return (
-                  <Card key={task.id} className="hover:shadow-md transition-shadow">
+                  <Card key={task.id} className={`hover:shadow-md transition-shadow ${taskOverdue ? 'border-destructive' : ''}`}>
                     <CardContent className="p-4">
                       <div className="space-y-3">
-                        {/* Title, Priority, and Assigned Users */}
+                        {/* Title, Priority, Status Badge, and Assigned Users */}
                         <div className="space-y-2">
                           <div className="flex items-start gap-2">
                             <h4 className="text-sm font-semibold flex-1 leading-tight">{task.title}</h4>
-                            <Badge variant={getPriorityColor(task.priority)} className="text-xs shrink-0">
-                              {task.priority}
-                            </Badge>
+                            <div className="flex gap-1 shrink-0">
+                              <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                                {task.priority}
+                              </Badge>
+                              {taskOverdue && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Overdue
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           
                           {/* Show all assigned users if multiple */}
@@ -150,67 +162,60 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
                           </p>
                         )}
 
-                        {/* Status Control */}
-                        <div className="space-y-1.5">
-                          <span className="text-xs text-muted-foreground">Status</span>
-                          <Select 
-                            value={task.status} 
-                            onValueChange={(value) => onStatusUpdate(task.id, value)}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              <SelectItem value="todo">To Do</SelectItem>
-                              <SelectItem value="in_progress">In Progress</SelectItem>
-                              <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Progress Control */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{progress}%</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Progress value={progress} className="h-1.5 flex-1" />
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={progress}
-                              onChange={(e) => {
-                                const value = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                onProgressUpdate(task.id, value);
-                              }}
-                              className="w-16 h-7 text-xs"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Dates and Hours */}
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {/* Dates */}
+                        <div className="flex flex-wrap gap-2 text-xs">
                           {task.start_date && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 text-muted-foreground">
                               <Calendar className="h-3 w-3" />
                               <span>{new Date(task.start_date).toLocaleDateString()}</span>
                             </div>
                           )}
                           {task.due_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>→ {new Date(task.due_date).toLocaleDateString()}</span>
+                            <div className={`flex items-center gap-1 ${taskOverdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                              <Clock className="h-3 w-3" />
+                              <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
                             </div>
                           )}
                           {task.estimate_hours && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 text-muted-foreground">
                               <Clock className="h-3 w-3" />
                               <span>{task.estimate_hours}h est.</span>
                             </div>
                           )}
                         </div>
+
+                        {/* Progress Control with Slider */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1">
+                              <Percent className="h-3 w-3" />
+                              <span className="text-muted-foreground">Progress</span>
+                            </div>
+                            <span className="font-medium text-base">{progress}%</span>
+                          </div>
+                          <Slider
+                            value={[progress]}
+                            onValueChange={(value) => onProgressUpdate(task.id, value[0])}
+                            max={100}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Status Control */}
+                        <Select 
+                          value={task.status} 
+                          onValueChange={(value) => onStatusUpdate(task.id, value)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="todo">To Do (0%)</SelectItem>
+                            <SelectItem value="in_progress">In Progress (1-99%)</SelectItem>
+                            <SelectItem value="done">Done (100%)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </CardContent>
                   </Card>
