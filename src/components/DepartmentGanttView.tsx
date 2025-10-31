@@ -226,7 +226,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
               ref={leftScrollRef}
             >
               {/* Header spacer to match Gantt header height */}
-              <div className="h-[60px] border-b bg-muted/10"></div>
+              <div className="h-[50px] border-b bg-muted/10"></div>
               
               <div>
                 {tasks.map((task) => {
