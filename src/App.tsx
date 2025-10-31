@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Layout from "./components/Layout";
+import AdminRoute from "./components/AdminRoute";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -37,8 +38,8 @@ const App = () => (
             <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
             <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
             <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
-            <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
-            <Route path="/admin/users" element={<Layout><UserManagement /></Layout>} />
+            <Route path="/admin" element={<Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout>} />
+            <Route path="/admin/users" element={<Layout><AdminRoute><UserManagement /></AdminRoute></Layout>} />
             <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
             <Route path="/gantt-demo" element={<Layout><GanttDemo /></Layout>} />
             <Route path="/gantt-docs" element={<Layout><GanttDocumentation /></Layout>} />

@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Loader2, UserPlus } from "lucide-react";
 
 interface User {
@@ -18,6 +21,11 @@ export default function UserManagement() {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<string>("member");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -91,10 +99,55 @@ export default function UserManagement() {
     }
   };
 
+  const createUser = async () => {
+    if (!newUserEmail || !newUserName || !newUserRole) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail,
+          full_name: newUserName,
+          role: newUserRole,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "User created and invitation email sent successfully",
+      });
+
+      setDialogOpen(false);
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserRole("member");
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-destructive text-destructive-foreground';
       case 'project_manager': return 'bg-primary text-primary-foreground';
+      case 'member': return 'bg-blue-500 text-white';
+      case 'viewer': return 'bg-gray-500 text-white';
       default: return 'bg-secondary text-secondary-foreground';
     }
   };
@@ -109,11 +162,86 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">User Management</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage user roles and permissions
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">User Management</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage user roles and permissions
+          </p>
+        </div>
+        
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account. They will receive an email with their login credentials.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={newUserRole} onValueChange={setNewUserRole}>
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="project_manager">Project Manager</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Members can view charts, create tasks, and manage assignments
+                </p>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={isCreatingUser}
+              >
+                Cancel
+              </Button>
+              <Button onClick={createUser} disabled={isCreatingUser}>
+                {isCreatingUser && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Create User
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4">
@@ -151,6 +279,8 @@ export default function UserManagement() {
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="project_manager">Project Manager</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
