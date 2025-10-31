@@ -1,64 +1,162 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Progress } from '@/components/ui/progress';
+
+interface DashboardStats {
+  activeProjects: number;
+  completedTasks: number;
+  overdueTasks: number;
+  totalTasks: number;
+}
+
+interface ProjectWithProgress {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  progress: number;
+  tasks: {
+    total: number;
+    completed: number;
+  };
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { isAdmin, isProjectManager } = useUserRole();
+  
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    activeProjects: 0,
+    completedTasks: 0,
+    overdueTasks: 0,
+    totalTasks: 0,
+  });
+  const [recentProjects, setRecentProjects] = useState<ProjectWithProgress[]>([]);
 
-  const stats = [
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch user's projects
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name, description, status')
+        .order('created_at', { ascending: false });
+
+      if (projectsError) throw projectsError;
+
+      // Fetch user's tasks
+      const { data: tasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, status, due_date, project_id, title')
+        .order('created_at', { ascending: false });
+
+      if (tasksError) throw tasksError;
+
+      // Calculate stats
+      const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
+      const completedTasks = tasks?.filter(t => t.status === 'completed').length || 0;
+      const totalTasks = tasks?.length || 0;
+      
+      const today = new Date();
+      const overdueTasks = tasks?.filter(t => {
+        if (!t.due_date || t.status === 'completed') return false;
+        return new Date(t.due_date) < today;
+      }).length || 0;
+
+      setStats({
+        activeProjects,
+        completedTasks,
+        overdueTasks,
+        totalTasks,
+      });
+
+      // Calculate project progress
+      const projectsWithProgress = projects?.slice(0, 3).map(project => {
+        const projectTasks = tasks?.filter(t => t.project_id === project.id) || [];
+        const completedProjectTasks = projectTasks.filter(t => t.status === 'completed');
+        const progress = projectTasks.length > 0 
+          ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
+          : 0;
+
+        return {
+          ...project,
+          progress,
+          tasks: {
+            total: projectTasks.length,
+            completed: completedProjectTasks.length,
+          },
+        };
+      }) || [];
+
+      setRecentProjects(projectsWithProgress);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  const statsCards = [
     {
       title: 'Active Projects',
-      value: '12',
-      change: '+2 this month',
+      value: stats.activeProjects.toString(),
+      change: 'Currently active',
       icon: TrendingUp,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
     {
       title: 'Tasks Completed',
-      value: '148',
-      change: '+18 this week',
+      value: stats.completedTasks.toString(),
+      change: `Out of ${stats.totalTasks} total`,
       icon: CheckCircle2,
       color: 'text-success',
       bgColor: 'bg-success/10',
     },
     {
       title: 'Overdue Tasks',
-      value: '3',
-      change: 'Needs attention',
+      value: stats.overdueTasks.toString(),
+      change: stats.overdueTasks > 0 ? 'Needs attention' : 'All on track',
       icon: AlertCircle,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
+      color: stats.overdueTasks > 0 ? 'text-destructive' : 'text-success',
+      bgColor: stats.overdueTasks > 0 ? 'bg-destructive/10' : 'bg-success/10',
     },
     {
-      title: 'Hours Logged',
-      value: '324',
-      change: 'This month',
+      title: 'Total Tasks',
+      value: stats.totalTasks.toString(),
+      change: 'Assigned to you',
       icon: Clock,
       color: 'text-accent',
       bgColor: 'bg-accent/10',
-    },
-  ];
-
-  const recentProjects = [
-    {
-      name: 'Connected Africa Summit 2025',
-      progress: 65,
-      tasks: { total: 48, completed: 31 },
-      status: 'active',
-    },
-    {
-      name: 'Marketing Campaign Q1',
-      progress: 40,
-      tasks: { total: 24, completed: 10 },
-      status: 'active',
-    },
-    {
-      name: 'Website Redesign',
-      progress: 85,
-      tasks: { total: 32, completed: 27 },
-      status: 'review',
     },
   ];
 
@@ -68,21 +166,23 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">
-            Welcome back, {user?.user_metadata?.full_name || 'there'}!
+            Welcome back, {user?.user_metadata?.full_name || user?.email || 'there'}!
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your projects today
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Project
-        </Button>
+        {(isAdmin || isProjectManager) && (
+          <Button className="gap-2" onClick={() => navigate('/projects')}>
+            <Plus className="h-4 w-4" />
+            View Projects
+          </Button>
+        )}
       </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statsCards.map((stat) => (
           <Card key={stat.title} className="transition-smooth hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -103,29 +203,41 @@ export default function Dashboard() {
       {/* Recent Projects */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Projects</CardTitle>
-          <CardDescription>Projects you've been working on</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Projects</CardTitle>
+              <CardDescription>Projects you have access to</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/projects')}>
+              View All
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {recentProjects.map((project) => (
-            <div key={project.name} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">{project.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {project.tasks.completed} of {project.tasks.total} tasks completed
-                  </p>
+          {recentProjects.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No projects assigned yet
+            </p>
+          ) : (
+            recentProjects.map((project) => (
+              <div 
+                key={project.id} 
+                className="space-y-2 cursor-pointer hover:bg-muted/50 p-3 rounded-lg transition-smooth"
+                onClick={() => navigate(`/projects/${project.id}`)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">{project.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {project.tasks.completed} of {project.tasks.total} tasks completed
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium">{project.progress}%</span>
                 </div>
-                <span className="text-sm font-medium">{project.progress}%</span>
+                <Progress value={project.progress} />
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className="gradient-primary h-2 rounded-full transition-smooth"
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

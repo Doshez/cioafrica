@@ -26,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout><Dashboard /></Layout>} />
+            <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
             <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
             <Route path="/projects" element={<Layout><Projects /></Layout>} />
             <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
