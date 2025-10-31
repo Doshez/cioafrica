@@ -145,13 +145,34 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       // Fetch tasks with valid dates
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*, profiles(full_name)')
+        .select('*')
         .eq('project_id', projectId)
         .not('start_date', 'is', null)
         .not('due_date', 'is', null)
         .order('start_date');
 
       if (tasksError) throw tasksError;
+      
+      // Fetch user profiles for assignees
+      const userIds = [...new Set(
+        (tasksData || [])
+          .map((t: any) => t.assignee_user_id)
+          .filter(Boolean)
+      )] as string[];
+      
+      const userMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: userData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        
+        if (userData) {
+          userData.forEach(user => {
+            userMap[user.id] = user.full_name || 'Unknown User';
+          });
+        }
+      }
       
       // Group tasks into elements by department
       // Mock data: Create elements as parent entities with tasks as children
@@ -183,7 +204,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         element.tasks.push({
           id: task.id,
           title: task.title,
-          assignee: task.profiles?.full_name || 'Unassigned',
+          assignee: task.assignee_user_id ? (userMap[task.assignee_user_id] || 'Unassigned') : 'Unassigned',
           start_date: task.start_date,
           due_date: task.due_date,
           progress_percentage: task.progress_percentage || 0,
