@@ -15,8 +15,7 @@ import {
   Clock, 
   ListTodo,
   TrendingUp,
-  ExternalLink,
-  BarChart3
+  ExternalLink
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
@@ -159,10 +158,6 @@ export default function ProjectDetails() {
     return tasks.filter(task => task.assignee_department_id === departmentId);
   };
 
-  const handleViewGanttChart = () => {
-    navigate(`/projects/${projectId}/gantt`);
-  };
-
   if (loading) {
     return <div className="p-8">Loading...</div>;
   }
@@ -187,28 +182,18 @@ export default function ProjectDetails() {
             <p className="text-muted-foreground">{project.description}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/projects/${projectId}/gantt`)}
-            className="flex items-center gap-2"
-          >
-            <BarChart3 className="h-4 w-4" />
-            View Gantt Chart
-          </Button>
-          {(isAdmin || isProjectManager) && (
-            <>
-              <CreateDepartmentDialog 
-                projectId={projectId!} 
-                onDepartmentCreated={fetchProjectData}
-              />
-              <CreateTaskDialog 
-                projectId={projectId}
-                onTaskCreated={fetchProjectData}
-              />
-            </>
-          )}
-        </div>
+        {(isAdmin || isProjectManager) && (
+          <div className="flex gap-2">
+            <CreateDepartmentDialog 
+              projectId={projectId!} 
+              onDepartmentCreated={fetchProjectData}
+            />
+            <CreateTaskDialog 
+              projectId={projectId}
+              onTaskCreated={fetchProjectData}
+            />
+          </div>
+        )}
       </div>
 
       {/* Project Overview */}
