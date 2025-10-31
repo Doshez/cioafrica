@@ -210,70 +210,16 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
       </div>
 
       {ganttTasks.length > 0 ? (
-        <div className="border rounded-lg bg-background overflow-hidden">
-          {/* Excel-like layout with tasks on left and chart on right */}
-          <div className="flex border-b bg-muted/30 sticky top-0 z-10">
-            <div className="w-[400px] p-3 font-semibold border-r shrink-0">Task Details</div>
-            <div className="flex-1 p-3 font-semibold overflow-hidden">Timeline</div>
-          </div>
-          
-          <div className="flex h-[600px]">
-            {/* Left side - Task List */}
-            <div 
-              className="w-[400px] border-r shrink-0 overflow-y-auto"
-              onScroll={(e) => {
-                if (rightScrollRef.current) {
-                  rightScrollRef.current.scrollTop = e.currentTarget.scrollTop;
-                }
-              }}
-              ref={leftScrollRef}
-            >
-              {/* Header spacer to match Gantt header height */}
-              <div className="h-[50px] border-b bg-muted/10"></div>
-              
-              <div>
-                {tasks.map((task) => {
-                  const progress = task.progress_percentage ?? getTaskProgress(task.status);
-                  return (
-                    <div key={task.id} className="p-3 hover:bg-muted/50 transition-colors border-b" style={{ height: '50px' }}>
-                      <div className="w-full flex items-center justify-between gap-2 h-full">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm leading-tight truncate">{task.title}</p>
-                        </div>
-                        <Badge 
-                          variant={task.priority === 'high' ? 'destructive' : 'default'}
-                          className="shrink-0 text-xs h-5"
-                        >
-                          {task.priority}
-                        </Badge>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right side - Gantt Chart */}
-            <div 
-              className="flex-1 overflow-auto"
-              onScroll={(e) => {
-                if (leftScrollRef.current) {
-                  leftScrollRef.current.scrollTop = e.currentTarget.scrollTop;
-                }
-              }}
-              ref={rightScrollRef}
-            >
-              <div className="min-w-max">
-                <Gantt
-                  tasks={ganttTasks}
-                  viewMode={viewMode}
-                  onDateChange={handleTaskChange}
-                  listCellWidth="0"
-                  rowHeight={50}
-                  columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
-                />
-              </div>
-            </div>
+        <div className="border rounded-lg bg-background overflow-auto">
+          <div className="min-h-[600px] p-4">
+            <Gantt
+              tasks={ganttTasks}
+              viewMode={viewMode}
+              onDateChange={handleTaskChange}
+              listCellWidth="250px"
+              rowHeight={50}
+              columnWidth={viewMode === ViewMode.Month ? 60 : viewMode === ViewMode.Week ? 65 : 60}
+            />
           </div>
         </div>
       ) : (
