@@ -41,10 +41,10 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
 
       if (passwordError) throw passwordError;
 
-      // Update must_change_password flag in profiles
+      // Always update must_change_password flag in profiles when password is changed
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (user && isForced) {
+      if (user) {
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ must_change_password: false })
