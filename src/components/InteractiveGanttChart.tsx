@@ -344,16 +344,19 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     return dateRange.slice(scrollOffset, scrollOffset + daysToShow);
   }, [dateRange, scrollOffset, viewMode]);
 
-  const getStatusColor = (status: string) => {
+  // Status-to-Color Mapping (supports both old and new status formats)
+  const getStatusColor = (status?: string): string => {
     switch (status) {
+      case 'done':
       case 'completed':
-        return 'bg-success';
+        return '#10B981'; // Green
+      case 'in-progress':
       case 'in_progress':
-        return 'bg-primary';
+        return '#3B82F6'; // Blue
+      case 'not-started':
       case 'todo':
-        return 'bg-muted-foreground/50';
       default:
-        return 'bg-muted-foreground/50';
+        return '#9CA3AF'; // Gray
     }
   };
 
@@ -1072,6 +1075,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           onElementClick={() => setSelectedElement(element)}
                           calculatePosition={calculatePosition}
                           getStatusIcon={getStatusIcon}
+                          getStatusColor={getStatusColor}
                         />
                       ))}
                     </motion.div>

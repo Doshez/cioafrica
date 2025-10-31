@@ -46,6 +46,7 @@ interface ExpandableElementRowProps {
   onElementClick: () => void;
   calculatePosition: (item: { start_date: string; due_date: string }) => { left: string; width: string } | null;
   getStatusIcon: (status: string) => any;
+  getStatusColor: (status?: string) => string;
 }
 
 export function ExpandableElementRow({
@@ -56,7 +57,8 @@ export function ExpandableElementRow({
   onToggleExpand,
   onElementClick,
   calculatePosition,
-  getStatusIcon
+  getStatusIcon,
+  getStatusColor
 }: ExpandableElementRowProps) {
   // Calculate element position based on its tasks
   const elementStartDate = element.start_date || 
@@ -247,15 +249,19 @@ export function ExpandableElementRow({
                     <TooltipTrigger asChild>
                       <motion.div
                         initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        animate={{ 
+                          opacity: 1, 
+                          x: 0,
+                          backgroundColor: getStatusColor(task.status)
+                        }}
                         whileHover={{ scale: 1.02, zIndex: 30 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute cursor-pointer rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all border border-white/20"
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="absolute cursor-pointer rounded-md overflow-hidden shadow-sm hover:shadow-md border border-white/20"
                         style={{
                           ...taskPosition,
                           height: '24px',
                           top: '6px',
-                          background: `linear-gradient(135deg, ${deptColor}CC, ${deptColor}80)`
+                          background: `linear-gradient(135deg, ${getStatusColor(task.status)}E6, ${getStatusColor(task.status)}B3)`
                         }}
                       >
                         {/* Progress Bar */}
