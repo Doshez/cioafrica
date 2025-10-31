@@ -122,24 +122,26 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
                   <Card key={task.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="space-y-3">
-                        {/* Title and Priority */}
-                        <div className="flex items-start gap-2">
-                          <h4 className="text-sm font-semibold flex-1 leading-tight">{task.title}</h4>
-                          <Badge variant={getPriorityColor(task.priority)} className="text-xs shrink-0">
-                            {task.priority}
-                          </Badge>
-                        </div>
-
-                        {/* Assigned Users - Show if multiple */}
-                        {task.assigned_users && task.assigned_users.length > 1 && (
-                          <div className="flex flex-wrap gap-1">
-                            {task.assigned_users.map(user => (
-                              <Badge key={user.id} variant="outline" className="text-xs">
-                                {user.name}
-                              </Badge>
-                            ))}
+                        {/* Title, Priority, and Assigned Users */}
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2">
+                            <h4 className="text-sm font-semibold flex-1 leading-tight">{task.title}</h4>
+                            <Badge variant={getPriorityColor(task.priority)} className="text-xs shrink-0">
+                              {task.priority}
+                            </Badge>
                           </div>
-                        )}
+                          
+                          {/* Show all assigned users if multiple */}
+                          {task.assigned_users && task.assigned_users.length > 1 && (
+                            <div className="flex flex-wrap gap-1">
+                              {task.assigned_users.map(user => (
+                                <Badge key={user.id} variant="outline" className="text-xs">
+                                  {user.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
                         {/* Description */}
                         {task.description && (

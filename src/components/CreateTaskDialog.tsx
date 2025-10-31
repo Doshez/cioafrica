@@ -42,6 +42,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
   const [projects, setProjects] = useState<Project[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -137,8 +138,38 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
 
       if (error) throw error;
 
-      // Create notification for assigned user
-      if (formData.assignee_user_id && task) {
+      // Create task_assignments for selected users
+      if (selectedUserIds.length > 0 && task) {
+        const assignments = selectedUserIds.map(userId => ({
+          task_id: task.id,
+          user_id: userId,
+        }));
+        
+        await supabase
+          .from('task_assignments')
+          .insert(assignments);
+
+        // Create notifications for all assigned users
+        const notifications = selectedUserIds.map(userId => ({
+          user_id: userId,
+          title: 'New Task Assigned',
+          message: `You have been assigned to: ${formData.title}`,
+          type: 'task_assigned',
+          related_task_id: task.id,
+        }));
+
+        await supabase
+          .from('notifications')
+          .insert(notifications);
+      } else if (formData.assignee_user_id && task) {
+        // Legacy single assignment support
+        await supabase
+          .from('task_assignments')
+          .insert({
+            task_id: task.id,
+            user_id: formData.assignee_user_id,
+          });
+
         await supabase
           .from('notifications')
           .insert({
@@ -152,7 +183,9 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
 
       toast({
         title: "Success",
-        description: "Task created and user notified",
+        description: selectedUserIds.length > 0 
+          ? `Task created and ${selectedUserIds.length} user(s) notified`
+          : "Task created successfully",
       });
 
       setFormData({
@@ -166,6 +199,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
         start_date: '',
         due_date: '',
       });
+      setSelectedUserIds([]);
       setOpen(false);
       onTaskCreated?.();
     } catch (error: any) {
@@ -260,19 +294,34 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="assignee">Assign To</Label>
-            <Select value={formData.assignee_user_id} onValueChange={(value) => setFormData({ ...formData, assignee_user_id: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select team member" />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((profile) => (
-                  <SelectItem key={profile.id} value={profile.id}>
-                    {profile.full_name || profile.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
+            <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+              {profiles.map((profile) => (
+                <label 
+                  key={profile.id} 
+                  className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedUserIds.includes(profile.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedUserIds([...selectedUserIds, profile.id]);
+                      } else {
+                        setSelectedUserIds(selectedUserIds.filter(id => id !== profile.id));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm">{profile.full_name || profile.email}</span>
+                </label>
+              ))}
+            </div>
+            {selectedUserIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedUserIds.length} user(s) selected
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
