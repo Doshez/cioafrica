@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -352,24 +353,29 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
             <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
             <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
               {profiles.map((profile) => (
-                <label 
+                <div 
                   key={profile.id} 
-                  className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                  className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                  onClick={() => {
+                    if (selectedUserIds.includes(profile.id)) {
+                      setSelectedUserIds(selectedUserIds.filter(id => id !== profile.id));
+                    } else {
+                      setSelectedUserIds([...selectedUserIds, profile.id]);
+                    }
+                  }}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedUserIds.includes(profile.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
+                    onCheckedChange={(checked) => {
+                      if (checked) {
                         setSelectedUserIds([...selectedUserIds, profile.id]);
                       } else {
                         setSelectedUserIds(selectedUserIds.filter(id => id !== profile.id));
                       }
                     }}
-                    className="rounded"
                   />
-                  <span className="text-sm">{profile.full_name || profile.email}</span>
-                </label>
+                  <span className="text-sm flex-1">{profile.full_name || profile.email}</span>
+                </div>
               ))}
             </div>
             {selectedUserIds.length > 0 && (

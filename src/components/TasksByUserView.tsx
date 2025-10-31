@@ -113,8 +113,8 @@ export function TasksByUserView({ tasks, onStatusUpdate, onProgressUpdate }: Tas
               </div>
             </div>
 
-            {/* Tasks */}
-            <div className="space-y-3">
+            {/* Tasks - Scrollable */}
+            <div className="space-y-3 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
               {userData.tasks.map((task) => {
                 const progress = task.progress_percentage ?? (task.status === 'completed' ? 100 : task.status === 'in_progress' ? 50 : 0);
                 
