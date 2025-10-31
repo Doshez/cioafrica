@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
@@ -10,7 +11,9 @@ import {
   Users, 
   Bell,
   LogOut,
-  Menu
+  Menu,
+  Shield,
+  UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -21,6 +24,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { user, loading, signOut } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -46,13 +50,21 @@ export default function Layout({ children }: LayoutProps) {
 
   if (!user) return null;
 
-  const navItems = [
+  const userNavItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: CheckSquare, label: 'My Tasks', path: '/my-tasks' },
     { icon: FolderKanban, label: 'Projects', path: '/projects' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-    { icon: Users, label: 'Team', path: '/team' },
   ];
+
+  const adminNavItems = [
+    { icon: Shield, label: 'Admin Dashboard', path: '/admin' },
+    { icon: UserCog, label: 'User Management', path: '/admin/users' },
+    { icon: FolderKanban, label: 'All Projects', path: '/projects' },
+    { icon: CheckSquare, label: 'All Tasks', path: '/my-tasks' },
+    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
     <div className="min-h-screen gradient-subtle">
