@@ -151,7 +151,7 @@ export default function Projects() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
                   {project.logo_url && (
-                    <img src={project.logo_url} alt={`${project.name} logo`} className="h-10 w-10 object-contain rounded flex-shrink-0" />
+                    <img src={project.logo_url} alt={`${project.name} logo`} className="h-16 w-16 object-contain rounded flex-shrink-0" />
                   )}
                   <div className="space-y-1 flex-1 min-w-0">
                     <CardTitle className="text-xl group-hover:text-primary transition-smooth truncate">

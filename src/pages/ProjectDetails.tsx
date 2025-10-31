@@ -230,11 +230,7 @@ export default function ProjectDetails() {
     });
   };
 
-  if (loading) {
-    return <div className="p-8">Loading...</div>;
-  }
-
-  if (!project) {
+  if (!loading && !project) {
     return <div className="p-8">Project not found</div>;
   }
 
@@ -244,14 +240,6 @@ export default function ProjectDetails() {
     ? Math.round((completedCount / tasks.length) * 100)
     : 0;
 
-  // Debug logging
-  console.log('Project Progress Debug:', {
-    totalTasks: tasks.length,
-    completedTasks: completedCount,
-    progressPercentage: projectProgress,
-    taskStatuses: tasks.map(t => ({ title: t.title, status: t.status }))
-  });
-
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -259,12 +247,12 @@ export default function ProjectDetails() {
           <Button variant="outline" size="icon" onClick={() => navigate('/projects')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          {project.logo_url && (
-            <img src={project.logo_url} alt={`${project.name} logo`} className="h-12 w-12 object-contain rounded" />
+          {project?.logo_url && (
+            <img src={project.logo_url} alt={`${project.name} logo`} className="h-16 w-16 object-contain rounded" />
           )}
           <div>
-            <h1 className="text-3xl font-bold">{project.name}</h1>
-            <p className="text-muted-foreground">{project.description}</p>
+            <h1 className="text-3xl font-bold">{project?.name || 'Loading...'}</h1>
+            <p className="text-muted-foreground">{project?.description}</p>
           </div>
         </div>
         {(isAdmin || isProjectManager) && (
