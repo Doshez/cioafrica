@@ -230,8 +230,8 @@ export default function ProjectDetails() {
     });
   };
 
-  if (!loading && !project) {
-    return <div className="p-8">Project not found</div>;
+  if (loading || !project) {
+    return null;
   }
 
   // Calculate project progress based on completed tasks
