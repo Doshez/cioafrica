@@ -1,0 +1,216 @@
+import { useState, useEffect } from 'react';
+import { Gantt, Task as GanttTask, ViewMode } from 'gantt-task-react';
+import 'gantt-task-react/dist/index.css';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+
+interface Task {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  start_date: string;
+  due_date: string;
+  assignee_department_id: string;
+  description?: string;
+}
+
+interface DepartmentGanttViewProps {
+  departmentId: string;
+  departmentName: string;
+  tasks: Task[];
+  onTasksUpdate: () => void;
+}
+
+export function DepartmentGanttView({ departmentId, departmentName, tasks, onTasksUpdate }: DepartmentGanttViewProps) {
+  const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
+  const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
+
+  useEffect(() => {
+    const convertToGanttTasks = () => {
+      const converted: GanttTask[] = tasks
+        .filter(task => task.start_date && task.due_date)
+        .map(task => {
+          const progress = task.status === 'completed' ? 100 : task.status === 'in_progress' ? 50 : 0;
+          
+          return {
+            id: task.id,
+            name: task.title,
+            start: new Date(task.start_date),
+            end: new Date(task.due_date),
+            progress,
+            type: 'task' as const,
+            styles: {
+              progressColor: getProgressColor(task.status),
+              progressSelectedColor: getProgressColor(task.status),
+              backgroundColor: getBackgroundColor(task.priority),
+              backgroundSelectedColor: getBackgroundColor(task.priority),
+            },
+          };
+        });
+      
+      setGanttTasks(converted);
+    };
+
+    convertToGanttTasks();
+  }, [tasks]);
+
+  const getProgressColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return '#22c55e';
+      case 'in_progress':
+        return '#3b82f6';
+      default:
+        return '#9ca3af';
+    }
+  };
+
+  const getBackgroundColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return '#fecaca';
+      case 'medium':
+        return '#fed7aa';
+      case 'low':
+        return '#d1fae5';
+      default:
+        return '#e5e7eb';
+    }
+  };
+
+  const handleTaskChange = async (task: GanttTask) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          start_date: task.start.toISOString().split('T')[0],
+          due_date: task.end.toISOString().split('T')[0],
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Task dates updated successfully',
+      });
+
+      onTasksUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStatusUpdate = async (taskId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null 
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Task status updated successfully',
+      });
+
+      onTasksUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getTaskProgress = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 100;
+      case 'in_progress':
+        return 50;
+      default:
+        return 0;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">{departmentName} - Gantt Chart</h3>
+        <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="View Mode" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ViewMode.Day}>Day</SelectItem>
+            <SelectItem value={ViewMode.Week}>Week</SelectItem>
+            <SelectItem value={ViewMode.Month}>Month</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {ganttTasks.length > 0 ? (
+        <div className="border rounded-lg overflow-auto bg-background">
+          <Gantt
+            tasks={ganttTasks}
+            viewMode={viewMode}
+            onDateChange={handleTaskChange}
+            listCellWidth=""
+            columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 60}
+          />
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          No tasks with dates available for Gantt chart view
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <h4 className="font-semibold">Task Status Management</h4>
+        {tasks.map((task) => (
+          <div key={task.id} className="flex items-center gap-4 p-3 border rounded-lg bg-card">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{task.title}</p>
+                <Badge variant={task.priority === 'high' ? 'destructive' : 'default'}>
+                  {task.priority}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Progress:</span>
+                <Progress value={getTaskProgress(task.status)} className="flex-1 max-w-[200px]" />
+                <span className="text-xs font-medium">{getTaskProgress(task.status)}%</span>
+              </div>
+            </div>
+            <Select value={task.status} onValueChange={(value) => handleStatusUpdate(task.id, value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todo">Not Started</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

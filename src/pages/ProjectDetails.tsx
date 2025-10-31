@@ -15,9 +15,12 @@ import {
   Clock, 
   ListTodo,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DepartmentGanttView } from '@/components/DepartmentGanttView';
 
 interface Project {
   id: string;
@@ -254,9 +257,9 @@ export default function ProjectDetails() {
               const isExpanded = selectedDepartment === dept.id;
 
               return (
-                <Card key={dept.id} className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => setSelectedDepartment(isExpanded ? null : dept.id)}>
-                  <CardHeader>
+                <Card key={dept.id}>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setSelectedDepartment(isExpanded ? null : dept.id)}>
                     <CardTitle className="flex items-center gap-2">
                       <Folder className="h-5 w-5" />
                       {dept.name}
@@ -293,33 +296,74 @@ export default function ProjectDetails() {
                       </>
                     )}
 
-                    {isExpanded && deptTasks.length > 0 && (
-                      <div className="mt-4 pt-4 border-t space-y-2">
-                        <h4 className="font-semibold text-sm">Tasks</h4>
-                        <div className="space-y-2">
-                          {deptTasks.map(task => (
-                            <div key={task.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{task.title}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant={getPriorityColor(task.priority)} className="text-xs">
-                                    {task.priority}
-                                  </Badge>
-                                  <Badge className={`text-xs ${getStatusColor(task.status)}`}>
-                                    {task.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                              {task.due_date && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(task.due_date).toLocaleDateString()}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                    {isExpanded && (
+                      <Tabs defaultValue="gantt" className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between mb-4">
+                          <TabsList>
+                            <TabsTrigger value="gantt" className="flex items-center gap-2">
+                              <BarChart3 className="h-4 w-4" />
+                              Gantt Chart
+                            </TabsTrigger>
+                            <TabsTrigger value="list" className="flex items-center gap-2">
+                              <ListTodo className="h-4 w-4" />
+                              Task List
+                            </TabsTrigger>
+                          </TabsList>
+                          {(isAdmin || isProjectManager) && (
+                            <CreateTaskDialog 
+                              projectId={projectId}
+                              departmentId={dept.id}
+                              onTaskCreated={fetchProjectData}
+                            />
+                          )}
                         </div>
-                      </div>
+
+                        <TabsContent value="gantt" className="space-y-4">
+                          <DepartmentGanttView
+                            departmentId={dept.id}
+                            departmentName={dept.name}
+                            tasks={deptTasks}
+                            onTasksUpdate={fetchProjectData}
+                          />
+                        </TabsContent>
+
+                        <TabsContent value="list" className="space-y-2">
+                          {deptTasks.length > 0 ? (
+                            <div className="space-y-2">
+                              {deptTasks.map(task => (
+                                <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{task.title}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                                        {task.priority}
+                                      </Badge>
+                                      <Badge className={`text-xs ${getStatusColor(task.status)}`}>
+                                        {task.status}
+                                      </Badge>
+                                      {task.start_date && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(task.start_date).toLocaleDateString()} - {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No end date'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {task.due_date && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Calendar className="h-3 w-3" />
+                                      {new Date(task.due_date).toLocaleDateString()}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              No tasks in this department yet
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
                     )}
                   </CardContent>
                 </Card>
