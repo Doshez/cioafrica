@@ -69,6 +69,7 @@ interface Task {
   id: string;
   title: string;
   assignee?: string;
+  assignee_user_id?: string;
   start_date: string;
   due_date: string;
   progress_percentage: number;
@@ -122,12 +123,19 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedElements, setExpandedElements] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchData();
+    fetchCurrentUser();
   }, [projectId]);
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUserId(user?.id || null);
+  };
 
   const fetchData = async () => {
     try {
@@ -212,6 +220,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
           id: task.id,
           title: task.title,
           assignee: task.assignee_user_id ? (userMap[task.assignee_user_id] || 'Unassigned') : 'Unassigned',
+          assignee_user_id: task.assignee_user_id,
           start_date: task.start_date,
           due_date: task.due_date,
           progress_percentage: task.progress_percentage || 0,
@@ -304,6 +313,40 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       }
       return newSet;
     });
+  };
+
+  // Handle element click with permission check
+  const handleElementClick = async (element: Element) => {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Check if user is admin or project manager
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id);
+
+    const isAdmin = userRoles?.some(r => r.role === 'admin');
+    const isProjectManager = userRoles?.some(r => r.role === 'project_manager');
+
+    if (isAdmin || isProjectManager) {
+      setSelectedElement(element);
+      return;
+    }
+
+    // Check if user is assigned to any task in this element
+    const isAssignedToTask = element.tasks.some(task => task.assignee_user_id === user.id);
+
+    if (isAssignedToTask) {
+      setSelectedElement(element);
+    } else {
+      toast({
+        title: 'Access Restricted',
+        description: 'You can only view details of tasks you are assigned to.',
+        variant: 'default'
+      });
+    }
   };
 
   // Filter elements
@@ -1107,7 +1150,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                           deptName={dept.name}
                           isExpanded={expandedElements.has(element.id)}
                           onToggleExpand={() => toggleElementExpansion(element.id)}
-                          onElementClick={() => setSelectedElement(element)}
+                          onElementClick={() => handleElementClick(element)}
                           calculatePosition={calculatePosition}
                           getStatusIcon={getStatusIcon}
                           getStatusColor={getStatusColor}

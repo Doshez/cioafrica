@@ -21,6 +21,7 @@ interface Task {
   id: string;
   title: string;
   assignee?: string;
+  assignee_user_id?: string;
   start_date: string;
   due_date: string;
   progress_percentage: number;
