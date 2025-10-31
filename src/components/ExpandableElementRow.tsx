@@ -221,18 +221,29 @@ export function ExpandableElementRow({
               {/* Left Column - Task Info */}
               <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-2 flex-shrink-0">
                 <div className="flex items-center gap-2 pl-8">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <TaskStatusIcon className="h-3 w-3 flex-shrink-0" />
-                      <span className="text-xs font-medium truncate">{task.title}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <TaskStatusIcon className="h-3 w-3 flex-shrink-0" />
+                  <span className="text-xs font-medium truncate">{task.title}</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {task.assignee && (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <User className="h-2.5 w-2.5" />
+                      <span className="truncate">{task.assignee}</span>
                     </div>
-                    {task.assignee && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                        <User className="h-2.5 w-2.5" />
-                        <span className="truncate">{task.assignee}</span>
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium"
+                    style={{ 
+                      backgroundColor: `${getStatusColor(task.status)}22`, 
+                      color: getStatusColor(task.status) 
+                    }}
+                  >
+                    ● {task.status.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
                   <Badge 
                     variant="outline" 
                     className="text-[9px] px-1 py-0 h-4 flex-shrink-0"
@@ -250,20 +261,37 @@ export function ExpandableElementRow({
                       <motion.div
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ 
-                          opacity: 1, 
-                          x: 0,
-                          backgroundColor: getStatusColor(task.status)
+                          opacity: task.status === 'not-started' || task.status === 'todo' ? 0.6 : 1, 
+                          x: 0
                         }}
                         whileHover={{ scale: 1.02, zIndex: 30 }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="absolute cursor-pointer rounded-md overflow-hidden shadow-sm hover:shadow-md border border-white/20"
+                        className="absolute cursor-pointer rounded-md overflow-hidden shadow-sm hover:shadow-md"
                         style={{
                           ...taskPosition,
                           height: '24px',
                           top: '6px',
-                          background: `linear-gradient(135deg, ${getStatusColor(task.status)}E6, ${getStatusColor(task.status)}B3)`
+                          background: task.status === 'in_progress' || task.status === 'in-progress'
+                            ? `linear-gradient(90deg, ${getStatusColor(task.status)}, ${getStatusColor(task.status)}99)`
+                            : task.status === 'completed' || task.status === 'done'
+                            ? getStatusColor(task.status)
+                            : `${getStatusColor(task.status)}55`,
+                          border: `1px solid ${getStatusColor(task.status)}`
                         }}
                       >
+                        {/* Animated shimmer effect for in-progress tasks */}
+                        {(task.status === 'in_progress' || task.status === 'in-progress') && (
+                          <motion.div
+                            className="absolute inset-0 rounded-md"
+                            style={{
+                              background: `linear-gradient(270deg, ${getStatusColor(task.status)}33, ${getStatusColor(task.status)}99, ${getStatusColor(task.status)}33)`,
+                              backgroundSize: '200% 100%'
+                            }}
+                            animate={{ backgroundPosition: ['0% 0%', '100% 0%'] }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                          />
+                        )}
+                        
                         {/* Progress Bar */}
                         <motion.div
                           initial={{ width: 0 }}
