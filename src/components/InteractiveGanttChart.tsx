@@ -133,7 +133,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     try {
       setLoading(true);
 
-      // Fetch departments
+      // Fetch departments - RLS will filter to only show departments with user's assigned tasks
       const { data: deptData, error: deptError } = await supabase
         .from('departments')
         .select('*')
@@ -152,7 +152,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
       if (elementsError) throw elementsError;
 
-      // Fetch tasks with valid dates
+      // Fetch tasks with valid dates - RLS will filter to only show user's assigned tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
@@ -767,10 +767,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     return (
       <div className="w-full">
         <Card className="rounded-none border-x-0">
-          <CardContent className="py-12 text-center text-muted-foreground">
+          <CardContent className="py-12 text-center text-muted-foreground space-y-3">
             <Calendar className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-semibold">No tasks with dates found</p>
-            <p className="text-sm">Create tasks with start and due dates to see the Gantt chart</p>
+            <p className="text-lg font-semibold">No tasks available to display</p>
+            <p className="text-sm max-w-md mx-auto">
+              You can only view tasks that are assigned to you. Once you have assigned tasks with start and due dates, they will appear here.
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -100,9 +100,21 @@ export default function DepartmentGantt() {
         .from('departments')
         .select('*')
         .eq('id', departmentId)
-        .single();
+        .maybeSingle();
 
       if (deptError) throw deptError;
+      
+      // Check if user has access to this department
+      if (!deptData) {
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have access to this department. You can only view departments where you have assigned tasks.',
+          variant: 'destructive',
+        });
+        navigate(`/projects/${projectId}`);
+        return;
+      }
+      
       setDepartment(deptData);
 
       // Fetch project
@@ -110,9 +122,20 @@ export default function DepartmentGantt() {
         .from('projects')
         .select('id, name')
         .eq('id', projectId)
-        .single();
+        .maybeSingle();
 
       if (projectError) throw projectError;
+      
+      if (!projectData) {
+        toast({
+          title: 'Error',
+          description: 'Project not found',
+          variant: 'destructive',
+        });
+        navigate('/projects');
+        return;
+      }
+      
       setProject(projectData);
 
       await fetchTasksAndAnalytics();
@@ -122,6 +145,7 @@ export default function DepartmentGantt() {
         description: error.message,
         variant: 'destructive',
       });
+      navigate(`/projects/${projectId}`);
     } finally {
       setLoading(false);
     }

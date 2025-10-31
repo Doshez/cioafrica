@@ -29,12 +29,20 @@ export default function ProjectGanttChartPage() {
         .from('projects')
         .select('id, name, description')
         .eq('id', projectId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      
+      if (!data) {
+        console.error('Project not found or access denied');
+        navigate('/projects');
+        return;
+      }
+      
       setProject(data);
     } catch (error) {
       console.error('Error fetching project:', error);
+      navigate('/projects');
     } finally {
       setLoading(false);
     }

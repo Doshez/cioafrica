@@ -87,9 +87,20 @@ export default function ProjectDetails() {
         .from('projects')
         .select('*')
         .eq('id', projectId)
-        .single();
+        .maybeSingle();
 
       if (projectError) throw projectError;
+      
+      if (!projectData) {
+        toast({
+          title: 'Error',
+          description: 'Project not found or you do not have access',
+          variant: 'destructive',
+        });
+        navigate('/projects');
+        return;
+      }
+      
       setProject(projectData);
 
       // Fetch departments
@@ -268,7 +279,14 @@ export default function ProjectDetails() {
         {departments.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              No departments yet. Create one to get started.
+              {isAdmin || isProjectManager ? (
+                <p>No departments yet. Create one to get started.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p>You don't have access to any departments yet.</p>
+                  <p className="text-sm">You can only view departments where you have assigned tasks.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
