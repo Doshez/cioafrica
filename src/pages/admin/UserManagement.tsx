@@ -637,7 +637,7 @@ export default function UserManagement() {
 
       {/* Users Display */}
       {viewMode === "card" ? (
-        <div className="grid gap-4">
+        <div className="grid gap-4 max-h-[calc(100vh-400px)] overflow-y-auto pr-2 scrollbar-thin">
           {filteredUsers.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -712,7 +712,7 @@ export default function UserManagement() {
         </div>
       ) : (
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="p-0 max-h-[calc(100vh-400px)] overflow-y-auto scrollbar-thin">
             <Table>
               <TableHeader>
                 <TableRow>
