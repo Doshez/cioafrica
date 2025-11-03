@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, KeyRound, Send, Clock } from 'lucide-react';
+import { Loader2, KeyRound, Send, Clock, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface PasswordResetRequest {
@@ -19,6 +19,7 @@ export default function PasswordResetRequestsCard() {
   const [requests, setRequests] = useState<PasswordResetRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRequests();
@@ -65,6 +66,27 @@ export default function PasswordResetRequestsCard() {
       toast.error(error.message || 'Failed to send temporary password');
     } finally {
       setSending(null);
+    }
+  };
+
+  const handleDeleteRequest = async (requestId: string) => {
+    setDeleting(requestId);
+    
+    try {
+      const { error } = await supabase
+        .from('password_reset_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      toast.success('Password reset request deleted');
+      fetchRequests();
+    } catch (error: any) {
+      console.error('Error deleting request:', error);
+      toast.error('Failed to delete request');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -132,38 +154,51 @@ export default function PasswordResetRequestsCard() {
                     Requested {formatDistanceToNow(new Date(request.requested_at))} ago
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    // Find the user ID from profiles table
-                    supabase
-                      .from('profiles')
-                      .select('id')
-                      .eq('email', request.user_email)
-                      .single()
-                      .then(({ data, error }) => {
-                        if (error || !data) {
-                          toast.error('User not found');
-                          return;
-                        }
-                        handleSendTemporaryPassword(request.id, data.id);
-                      });
-                  }}
-                  disabled={sending === request.id}
-                  className="ml-4"
-                >
-                  {sending === request.id ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Send Temp Password
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2 ml-4">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteRequest(request.id)}
+                    disabled={deleting === request.id}
+                  >
+                    {deleting === request.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      // Find the user ID from profiles table
+                      supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('email', request.user_email)
+                        .single()
+                        .then(({ data, error }) => {
+                          if (error || !data) {
+                            toast.error('User not found');
+                            return;
+                          }
+                          handleSendTemporaryPassword(request.id, data.id);
+                        });
+                    }}
+                    disabled={sending === request.id}
+                  >
+                    {sending === request.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Send Temp Password
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
