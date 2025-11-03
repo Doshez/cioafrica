@@ -161,18 +161,28 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         .eq('project_id', projectId)
         .order('created_at');
 
-      if (elementsError) throw elementsError;
+      if (elementsError) {
+        console.error('Error fetching elements:', elementsError);
+        throw elementsError;
+      }
+      
+      console.log('Fetched elements for Interactive Gantt:', elementsData?.length || 0, elementsData);
 
       // Fetch tasks with valid dates - RLS will filter to only show user's assigned tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, element:elements(id, title)')
         .eq('project_id', projectId)
         .not('start_date', 'is', null)
         .not('due_date', 'is', null)
         .order('start_date');
 
-      if (tasksError) throw tasksError;
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        throw tasksError;
+      }
+      
+      console.log('Fetched tasks for Interactive Gantt:', tasksData?.length || 0, tasksData);
       
       // Fetch user profiles for assignees
       const userIds = [...new Set(
@@ -284,6 +294,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         }
         return element;
       }).filter(element => element.tasks.length > 0); // Only show elements with tasks
+      
+      console.log('Final elements array for Interactive Gantt:', elementsArray.length, elementsArray);
+      console.log('Elements with tasks:', elementsArray.map(e => ({ title: e.title, taskCount: e.tasks.length, tasks: e.tasks.map(t => t.title) })));
       
       setElements(elementsArray);
       
