@@ -764,7 +764,120 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         { wch: 25 }, // Assigned To
       ];
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
+      XLSX.utils.book_append_sheet(wb, ws, 'Data');
+
+      // Create Visual Gantt Chart Sheet
+      const visualGanttData: any[] = [];
+      
+      // Get overall date range
+      const allDates = filteredElements.flatMap(e => 
+        e.tasks.flatMap(t => [new Date(t.start_date), new Date(t.due_date)])
+      );
+      const minDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : new Date();
+      const maxDate = allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : new Date();
+      
+      // Generate weekly columns
+      const weeks: Date[] = [];
+      let currentWeek = startOfWeek(minDate, { weekStartsOn: 1 });
+      const lastWeek = endOfWeek(maxDate, { weekStartsOn: 1 });
+      
+      while (currentWeek <= lastWeek) {
+        weeks.push(currentWeek);
+        currentWeek = addDays(currentWeek, 7);
+      }
+      
+      // Create header row
+      const headerRow: any = {
+        'Department / Task': 'Department / Task',
+        'Status': 'Status',
+        'Progress': 'Progress'
+      };
+      
+      weeks.forEach((week, idx) => {
+        const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
+        headerRow[`W${idx + 1}`] = `${format(week, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+      });
+      
+      visualGanttData.push(headerRow);
+      
+      // Add rows for each element and task
+      filteredElements.forEach(element => {
+        const dept = departments.find(d => d.id === element.departmentId);
+        
+        // Element row
+        const elementRow: any = {
+          'Department / Task': `[${dept?.name || 'Unknown'}] ${element.title}`,
+          'Status': 'ELEMENT',
+          'Progress': `${Math.round(element.tasks.reduce((sum, t) => sum + (t.progress_percentage || 0), 0) / (element.tasks.length || 1))}%`
+        };
+        
+        // Fill week columns for element timeline
+        weeks.forEach((week, idx) => {
+          const weekStart = week;
+          const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
+          
+          // Check if any task is active in this week
+          const hasActiveTask = element.tasks.some(t => {
+            const taskStart = new Date(t.start_date);
+            const taskEnd = new Date(t.due_date);
+            return (taskStart <= weekEnd && taskEnd >= weekStart);
+          });
+          
+          elementRow[`W${idx + 1}`] = hasActiveTask ? '▓▓▓▓' : '';
+        });
+        
+        visualGanttData.push(elementRow);
+        
+        // Task rows
+        element.tasks.forEach(task => {
+          const taskRow: any = {
+            'Department / Task': `  → ${task.title}`,
+            'Status': task.status.toUpperCase(),
+            'Progress': `${task.progress_percentage || 0}%`
+          };
+          
+          const taskStart = new Date(task.start_date);
+          const taskEnd = new Date(task.due_date);
+          
+          weeks.forEach((week, idx) => {
+            const weekStart = week;
+            const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
+            
+            // Determine if task overlaps with this week
+            if (taskStart <= weekEnd && taskEnd >= weekStart) {
+              // Task is active during this week
+              if (task.status === 'done') {
+                taskRow[`W${idx + 1}`] = '████'; // Completed
+              } else if (task.status === 'in_progress') {
+                taskRow[`W${idx + 1}`] = '▓▓▓▓'; // In progress
+              } else {
+                taskRow[`W${idx + 1}`] = '░░░░'; // Not started
+              }
+            } else {
+              taskRow[`W${idx + 1}`] = '';
+            }
+          });
+          
+          visualGanttData.push(taskRow);
+        });
+      });
+      
+      const wsVisual = XLSX.utils.json_to_sheet(visualGanttData, { skipHeader: true });
+      
+      // Set column widths for visual chart
+      const visualCols = [
+        { wch: 40 }, // Department/Task
+        { wch: 15 }, // Status
+        { wch: 10 }, // Progress
+      ];
+      
+      weeks.forEach(() => {
+        visualCols.push({ wch: 15 }); // Week columns
+      });
+      
+      wsVisual['!cols'] = visualCols;
+      
+      XLSX.utils.book_append_sheet(wb, wsVisual, 'Visual Gantt Chart');
 
       // Add analytics sheet with calculated data
       const analyticsData: any[] = [];
@@ -844,7 +957,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported with calculated data'
+        description: 'Excel exported with data, visual Gantt chart, and analytics'
       });
     } catch (error) {
       console.error('Excel export error:', error);
