@@ -351,7 +351,7 @@ export default function MyTasks() {
           </CardContent>
         </Card>
       ) : viewMode === 'cards' ? (
-        <div className="space-y-6 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
+        <div className="space-y-6 max-h-[calc(100vh-280px)] overflow-y-auto pr-2 scrollbar-thin">
           {groupedTasks.map((group) => (
             <Card key={group.elementId} className="overflow-hidden">
               <CardHeader className="bg-muted/50">
@@ -462,7 +462,7 @@ export default function MyTasks() {
           ))}
         </div>
       ) : viewMode === 'list' ? (
-        <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto pr-2 scrollbar-thin">
           <Card>
             <CardContent className="p-0">
             {groupedTasks.map((group) => (
