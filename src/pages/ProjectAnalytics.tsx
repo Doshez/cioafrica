@@ -36,6 +36,7 @@ export default function ProjectAnalytics() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'title' | 'working_days' | 'estimated_cost' | 'actual_cost' | 'cost_variance'>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currency, setCurrency] = useState<'USD' | 'KES'>('USD');
 
   // Use the analytics data layer hook
   const {
@@ -137,11 +138,12 @@ export default function ProjectAnalytics() {
     const csvContent = [
       [`Project: ${project?.name || 'Unknown'}`],
       [`Generated: ${new Date().toLocaleString()}`],
+      [`Currency: ${currency}`],
       [],
       [`Summary KPIs`],
-      [`Total Estimated Cost: ${formatCurrency(kpis.totalEstimatedCost)}`],
-      [`Total Actual Cost: ${formatCurrency(kpis.totalActualCost)}`],
-      [`Overall Cost Variance: ${formatCurrency(kpis.overallCostVariance)} (${formatPercentage(kpis.overallCostVariancePct)})`],
+      [`Total Estimated Cost: ${formatCurrency(kpis.totalEstimatedCost, currency)}`],
+      [`Total Actual Cost: ${formatCurrency(kpis.totalActualCost, currency)}`],
+      [`Overall Cost Variance: ${formatCurrency(kpis.overallCostVariance, currency)} (${formatPercentage(kpis.overallCostVariancePct)})`],
       [`Average Working Days: ${kpis.averageWorkingDays.toFixed(1)} days`],
       [`Project Completion: ${kpis.projectCompletionPct.toFixed(1)}%`],
       [],
@@ -236,6 +238,15 @@ export default function ProjectAnalytics() {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={currency} onValueChange={(value: 'USD' | 'KES') => setCurrency(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Currency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USD">USD ($)</SelectItem>
+                <SelectItem value="KES">KES (KSh)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -251,7 +262,7 @@ export default function ProjectAnalytics() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(kpis.totalEstimatedCost)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(kpis.totalEstimatedCost, currency)}</div>
                 <p className="text-xs text-muted-foreground mt-1">Budget allocation</p>
               </CardContent>
             </Card>
@@ -264,7 +275,7 @@ export default function ProjectAnalytics() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(kpis.totalActualCost)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(kpis.totalActualCost, currency)}</div>
                 <p className="text-xs text-muted-foreground mt-1">Actual spend</p>
               </CardContent>
             </Card>
@@ -282,7 +293,7 @@ export default function ProjectAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold ${kpis.overallCostVariance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatCurrency(Math.abs(kpis.overallCostVariance))}
+                  {formatCurrency(Math.abs(kpis.overallCostVariance), currency)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{formatPercentage(kpis.overallCostVariancePct)}</p>
               </CardContent>
@@ -365,9 +376,9 @@ export default function ProjectAnalytics() {
                         return (
                           <div className="bg-background border rounded-lg p-3 shadow-lg">
                             <p className="font-semibold">{data.fullTitle}</p>
-                            <p>Estimated: {formatCurrency(data.estimated)}</p>
-                            <p>Actual: {formatCurrency(data.actual)}</p>
-                            <p className="font-semibold">Variance: {formatCurrency(data.variance)}</p>
+                            <p>Estimated: {formatCurrency(data.estimated, currency)}</p>
+                            <p>Actual: {formatCurrency(data.actual, currency)}</p>
+                            <p className="font-semibold">Variance: {formatCurrency(data.variance, currency)}</p>
                           </div>
                         );
                       }
@@ -496,10 +507,10 @@ export default function ProjectAnalytics() {
                         <TableCell>{task.start_date || 'N/A'}</TableCell>
                         <TableCell>{task.due_date || 'N/A'}</TableCell>
                         <TableCell>{formatWorkingDays(task.working_days)}</TableCell>
-                        <TableCell>{formatCurrency(task.estimated_cost)}</TableCell>
-                        <TableCell>{formatCurrency(task.actual_cost)}</TableCell>
+                        <TableCell>{formatCurrency(task.estimated_cost, currency)}</TableCell>
+                        <TableCell>{formatCurrency(task.actual_cost, currency)}</TableCell>
                         <TableCell className={task.cost_variance >= 0 ? 'text-red-600' : 'text-green-600'}>
-                          {formatCurrency(Math.abs(task.cost_variance))}
+                          {formatCurrency(Math.abs(task.cost_variance), currency)}
                         </TableCell>
                         <TableCell>{formatPercentage(task.cost_variance_pct)}</TableCell>
                         <TableCell>

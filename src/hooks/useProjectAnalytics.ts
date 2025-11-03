@@ -153,10 +153,10 @@ export function useProjectAnalytics({
 /**
  * Format currency for display
  */
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(amount: number, currency: 'USD' | 'KES' = 'USD'): string {
+  return new Intl.NumberFormat(currency === 'KES' ? 'en-KE' : 'en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(amount);
