@@ -18,7 +18,6 @@ const taskRowSchema = z.object({
   'Description': z.string().optional(),
   'Estimated Cost': z.number().optional(),
   'Actual Cost': z.number().optional(),
-  'Estimated Hours': z.number().optional(),
 });
 
 interface ImportTasksDialogProps {
@@ -67,7 +66,6 @@ export function ImportTasksDialog({
           'Description': 'Task description',
           'Estimated Cost': 1000,
           'Actual Cost': 0,
-          'Estimated Hours': 40,
         },
         {
           'Task Title': 'Example Task 2',
@@ -79,7 +77,6 @@ export function ImportTasksDialog({
           'Description': 'Another task description',
           'Estimated Cost': 2000,
           'Actual Cost': 500,
-          'Estimated Hours': 80,
         },
       ];
 
@@ -97,7 +94,6 @@ export function ImportTasksDialog({
         { wch: 40 }, // Description
         { wch: 15 }, // Estimated Cost
         { wch: 15 }, // Actual Cost
-        { wch: 15 }, // Estimated Hours
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Tasks Template');
 
@@ -255,7 +251,6 @@ export function ImportTasksDialog({
             'Description': row['Description'],
             'Estimated Cost': typeof row['Estimated Cost'] === 'number' ? row['Estimated Cost'] : undefined,
             'Actual Cost': typeof row['Actual Cost'] === 'number' ? row['Actual Cost'] : undefined,
-            'Estimated Hours': typeof row['Estimated Hours'] === 'number' ? row['Estimated Hours'] : undefined,
           });
 
           const task = {
@@ -269,7 +264,6 @@ export function ImportTasksDialog({
             due_date: parseExcelDate(row['Due Date']),
             estimated_cost: validated['Estimated Cost'] || 0,
             actual_cost: validated['Actual Cost'] || 0,
-            estimate_hours: validated['Estimated Hours'] || null,
             element_id: validated['Element'] ? elementMap.get(validated['Element']) : null,
             progress_percentage: validated['Status'] === 'done' ? 100 : validated['Status'] === 'in_progress' ? 50 : 0,
           };
@@ -352,7 +346,6 @@ export function ImportTasksDialog({
               <li>• Description</li>
               <li>• Estimated Cost (number)</li>
               <li>• Actual Cost (number)</li>
-              <li>• Estimated Hours (number)</li>
             </ul>
           </div>
 
