@@ -152,7 +152,9 @@ export default function Projects() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
                   {project.logo_url && (
-                    <img src={project.logo_url} alt={`${project.name} logo`} className="h-16 w-16 object-contain rounded flex-shrink-0" />
+                    <div className="h-24 w-24 flex-shrink-0 bg-muted rounded-lg p-2 border border-border">
+                      <img src={project.logo_url} alt={`${project.name} logo`} className="h-full w-full object-contain" />
+                    </div>
                   )}
                   <div className="space-y-1 flex-1 min-w-0">
                     <CardTitle className="text-xl group-hover:text-primary transition-smooth truncate">
