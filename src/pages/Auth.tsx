@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog';
+import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import cioDxLogo from '@/assets/cio-dx-logo.png';
 
 export default function Auth() {
@@ -17,6 +19,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,31 +36,53 @@ export default function Auth() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      toast.error(error.message || 'Failed to sign in');
+      // Handle specific error cases
+      if (error.message.includes('Invalid login credentials')) {
+        toast.error('Invalid email or password. Please check and try again.');
+      } else {
+        toast.error(error.message || 'Failed to sign in');
+      }
       setLoading(false);
-    } else {
-      // Check if user needs to change password
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('must_change_password')
-          .eq('id', user.id)
-          .single();
+      return;
+    }
 
-        if (profile?.must_change_password) {
-          setShowPasswordChange(true);
+    // Check if user needs to change password
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('must_change_password, temporary_password_expires_at')
+        .eq('id', user.id)
+        .single();
+
+      // Check if temporary password has expired
+      if (profile?.temporary_password_expires_at) {
+        const expiryDate = new Date(profile.temporary_password_expires_at);
+        const now = new Date();
+        
+        if (now > expiryDate) {
+          // Temporary password expired - sign out and show error
+          await supabase.auth.signOut();
+          toast.error('This temporary password has expired. Ask your admin for a new one.', {
+            duration: 5000
+          });
           setLoading(false);
           return;
         }
       }
 
-      toast.success('Welcome back!', {
-        icon: <CheckCircle2 className="h-4 w-4" />
-      });
-      setLoading(false);
+      if (profile?.must_change_password) {
+        setShowPasswordChange(true);
+        setLoading(false);
+        return;
+      }
     }
+
+    toast.success('Welcome back!', {
+      icon: <CheckCircle2 className="h-4 w-4" />
+    });
+    setLoading(false);
   };
 
   const handlePasswordChangeSuccess = () => {
@@ -72,6 +97,10 @@ export default function Auth() {
         open={showPasswordChange} 
         onSuccess={handlePasswordChangeSuccess}
         isForced={true}
+      />
+      <ForgotPasswordDialog 
+        open={showForgotPassword}
+        onOpenChange={setShowForgotPassword}
       />
       <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -114,6 +143,24 @@ export default function Auth() {
                 Sign In
               </Button>
             </form>
+            <div className="mt-4 text-center">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Forgot your password? We've got your back 💙
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Click to ask an admin for a reset — they'll send you a temporary password by email.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </CardContent>
         </Card>
       </div>

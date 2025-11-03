@@ -22,12 +22,23 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error("Passwords don't match — try again.");
       return;
     }
 
     if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+
+    // Check password strength
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSymbol) {
+      toast.error('Password must include uppercase, lowercase, number, and symbol');
       return;
     }
 
@@ -41,19 +52,22 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
 
       if (passwordError) throw passwordError;
 
-      // Always update must_change_password flag in profiles when password is changed
+      // Always update must_change_password flag and clear temp password expiry
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ must_change_password: false })
+          .update({ 
+            must_change_password: false,
+            temporary_password_expires_at: null
+          })
           .eq('id', user.id);
 
         if (profileError) throw profileError;
       }
 
-      toast.success('Password changed successfully');
+      toast.success("Password saved — you're all set! ✅");
       setNewPassword('');
       setConfirmPassword('');
       onSuccess();
@@ -72,12 +86,12 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
             <div className="p-2 rounded-lg bg-primary/10">
               <Lock className="h-5 w-5 text-primary" />
             </div>
-            <DialogTitle>Change Your Password</DialogTitle>
+            <DialogTitle>{isForced ? "One last step — create a new password ✨" : "Update Password"}</DialogTitle>
           </div>
           <DialogDescription>
             {isForced 
-              ? 'For security reasons, you must change your temporary password before continuing.'
-              : 'Enter your new password below to update your account security.'}
+              ? "For security we require a new permanent password. Make it something only you'd know (8+ characters, mix of letters, numbers & symbols)."
+              : "Enter your new password below to update your account security."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleChangePassword} className="space-y-4">
@@ -92,9 +106,23 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
               required
               minLength={8}
             />
-            <p className="text-xs text-muted-foreground">
-              Must be at least 8 characters
-            </p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className={newPassword.length >= 8 ? 'text-green-600' : ''}>
+                ✓ At least 8 characters
+              </p>
+              <p className={/[A-Z]/.test(newPassword) ? 'text-green-600' : ''}>
+                ✓ Uppercase letter
+              </p>
+              <p className={/[a-z]/.test(newPassword) ? 'text-green-600' : ''}>
+                ✓ Lowercase letter
+              </p>
+              <p className={/[0-9]/.test(newPassword) ? 'text-green-600' : ''}>
+                ✓ Number
+              </p>
+              <p className={/[!@#$%^&*(),.?":{}|<>]/.test(newPassword) ? 'text-green-600' : ''}>
+                ✓ Symbol
+              </p>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -108,10 +136,15 @@ export default function ChangePasswordDialog({ open, onSuccess, isForced = false
               minLength={8}
             />
           </div>
-          <DialogFooter>
-            <Button type="submit" className="w-full" disabled={loading}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {!isForced && (
+              <Button variant="outline" type="button" onClick={() => onSuccess()} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Change Password
+              Save new password
             </Button>
           </DialogFooter>
         </form>

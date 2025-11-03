@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EditUserDialog from "@/components/EditUserDialog";
+import PasswordResetRequestsCard from "@/components/PasswordResetRequestsCard";
 
 interface User {
   id: string;
@@ -322,6 +323,9 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Password Reset Requests */}
+      <PasswordResetRequestsCard />
+      
       {/* Header with Create User Button and Role Guide */}
       <div className="flex items-start justify-between gap-4">
         <div>

@@ -198,6 +198,42 @@ export type Database = {
           },
         ]
       }
+      password_reset_requests: {
+        Row: {
+          completed_at: string | null
+          completed_by_admin_id: string | null
+          created_at: string | null
+          id: string
+          requested_at: string
+          status: string
+          user_email: string
+          user_full_name: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by_admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_email: string
+          user_full_name?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by_admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_email?: string
+          user_full_name?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -207,6 +243,7 @@ export type Database = {
           full_name: string | null
           id: string
           must_change_password: boolean | null
+          temporary_password_expires_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -217,6 +254,7 @@ export type Database = {
           full_name?: string | null
           id: string
           must_change_password?: boolean | null
+          temporary_password_expires_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -227,6 +265,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           must_change_password?: boolean | null
+          temporary_password_expires_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
