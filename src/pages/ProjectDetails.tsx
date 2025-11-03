@@ -273,6 +273,7 @@ export default function ProjectDetails() {
             <CreateTaskDialog 
               projectId={projectId}
               onTaskCreated={fetchProjectData}
+              showTrigger={false}
             />
           </div>
         )}

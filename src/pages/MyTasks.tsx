@@ -300,7 +300,7 @@ export default function MyTasks() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          {isAdmin && <CreateTaskDialog onTaskCreated={fetchMyTasks} />}
+          {isAdmin && <CreateTaskDialog onTaskCreated={fetchMyTasks} showTrigger={false} />}
         </div>
       </div>
 

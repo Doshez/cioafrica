@@ -15,6 +15,7 @@ interface CreateTaskDialogProps {
   projectId?: string;
   departmentId?: string;
   onTaskCreated?: () => void;
+  showTrigger?: boolean;
 }
 
 interface Profile {
@@ -40,7 +41,7 @@ interface Element {
   department_id: string;
 }
 
-export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showTrigger = true }: CreateTaskDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -243,12 +244,14 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated }: Cre
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Task
-        </Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Task
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
