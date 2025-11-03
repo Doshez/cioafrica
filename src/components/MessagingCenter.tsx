@@ -47,61 +47,161 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
 
   // Fetch or create public chat room
   useEffect(() => {
-    if (!projectId || !open) return;
+    if (!projectId || !open || !user) return;
 
-    const fetchPublicRoom = async () => {
-      const { data: existingRoom } = await supabase
-        .from('chat_rooms')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('room_type', 'public')
-        .single();
+    const fetchOrCreatePublicRoom = async () => {
+      try {
+        // Try to fetch existing public room
+        const { data: existingRoom, error: fetchError } = await supabase
+          .from('chat_rooms')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('room_type', 'public')
+          .maybeSingle();
 
-      if (existingRoom) {
-        setPublicRoom(existingRoom);
-        // Ensure user is a participant
-        await supabase
-          .from('chat_participants')
-          .upsert({ room_id: existingRoom.id, user_id: user!.id });
+        if (fetchError) {
+          console.error('Error fetching public room:', fetchError);
+          return;
+        }
+
+        let roomToUse = existingRoom;
+
+        // Create public room if it doesn't exist
+        if (!roomToUse) {
+          const { data: newRoom, error: createError } = await supabase
+            .from('chat_rooms')
+            .insert({
+              project_id: projectId,
+              room_type: 'public',
+              name: 'Project Chat',
+              created_by: user.id,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating public room:', createError);
+            toast({
+              title: 'Error creating chat room',
+              description: createError.message,
+              variant: 'destructive',
+            });
+            return;
+          }
+          roomToUse = newRoom;
+        }
+
+        if (roomToUse) {
+          setPublicRoom(roomToUse);
+          // Ensure user is a participant
+          await supabase
+            .from('chat_participants')
+            .upsert({ room_id: roomToUse.id, user_id: user.id }, {
+              onConflict: 'room_id,user_id'
+            });
+        }
+      } catch (error) {
+        console.error('Error in fetchOrCreatePublicRoom:', error);
       }
     };
 
-    fetchPublicRoom();
-  }, [projectId, open, user]);
+    fetchOrCreatePublicRoom();
+  }, [projectId, open, user, toast]);
 
   // Fetch private rooms
   useEffect(() => {
-    if (!projectId || !open) return;
+    if (!projectId || !open || !user) return;
 
     const fetchPrivateRooms = async () => {
-      const { data } = await supabase
-        .from('chat_participants')
-        .select('room_id, chat_rooms(*)')
-        .eq('user_id', user!.id)
-        .eq('chat_rooms.room_type', 'private')
-        .eq('chat_rooms.project_id', projectId);
+      try {
+        // Fetch room IDs user is participating in
+        const { data: participations, error } = await supabase
+          .from('chat_participants')
+          .select('room_id')
+          .eq('user_id', user.id);
 
-      if (data) {
-        setPrivateRooms(data.map((d: any) => d.chat_rooms));
+        if (error) {
+          console.error('Error fetching participations:', error);
+          return;
+        }
+
+        if (!participations || participations.length === 0) {
+          setPrivateRooms([]);
+          return;
+        }
+
+        const roomIds = participations.map(p => p.room_id);
+
+        // Fetch the actual room details
+        const { data: rooms, error: roomsError } = await supabase
+          .from('chat_rooms')
+          .select('*')
+          .in('id', roomIds)
+          .eq('room_type', 'private')
+          .eq('project_id', projectId);
+
+        if (roomsError) {
+          console.error('Error fetching rooms:', roomsError);
+          return;
+        }
+
+        setPrivateRooms(rooms || []);
+      } catch (error) {
+        console.error('Error in fetchPrivateRooms:', error);
       }
     };
 
     fetchPrivateRooms();
   }, [projectId, open, user]);
 
-  // Fetch project members
+  // Fetch project members with profiles
   useEffect(() => {
-    if (!projectId || !open) return;
+    if (!projectId || !open || !user) return;
 
     const fetchMembers = async () => {
-      const { data } = await supabase
-        .from('project_members')
-        .select('user_id, profiles(full_name, avatar_url)')
-        .eq('project_id', projectId)
-        .neq('user_id', user!.id);
+      try {
+        // Fetch project members
+        const { data: members, error: membersError } = await supabase
+          .from('project_members')
+          .select('user_id')
+          .eq('project_id', projectId)
+          .neq('user_id', user.id);
 
-      if (data) {
-        setProjectMembers(data as any);
+        if (membersError) {
+          console.error('Error fetching members:', membersError);
+          return;
+        }
+
+        if (!members || members.length === 0) {
+          setProjectMembers([]);
+          return;
+        }
+
+        const userIds = members.map(m => m.user_id);
+
+        // Fetch profiles for these users
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          return;
+        }
+
+        // Combine members with their profiles
+        const membersWithProfiles = members.map(member => ({
+          user_id: member.user_id,
+          profiles: profiles?.find(p => p.id === member.user_id) || {
+            full_name: null,
+            avatar_url: null,
+          },
+        }));
+
+        setProjectMembers(membersWithProfiles);
+      } catch (error) {
+        console.error('Error in fetchMembers:', error);
       }
     };
 
@@ -118,60 +218,95 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
   }, [activeTab, publicRoom, privateRooms]);
 
   const createPrivateChat = async (otherUserId: string) => {
-    // Check if room already exists
-    const { data: existingParticipants } = await supabase
-      .from('chat_participants')
-      .select('room_id, chat_rooms(room_type, project_id)')
-      .eq('user_id', user!.id);
+    if (!user) return;
 
-    const existingRoom = existingParticipants?.find((p: any) => {
-      const room = p.chat_rooms;
-      if (room?.room_type !== 'private' || room.project_id !== projectId) return false;
-
-      // Check if other user is also a participant
-      return supabase
+    try {
+      // Fetch all rooms user is participating in
+      const { data: myParticipations } = await supabase
         .from('chat_participants')
-        .select('id')
-        .eq('room_id', p.room_id)
-        .eq('user_id', otherUserId)
-        .single()
-        .then((r) => !!r.data);
-    });
+        .select('room_id')
+        .eq('user_id', user.id);
 
-    if (existingRoom) {
-      setSelectedRoom(existingRoom.room_id);
-      return;
-    }
+      if (myParticipations && myParticipations.length > 0) {
+        const roomIds = myParticipations.map(p => p.room_id);
 
-    // Create new room
-    const { data: newRoom, error } = await supabase
-      .from('chat_rooms')
-      .insert({
-        project_id: projectId,
-        room_type: 'private',
-        created_by: user!.id,
-      })
-      .select()
-      .single();
+        // Check if any of these rooms are private rooms with the other user
+        const { data: otherUserParticipations } = await supabase
+          .from('chat_participants')
+          .select('room_id')
+          .eq('user_id', otherUserId)
+          .in('room_id', roomIds);
 
-    if (error) {
+        if (otherUserParticipations && otherUserParticipations.length > 0) {
+          // Found a shared room, check if it's private and in this project
+          const sharedRoomIds = otherUserParticipations.map(p => p.room_id);
+          
+          const { data: existingRoom } = await supabase
+            .from('chat_rooms')
+            .select('*')
+            .in('id', sharedRoomIds)
+            .eq('room_type', 'private')
+            .eq('project_id', projectId)
+            .limit(1)
+            .maybeSingle();
+
+          if (existingRoom) {
+            setSelectedRoom(existingRoom.id);
+            setActiveTab('private');
+            return;
+          }
+        }
+      }
+
+      // Create new room
+      const { data: newRoom, error } = await supabase
+        .from('chat_rooms')
+        .insert({
+          project_id: projectId,
+          room_type: 'private',
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: 'Error creating chat',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Add participants
+      const { error: participantsError } = await supabase
+        .from('chat_participants')
+        .insert([
+          { room_id: newRoom.id, user_id: user.id },
+          { room_id: newRoom.id, user_id: otherUserId },
+        ]);
+
+      if (participantsError) {
+        console.error('Error adding participants:', participantsError);
+        toast({
+          title: 'Error adding chat participants',
+          description: participantsError.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPrivateRooms((prev) => [...prev, newRoom]);
+      setSelectedRoom(newRoom.id);
+      setActiveTab('private');
+    } catch (error) {
+      console.error('Error in createPrivateChat:', error);
       toast({
         title: 'Error creating chat',
-        description: error.message,
+        description: 'An unexpected error occurred',
         variant: 'destructive',
       });
-      return;
     }
-
-    // Add participants
-    await supabase.from('chat_participants').insert([
-      { room_id: newRoom.id, user_id: user!.id },
-      { room_id: newRoom.id, user_id: otherUserId },
-    ]);
-
-    setPrivateRooms((prev) => [...prev, newRoom]);
-    setSelectedRoom(newRoom.id);
-    setActiveTab('private');
   };
 
   const getUserStatus = (userId: string) => {
