@@ -227,8 +227,12 @@ export function ExpandableElementRow({
       {/* Task Sub-Rows */}
       <AnimatePresence>
         {isExpanded && hasTasks && element.tasks.map((task, taskIdx) => {
+          console.log('Rendering task:', task.title, 'isExpanded:', isExpanded, 'hasTasks:', hasTasks);
           const taskPosition = calculatePosition(task);
-          if (!taskPosition) return null;
+          if (!taskPosition) {
+            console.log('Task position not calculated for:', task.title);
+            return null;
+          }
 
           const TaskStatusIcon = getStatusIcon(task.status);
           const isOverdue = isTaskOverdue(task.due_date, task.status);

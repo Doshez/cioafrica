@@ -132,6 +132,8 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     if (elements.length > 0) {
       const allElementIds = new Set(elements.map(e => e.id));
       setExpandedElements(allElementIds);
+      console.log('Auto-expanding elements:', Array.from(allElementIds));
+      console.log('Elements data:', elements.map(e => ({ id: e.id, title: e.title, taskCount: e.tasks.length })));
     }
   }, [elements]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
