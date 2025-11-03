@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/select";
 import { 
   Calendar, 
-  ChevronLeft, 
-  ChevronRight,
   Download,
   Filter,
   User,
@@ -427,9 +425,10 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   }, [filteredElements]);
 
   const visibleDays = useMemo(() => {
-    const daysToShow = viewMode === 'day' ? 14 : viewMode === 'week' ? 30 : 60;
-    return dateRange.slice(scrollOffset, scrollOffset + daysToShow);
-  }, [dateRange, scrollOffset, viewMode]);
+    // Show all days in the date range to ensure all tasks are visible
+    // Users can scroll horizontally to navigate through the timeline
+    return dateRange;
+  }, [dateRange]);
 
   // Status-to-Color Mapping (supports both old and new status formats)
   const getStatusColor = (status?: string): string => {
@@ -509,14 +508,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   };
 
   const handleScroll = (direction: 'left' | 'right') => {
-    const step = viewMode === 'day' ? 7 : viewMode === 'week' ? 14 : 30;
-    setScrollOffset(prev => {
-      if (direction === 'left') {
-        return Math.max(0, prev - step);
-      } else {
-        return Math.min(dateRange.length - visibleDays.length, prev + step);
-      }
-    });
+    // Horizontal scroll is now handled by the browser's native scrollbar
+    // This function can be kept for future enhancements if needed
+    return;
   };
 
   const handleExportPDF = async () => {
@@ -965,28 +959,6 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   </Button>
                 </div>
                 
-                {/* Scroll Controls */}
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleScroll('left')}
-                    disabled={scrollOffset === 0}
-                    className="h-8 w-8"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleScroll('right')}
-                    disabled={scrollOffset >= dateRange.length - visibleDays.length}
-                    className="h-8 w-8"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
                 {/* Export Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
