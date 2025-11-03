@@ -9,10 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useUserPresence } from '@/hooks/useUserPresence';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from './ui/input';
 
 interface MessagingCenterProps {
   open: boolean;
@@ -26,12 +28,11 @@ interface ChatRoom {
   room_type: 'public' | 'private';
 }
 
-interface ProjectMember {
-  user_id: string;
-  profiles: {
-    full_name: string | null;
-    avatar_url: string | null;
-  };
+interface UserProfile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  email: string;
 }
 
 export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCenterProps) => {
@@ -41,9 +42,11 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [publicRoom, setPublicRoom] = useState<ChatRoom | null>(null);
   const [privateRooms, setPrivateRooms] = useState<ChatRoom[]>([]);
-  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const { messages, loading, sendMessage, editMessage, deleteMessage } = useChatMessages(selectedRoom);
   const { presenceMap } = useUserPresence();
+  const { unreadCount, unreadByRoom, markRoomAsRead } = useUnreadMessages(projectId);
 
   // Fetch or create public chat room
   useEffect(() => {
@@ -159,59 +162,31 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     fetchPrivateRooms();
   }, [projectId, open, user]);
 
-  // Fetch project members with profiles
+  // Fetch all users for private messaging
   useEffect(() => {
-    if (!projectId || !open || !user) return;
+    if (!open || !user) return;
 
-    const fetchMembers = async () => {
+    const fetchAllUsers = async () => {
       try {
-        // Fetch project members
-        const { data: members, error: membersError } = await supabase
-          .from('project_members')
-          .select('user_id')
-          .eq('project_id', projectId)
-          .neq('user_id', user.id);
-
-        if (membersError) {
-          console.error('Error fetching members:', membersError);
-          return;
-        }
-
-        if (!members || members.length === 0) {
-          setProjectMembers([]);
-          return;
-        }
-
-        const userIds = members.map(m => m.user_id);
-
-        // Fetch profiles for these users
-        const { data: profiles, error: profilesError } = await supabase
+        const { data: profiles, error } = await supabase
           .from('profiles')
-          .select('id, full_name, avatar_url')
-          .in('id', userIds);
+          .select('id, full_name, avatar_url, email')
+          .neq('id', user.id)
+          .order('full_name');
 
-        if (profilesError) {
-          console.error('Error fetching profiles:', profilesError);
+        if (error) {
+          console.error('Error fetching users:', error);
           return;
         }
 
-        // Combine members with their profiles
-        const membersWithProfiles = members.map(member => ({
-          user_id: member.user_id,
-          profiles: profiles?.find(p => p.id === member.user_id) || {
-            full_name: null,
-            avatar_url: null,
-          },
-        }));
-
-        setProjectMembers(membersWithProfiles);
+        setAllUsers(profiles || []);
       } catch (error) {
-        console.error('Error in fetchMembers:', error);
+        console.error('Error in fetchAllUsers:', error);
       }
     };
 
-    fetchMembers();
-  }, [projectId, open, user]);
+    fetchAllUsers();
+  }, [open, user]);
 
   // Auto-select public room when switching to public tab
   useEffect(() => {
@@ -221,6 +196,13 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
       setSelectedRoom(privateRooms[0].id);
     }
   }, [activeTab, publicRoom, privateRooms]);
+
+  // Mark room as read when selected
+  useEffect(() => {
+    if (selectedRoom) {
+      markRoomAsRead(selectedRoom);
+    }
+  }, [selectedRoom]);
 
   const createPrivateChat = async (otherUserId: string) => {
     if (!user) return;
@@ -314,6 +296,31 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     }
   };
 
+  const getRoomName = async (roomId: string): Promise<string> => {
+    // Get other participant(s) in the room
+    const { data: participants } = await supabase
+      .from('chat_participants')
+      .select('user_id')
+      .eq('room_id', roomId)
+      .neq('user_id', user?.id);
+
+    if (!participants || participants.length === 0) return 'Private Chat';
+
+    const otherUserId = participants[0].user_id;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', otherUserId)
+      .single();
+
+    return profile?.full_name || 'Private Chat';
+  };
+
+  const filteredUsers = allUsers.filter(u =>
+    u.full_name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+  );
+
   const getUserStatus = (userId: string) => {
     const presence = presenceMap.get(userId);
     if (!presence) return 'offline';
@@ -340,13 +347,23 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
           <div className="w-64 border-r">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="h-full flex flex-col">
               <TabsList className="w-full rounded-none border-b">
-                <TabsTrigger value="public" className="flex-1">
+                <TabsTrigger value="public" className="flex-1 relative">
                   <Users className="h-4 w-4 mr-2" />
                   Public
+                  {publicRoom && unreadByRoom.get(publicRoom.id) ? (
+                    <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                      {unreadByRoom.get(publicRoom.id)}
+                    </Badge>
+                  ) : null}
                 </TabsTrigger>
-                <TabsTrigger value="private" className="flex-1">
+                <TabsTrigger value="private" className="flex-1 relative">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Private
+                  {privateRooms.reduce((sum, room) => sum + (unreadByRoom.get(room.id) || 0), 0) > 0 && (
+                    <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                      {privateRooms.reduce((sum, room) => sum + (unreadByRoom.get(room.id) || 0), 0)}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -366,43 +383,72 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
               <TabsContent value="private" className="flex-1 m-0">
                 <ScrollArea className="h-full">
                   <div className="p-2 space-y-2">
-                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                      CONVERSATIONS
-                    </div>
-                    {privateRooms.map((room) => (
-                      <Button
-                        key={room.id}
-                        variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
-                        className="w-full justify-start"
-                        onClick={() => setSelectedRoom(room.id)}
-                      >
-                        Private Chat
-                      </Button>
-                    ))}
+                    {privateRooms.length > 0 && (
+                      <>
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
+                          CONVERSATIONS
+                        </div>
+                        {privateRooms.map((room) => {
+                          const unread = unreadByRoom.get(room.id) || 0;
+                          return (
+                            <Button
+                              key={room.id}
+                              variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
+                              className="w-full justify-between"
+                              onClick={() => setSelectedRoom(room.id)}
+                            >
+                              <span>Private Chat</span>
+                              {unread > 0 && (
+                                <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs">
+                                  {unread}
+                                </Badge>
+                              )}
+                            </Button>
+                          );
+                        })}
+                      </>
+                    )}
 
                     <div className="px-2 py-1 text-xs font-semibold text-muted-foreground mt-4">
                       START NEW CHAT
                     </div>
-                    {projectMembers.map((member) => {
-                      const status = getUserStatus(member.user_id);
+                    <div className="px-2 mb-2">
+                      <Input
+                        placeholder="Search users..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    {filteredUsers.map((userProfile) => {
+                      const status = getUserStatus(userProfile.id);
                       return (
                         <Button
-                          key={member.user_id}
+                          key={userProfile.id}
                           variant="ghost"
                           className="w-full justify-start"
-                          onClick={() => createPrivateChat(member.user_id)}
+                          onClick={() => createPrivateChat(userProfile.id)}
                         >
                           <div className="flex items-center gap-2 w-full">
                             <div className="relative">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={member.profiles?.avatar_url || undefined} />
+                                <AvatarImage src={userProfile.avatar_url || undefined} />
                                 <AvatarFallback>
-                                  {member.profiles?.full_name?.charAt(0) || 'U'}
+                                  {userProfile.full_name?.charAt(0) || userProfile.email.charAt(0).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(status)}`} />
                             </div>
-                            <span className="truncate">{member.profiles?.full_name || 'Unknown'}</span>
+                            <div className="flex flex-col items-start flex-1 min-w-0">
+                              <span className="truncate text-sm font-medium">
+                                {userProfile.full_name || userProfile.email}
+                              </span>
+                              {userProfile.full_name && (
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {userProfile.email}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </Button>
                       );

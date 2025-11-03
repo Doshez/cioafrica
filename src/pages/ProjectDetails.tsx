@@ -12,6 +12,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
 import { MessagingCenter } from '@/components/MessagingCenter';
 import { ChatSettingsDialog } from '@/components/ChatSettingsDialog';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import {
   ArrowLeft, 
   Folder, 
@@ -87,6 +88,7 @@ export default function ProjectDetails() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterMode, setFilterMode] = useState<'all' | 'my' | 'active'>('all');
   const [messagingOpen, setMessagingOpen] = useState(false);
+  const { unreadCount } = useUnreadMessages(projectId || null);
 
   useEffect(() => {
     if (projectId) {
@@ -296,12 +298,17 @@ export default function ProjectDetails() {
             </Button>
             <Button 
               onClick={() => setMessagingOpen(true)}
-              className="gap-2"
+              className="gap-2 relative"
               size="lg"
               variant="outline"
             >
               <MessageSquare className="h-5 w-5" />
               Messaging Center
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-2 -right-2 h-6 min-w-6 px-1.5 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
             </Button>
             {(isAdmin || isProjectManager) && (
               <ChatSettingsDialog projectId={projectId!} />
