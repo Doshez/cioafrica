@@ -1095,8 +1095,8 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         
         <CardContent className="p-0">
           {chartMode === 'gantt' ? (
-            <div className="overflow-x-auto overflow-y-visible">
-              <div className="min-w-[800px]">
+            <div className="w-full overflow-x-auto">
+              <div className="inline-block min-w-full" style={{ minWidth: '1200px' }}>
               {/* Status Legend */}
               <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 py-3 border-b bg-muted/20 text-xs sticky top-0 z-20 bg-background">
                 <span className="font-medium text-muted-foreground">Status:</span>
