@@ -1,0 +1,344 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Upload, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { z } from 'zod';
+import { Progress } from '@/components/ui/progress';
+
+const taskRowSchema = z.object({
+  'Task Title': z.string().min(1, 'Task title is required'),
+  'Element': z.string().optional(),
+  'Status': z.enum(['todo', 'in_progress', 'done', 'on_hold']).optional(),
+  'Priority': z.enum(['low', 'medium', 'high']).optional(),
+  'Start Date': z.string().optional(),
+  'Due Date': z.string().optional(),
+  'Description': z.string().optional(),
+  'Estimated Cost': z.number().optional(),
+  'Actual Cost': z.number().optional(),
+  'Estimated Hours': z.number().optional(),
+});
+
+interface ImportTasksDialogProps {
+  projectId: string;
+  departmentId: string;
+  onTasksImported: () => void;
+}
+
+export function ImportTasksDialog({
+  projectId,
+  departmentId,
+  onTasksImported,
+}: ImportTasksDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const { toast } = useToast();
+
+  const downloadTemplate = () => {
+    const template = [
+      {
+        'Task Title': 'Example Task',
+        'Element': 'Element Name',
+        'Status': 'todo',
+        'Priority': 'medium',
+        'Start Date': '2025-01-01',
+        'Due Date': '2025-01-31',
+        'Description': 'Task description',
+        'Estimated Cost': 1000,
+        'Actual Cost': 0,
+        'Estimated Hours': 40,
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tasks Template');
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 30 }, // Task Title
+      { wch: 20 }, // Element
+      { wch: 15 }, // Status
+      { wch: 10 }, // Priority
+      { wch: 12 }, // Start Date
+      { wch: 12 }, // Due Date
+      { wch: 40 }, // Description
+      { wch: 15 }, // Estimated Cost
+      { wch: 15 }, // Actual Cost
+      { wch: 15 }, // Estimated Hours
+    ];
+
+    XLSX.writeFile(wb, 'task-import-template.xlsx');
+    
+    toast({
+      title: 'Template Downloaded',
+      description: 'Fill in the template with your task data',
+    });
+  };
+
+  const parseExcelDate = (serial: any): string | null => {
+    if (!serial) return null;
+    
+    // If it's already a string in YYYY-MM-DD format
+    if (typeof serial === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(serial)) {
+      return serial;
+    }
+    
+    // If it's an Excel serial number
+    if (typeof serial === 'number') {
+      const date = new Date((serial - 25569) * 86400 * 1000);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // Try to parse as date string
+    try {
+      const date = new Date(serial);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    
+    return null;
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload an Excel file (.xlsx or .xls)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setProgress(0);
+
+    try {
+      // Read the file
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        throw new Error('The Excel file is empty');
+      }
+
+      setProgress(10);
+
+      // Get or create elements
+      const elementMap = new Map<string, string>();
+      const uniqueElements = [...new Set(
+        jsonData
+          .map((row: any) => row['Element'])
+          .filter((element: string) => element && element.trim())
+      )];
+
+      setProgress(20);
+
+      // Fetch existing elements
+      const { data: existingElements } = await supabase
+        .from('elements')
+        .select('id, title')
+        .eq('department_id', departmentId);
+
+      existingElements?.forEach(el => {
+        elementMap.set(el.title, el.id);
+      });
+
+      // Create missing elements
+      for (const elementTitle of uniqueElements) {
+        if (!elementMap.has(elementTitle)) {
+          const { data: newElement, error } = await supabase
+            .from('elements')
+            .insert({
+              project_id: projectId,
+              department_id: departmentId,
+              title: elementTitle,
+            })
+            .select('id')
+            .single();
+
+          if (error) throw error;
+          if (newElement) {
+            elementMap.set(elementTitle, newElement.id);
+          }
+        }
+      }
+
+      setProgress(40);
+
+      // Validate and prepare tasks
+      const tasksToCreate = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row: any = jsonData[i];
+        
+        try {
+          // Validate row
+          const validated = taskRowSchema.parse({
+            'Task Title': row['Task Title'],
+            'Element': row['Element'],
+            'Status': row['Status']?.toLowerCase(),
+            'Priority': row['Priority']?.toLowerCase(),
+            'Start Date': row['Start Date'],
+            'Due Date': row['Due Date'],
+            'Description': row['Description'],
+            'Estimated Cost': typeof row['Estimated Cost'] === 'number' ? row['Estimated Cost'] : undefined,
+            'Actual Cost': typeof row['Actual Cost'] === 'number' ? row['Actual Cost'] : undefined,
+            'Estimated Hours': typeof row['Estimated Hours'] === 'number' ? row['Estimated Hours'] : undefined,
+          });
+
+          const task = {
+            project_id: projectId,
+            assignee_department_id: departmentId,
+            title: validated['Task Title'],
+            description: validated['Description'] || null,
+            status: validated['Status'] || 'todo',
+            priority: validated['Priority'] || 'medium',
+            start_date: parseExcelDate(row['Start Date']),
+            due_date: parseExcelDate(row['Due Date']),
+            estimated_cost: validated['Estimated Cost'] || 0,
+            actual_cost: validated['Actual Cost'] || 0,
+            estimate_hours: validated['Estimated Hours'] || null,
+            element_id: validated['Element'] ? elementMap.get(validated['Element']) : null,
+            progress_percentage: validated['Status'] === 'done' ? 100 : validated['Status'] === 'in_progress' ? 50 : 0,
+          };
+
+          tasksToCreate.push(task);
+        } catch (error: any) {
+          errors.push(`Row ${i + 2}: ${error.message}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new Error(`Validation errors:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... and ${errors.length - 5} more errors` : ''}`);
+      }
+
+      setProgress(60);
+
+      // Insert tasks in batches
+      const batchSize = 50;
+      for (let i = 0; i < tasksToCreate.length; i += batchSize) {
+        const batch = tasksToCreate.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from('tasks')
+          .insert(batch);
+
+        if (error) throw error;
+        
+        setProgress(60 + ((i + batchSize) / tasksToCreate.length) * 40);
+      }
+
+      setProgress(100);
+
+      toast({
+        title: 'Success',
+        description: `Successfully imported ${tasksToCreate.length} tasks`,
+      });
+
+      setOpen(false);
+      onTasksImported();
+    } catch (error: any) {
+      console.error('Error importing tasks:', error);
+      toast({
+        title: 'Import Failed',
+        description: error.message || 'Failed to import tasks from Excel',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+      // Reset file input
+      event.target.value = '';
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-2">
+          <Upload className="h-4 w-4" />
+          <span className="hidden sm:inline">Import Tasks</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Import Tasks from Excel</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/50 p-4">
+            <h4 className="font-medium mb-2 flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Required Columns
+            </h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Task Title (required)</li>
+              <li>• Element (optional)</li>
+              <li>• Status: todo, in_progress, done, on_hold</li>
+              <li>• Priority: low, medium, high</li>
+              <li>• Start Date (YYYY-MM-DD)</li>
+              <li>• Due Date (YYYY-MM-DD)</li>
+              <li>• Description</li>
+              <li>• Estimated Cost (number)</li>
+              <li>• Actual Cost (number)</li>
+              <li>• Estimated Hours (number)</li>
+            </ul>
+          </div>
+
+          {isProcessing && (
+            <div className="space-y-2">
+              <Progress value={progress} />
+              <p className="text-sm text-center text-muted-foreground">
+                Processing... {Math.round(progress)}%
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={downloadTemplate}
+              className="flex-1"
+              disabled={isProcessing}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+
+            <Button
+              className="flex-1"
+              onClick={() => document.getElementById('excel-upload')?.click()}
+              disabled={isProcessing}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Excel
+            </Button>
+          </div>
+
+          <input
+            id="excel-upload"
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleFileUpload}
+            disabled={isProcessing}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

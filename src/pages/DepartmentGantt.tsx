@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { CreateElementDialog } from '@/components/CreateElementDialog';
+import { ImportTasksDialog } from '@/components/ImportTasksDialog';
 import { DepartmentGanttView } from '@/components/DepartmentGanttView';
 import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -511,6 +512,11 @@ export default function DepartmentGantt() {
         </div>
         {(isAdmin || isProjectManager) && (
           <div className="flex items-center gap-2">
+            <ImportTasksDialog
+              projectId={projectId}
+              departmentId={departmentId}
+              onTasksImported={fetchTasksAndAnalytics}
+            />
             <CreateElementDialog
               projectId={projectId}
               departmentId={departmentId}
