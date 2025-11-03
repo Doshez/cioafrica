@@ -126,6 +126,14 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedElements, setExpandedElements] = useState<Set<string>>(new Set());
+  
+  // Auto-expand all elements when they're loaded
+  useEffect(() => {
+    if (elements.length > 0) {
+      const allElementIds = new Set(elements.map(e => e.id));
+      setExpandedElements(allElementIds);
+    }
+  }, [elements]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
