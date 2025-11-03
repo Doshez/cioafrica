@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { CreateElementDialog } from '@/components/CreateElementDialog';
 import { ImportTasksDialog } from '@/components/ImportTasksDialog';
+import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { DepartmentGanttView } from '@/components/DepartmentGanttView';
 import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -445,7 +446,7 @@ export default function DepartmentGantt() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <ProjectLoadingScreen projectId={projectId} />;
   }
 
   if (!department || !project) {

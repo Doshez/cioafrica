@@ -10,6 +10,7 @@ import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { ProjectMembersCard } from '@/components/ProjectMembersCard';
 import { useUserRole } from '@/hooks/useUserRole';
 import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
+import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { MessagingCenter } from '@/components/MessagingCenter';
 import { ChatSettingsDialog } from '@/components/ChatSettingsDialog';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
@@ -238,7 +239,7 @@ export default function ProjectDetails() {
   };
 
   if (loading || !project) {
-    return null;
+    return <ProjectLoadingScreen projectId={projectId} />;
   }
 
   // Calculate project progress based on completed tasks

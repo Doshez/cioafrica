@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { InteractiveGanttChart } from '@/components/InteractiveGanttChart';
+import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -49,7 +50,7 @@ export default function ProjectGanttChartPage() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading...</div>;
+    return <ProjectLoadingScreen projectId={projectId} />;
   }
 
   return (
