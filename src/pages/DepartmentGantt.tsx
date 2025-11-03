@@ -114,52 +114,39 @@ export default function DepartmentGantt() {
 
   useEffect(() => {
     if (departmentId && projectId) {
-      fetchCurrentUser();
       fetchData();
     }
   }, [departmentId, projectId]);
-
-  const fetchCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUserId(user?.id || null);
-  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // Fetch department
-      const { data: deptData, error: deptError } = await supabase
-        .from('departments')
-        .select('*')
-        .eq('id', departmentId)
-        .maybeSingle();
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
 
-      if (deptError) throw deptError;
+      // Fetch department and project in parallel
+      const [deptResult, projectResult] = await Promise.all([
+        supabase.from('departments').select('*').eq('id', departmentId).maybeSingle(),
+        supabase.from('projects').select('id, name').eq('id', projectId).maybeSingle()
+      ]);
+
+      if (deptResult.error) throw deptResult.error;
+      if (projectResult.error) throw projectResult.error;
       
       // Check if user has access to this department
-      if (!deptData) {
+      if (!deptResult.data) {
         toast({
           title: 'Access Denied',
-          description: 'You do not have access to this department. You can only view departments where you have assigned tasks.',
+          description: 'You do not have access to this department.',
           variant: 'destructive',
         });
         navigate(`/projects/${projectId}`);
         return;
       }
       
-      setDepartment(deptData);
-
-      // Fetch project
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .select('id, name')
-        .eq('id', projectId)
-        .maybeSingle();
-
-      if (projectError) throw projectError;
-      
-      if (!projectData) {
+      if (!projectResult.data) {
         toast({
           title: 'Error',
           description: 'Project not found',
@@ -169,9 +156,10 @@ export default function DepartmentGantt() {
         return;
       }
       
-      setProject(projectData);
+      setDepartment(deptResult.data);
+      setProject(projectResult.data);
 
-      await fetchTasksAndAnalytics();
+      await fetchTasksAndAnalytics(user?.id);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -184,50 +172,33 @@ export default function DepartmentGantt() {
     }
   };
 
-  const fetchTasksAndAnalytics = async () => {
+  const fetchTasksAndAnalytics = async (userId?: string) => {
     try {
-      // Fetch all elements for this department
-      const { data: elementsData, error: elementsError } = await supabase
-        .from('elements')
-        .select('id, title, description')
-        .eq('department_id', departmentId)
-        .order('created_at', { ascending: true });
+      // Fetch elements, tasks, and analytics in parallel
+      const [elementsResult, tasksResult, analyticsResult] = await Promise.all([
+        supabase.from('elements').select('id, title, description').eq('department_id', departmentId).order('created_at', { ascending: true }),
+        supabase.from('tasks').select('*, element:elements(id, title)').eq('project_id', projectId).eq('assignee_department_id', departmentId).order('start_date', { ascending: true }),
+        supabase.from('department_analytics').select('*').eq('department_id', departmentId).maybeSingle()
+      ]);
 
-      if (elementsError) throw elementsError;
-      setElements(elementsData || []);
+      if (elementsResult.error) throw elementsResult.error;
+      if (tasksResult.error) throw tasksResult.error;
+      
+      setElements(elementsResult.data || []);
+      const tasksData = tasksResult.data || [];
 
-      // Fetch tasks with element information
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          element:elements(id, title)
-        `)
-        .eq('project_id', projectId)
-        .eq('assignee_department_id', departmentId)
-        .order('start_date', { ascending: true });
+      // Fetch task assignments and profiles in parallel
+      const taskIds = tasksData.map(task => task.id);
+      const [assignmentsResult, profilesResult] = await Promise.all([
+        taskIds.length > 0 ? supabase.from('task_assignments').select('task_id, user_id').in('task_id', taskIds) : Promise.resolve({ data: [] }),
+        taskIds.length > 0 ? supabase.from('profiles').select('id, full_name, email').in('id', [...new Set(tasksData.map(t => t.assignee_user_id).filter(Boolean))]) : Promise.resolve({ data: [] })
+      ]);
 
-      if (tasksError) throw tasksError;
-
-      // Fetch task assignments (new multi-user support)
-      const taskIds = tasksData?.map(task => task.id) || [];
-      const { data: assignmentsData } = await supabase
-        .from('task_assignments')
-        .select('task_id, user_id')
-        .in('task_id', taskIds);
-
-      // Fetch all unique user profiles
-      const uniqueUserIds = [...new Set(assignmentsData?.map(a => a.user_id) || [])];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', uniqueUserIds);
-
-      // Map assignments and profiles to tasks
-      const tasksWithProfiles: TaskWithProfile[] = tasksData?.map(task => {
-        const taskAssignments = assignmentsData?.filter(a => a.task_id === task.id) || [];
+      // Map tasks with profiles
+      const tasksWithProfiles: TaskWithProfile[] = tasksData.map(task => {
+        const taskAssignments = assignmentsResult.data?.filter(a => a.task_id === task.id) || [];
         const assignedUsers = taskAssignments.map(assignment => {
-          const profile = profilesData?.find(p => p.id === assignment.user_id);
+          const profile = profilesResult.data?.find(p => p.id === assignment.user_id);
           return {
             id: assignment.user_id,
             name: profile?.full_name || 'Unknown',
@@ -235,10 +206,7 @@ export default function DepartmentGantt() {
           };
         });
         
-        // Also keep legacy single assignee for backward compatibility
-        const legacyProfile = task.assignee_user_id 
-          ? profilesData?.find(p => p.id === task.assignee_user_id)
-          : null;
+        const legacyProfile = task.assignee_user_id ? profilesResult.data?.find(p => p.id === task.assignee_user_id) : null;
         
         return {
           ...task,
@@ -248,28 +216,18 @@ export default function DepartmentGantt() {
           element_id: (task.element as any)?.id,
           element_name: (task.element as any)?.title,
         };
-      }) || [];
+      });
 
       setTasks(tasksWithProfiles);
 
-      // Check if current user has any assigned tasks in this department
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && !isAdmin && !isProjectManager) {
-        const userHasTasks = tasksWithProfiles.some(task => task.assignee_user_id === user.id);
-        setHasAssignedTasks(userHasTasks);
+      // Check user access
+      if (userId && !isAdmin && !isProjectManager) {
+        setHasAssignedTasks(tasksWithProfiles.some(task => task.assignee_user_id === userId));
       } else {
-        setHasAssignedTasks(true); // Admin/PM always have access
+        setHasAssignedTasks(true);
       }
 
-      // Fetch analytics
-      const { data: analyticsData, error: analyticsError } = await supabase
-        .from('department_analytics')
-        .select('*')
-        .eq('department_id', departmentId)
-        .single();
-
-      if (analyticsError && analyticsError.code !== 'PGRST116') throw analyticsError;
-      setAnalytics(analyticsData);
+      setAnalytics(analyticsResult.data);
     } catch (error: any) {
       toast({
         title: 'Error',
