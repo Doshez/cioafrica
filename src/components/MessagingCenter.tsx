@@ -94,11 +94,16 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
         if (roomToUse) {
           setPublicRoom(roomToUse);
           // Ensure user is a participant
-          await supabase
+          const { error: upsertError } = await supabase
             .from('chat_participants')
-            .upsert({ room_id: roomToUse.id, user_id: user.id }, {
-              onConflict: 'room_id,user_id'
-            });
+            .upsert(
+              { room_id: roomToUse.id, user_id: user.id },
+              { onConflict: 'room_id,user_id' }
+            );
+
+          if (upsertError) {
+            console.error('Error adding participant:', upsertError);
+          }
         }
       } catch (error) {
         console.error('Error in fetchOrCreatePublicRoom:', error);
