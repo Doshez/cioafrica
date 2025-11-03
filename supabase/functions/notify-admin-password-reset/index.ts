@@ -27,9 +27,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Get admin users
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    // First get admin user IDs
     const { data: adminRoles, error: rolesError } = await supabase
       .from('user_roles')
-      .select('user_id, profiles(email, full_name)')
+      .select('user_id')
       .eq('role', 'admin');
 
     if (rolesError) {
@@ -37,12 +38,42 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Failed to fetch admin users');
     }
 
-    // Send email to each admin
-    for (const adminRole of adminRoles || []) {
-      const adminProfile = adminRole.profiles as any;
-      if (!adminProfile?.email) continue;
+    if (!adminRoles || adminRoles.length === 0) {
+      console.error('No admin users found');
+      throw new Error('No admin users found');
+    }
 
-      const resetUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/admin/user-management`;
+    // Get admin user IDs
+    const adminUserIds = adminRoles.map(role => role.user_id);
+
+    // Then get their profiles
+    const { data: adminProfiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', adminUserIds);
+
+    if (profilesError) {
+      console.error('Error fetching admin profiles:', profilesError);
+      throw new Error('Failed to fetch admin profiles');
+    }
+
+    if (!adminProfiles || adminProfiles.length === 0) {
+      console.error('No admin profiles found');
+      throw new Error('No admin profiles found');
+    }
+
+    console.log(`Sending notifications to ${adminProfiles.length} admin(s)`);
+
+    // Send email to each admin
+    for (const adminProfile of adminProfiles) {
+      if (!adminProfile.email) {
+        console.warn(`Admin ${adminProfile.id} has no email, skipping`);
+        continue;
+      }
+
+      const resetUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/admin/users`;
+
+      console.log(`Sending email to admin: ${adminProfile.email}`);
 
       await resend.emails.send({
         from: 'Project Planner <onboarding@resend.dev>',
@@ -65,6 +96,8 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         `,
       });
+
+      console.log(`Email sent successfully to ${adminProfile.email}`);
     }
 
     return new Response(JSON.stringify({ success: true }), {
