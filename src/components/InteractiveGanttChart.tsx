@@ -558,122 +558,157 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         description: 'Please wait while we export your Gantt chart'
       });
 
-      // Prepare data for Excel export with elements and tasks
-      const excelData: any[] = [];
+      const wb = XLSX.utils.book_new();
+
+      // Main Gantt Chart Sheet with hierarchical structure
+      const ganttData: any[] = [];
+      let rowIndex = 2; // Start after header
       
+      // Add header row
+      ganttData.push({
+        'Level': 'Level',
+        'Department': 'Department',
+        'Element / Task': 'Element / Task',
+        'Status': 'Status',
+        'Priority': 'Priority',
+        'Progress (%)': 'Progress (%)',
+        'Start Date': 'Start Date',
+        'Due Date': 'Due Date',
+        'Duration': 'Duration (Days)',
+        'Working Days': 'Working Days',
+        'Estimated Cost': 'Estimated Cost',
+        'Actual Cost': 'Actual Cost',
+        'Cost Variance': 'Cost Variance',
+        'Variance %': 'Variance %',
+        'Budget Status': 'Budget Status',
+        'Assigned To': 'Assigned To'
+      });
+
       filteredElements.forEach(element => {
         const dept = departments.find(d => d.id === element.departmentId);
         
-        // Add element header row
-        excelData.push({
+        // Add element row
+        const elementRow: any = {
+          'Level': '1',
           'Department': dept?.name || 'Unknown',
-          'Element Title': element.title,
-          'Task Title': '',
-          'Description': element.description || '',
+          'Element / Task': element.title,
           'Status': '',
-          'Priority': element.priority?.toUpperCase() || '',
-          'Progress (%)': '',
+          'Priority': element.priority?.toUpperCase() || 'MEDIUM',
+          'Progress (%)': element.tasks.length > 0 ? 
+            `=AVERAGE(G${rowIndex + 1}:G${rowIndex + element.tasks.length})` : 0,
           'Start Date': element.start_date ? format(new Date(element.start_date), 'yyyy-MM-dd') : '',
           'Due Date': element.due_date ? format(new Date(element.due_date), 'yyyy-MM-dd') : '',
-          'Duration (days)': element.start_date && element.due_date ? 
-            differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1 : '',
+          'Duration': element.start_date && element.due_date ? 
+            `=DAYS(H${rowIndex},G${rowIndex})` : '',
+          'Working Days': element.tasks.length > 0 ?
+            `=SUM(J${rowIndex + 1}:J${rowIndex + element.tasks.length})` : '',
+          'Estimated Cost': element.tasks.length > 0 ?
+            `=SUM(K${rowIndex + 1}:K${rowIndex + element.tasks.length})` : 0,
+          'Actual Cost': element.tasks.length > 0 ?
+            `=SUM(L${rowIndex + 1}:L${rowIndex + element.tasks.length})` : 0,
+          'Cost Variance': `=L${rowIndex}-K${rowIndex}`,
+          'Variance %': `=IF(K${rowIndex}=0,0,(M${rowIndex}/K${rowIndex})*100)`,
+          'Budget Status': `=IF(N${rowIndex}<=5,"ON BUDGET",IF(N${rowIndex}<=-5,"UNDER BUDGET","OVER BUDGET"))`,
           'Assigned To': ''
-        });
+        };
+        ganttData.push(elementRow);
+        rowIndex++;
 
-        // Add task rows under element
+        // Add task rows
         element.tasks.forEach(task => {
-          const taskDuration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
           const workingDays = calculateWorkingDays(task.start_date, task.due_date);
-          const variance = calculateCostVariance(task.estimated_cost || 0, task.actual_cost || 0);
           
-          excelData.push({
+          const taskRow: any = {
+            'Level': '2',
             'Department': dept?.name || 'Unknown',
-            'Element Title': element.title,
-            'Task Title': task.title,
-            'Description': '',
+            'Element / Task': `  → ${task.title}`,
             'Status': task.status.replace('_', ' ').toUpperCase(),
-            'Priority': element.priority?.toUpperCase() || '',
+            'Priority': element.priority?.toUpperCase() || 'MEDIUM',
             'Progress (%)': task.progress_percentage || 0,
             'Start Date': format(new Date(task.start_date), 'yyyy-MM-dd'),
             'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
-            'Duration (days)': taskDuration,
+            'Duration': `=DAYS(H${rowIndex},G${rowIndex})`,
             'Working Days': workingDays,
             'Estimated Cost': task.estimated_cost || 0,
             'Actual Cost': task.actual_cost || 0,
-            'Cost Variance': variance.variance,
-            'Variance %': variance.variancePercentage.toFixed(2),
-            'Budget Status': variance.statusLabel,
+            'Cost Variance': `=L${rowIndex}-K${rowIndex}`,
+            'Variance %': `=IF(K${rowIndex}=0,0,(M${rowIndex}/K${rowIndex})*100)`,
+            'Budget Status': `=IF(N${rowIndex}<=5,"ON BUDGET",IF(N${rowIndex}<=-5,"UNDER BUDGET","OVER BUDGET"))`,
             'Assigned To': task.assignee || 'Unassigned'
-          });
+          };
+          ganttData.push(taskRow);
+          rowIndex++;
         });
       });
 
-      // Create worksheet
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      const ws = XLSX.utils.json_to_sheet(ganttData, { skipHeader: true });
 
       // Set column widths
-      const colWidths = [
+      ws['!cols'] = [
+        { wch: 8 },  // Level
         { wch: 20 }, // Department
-        { wch: 30 }, // Element Title
-        { wch: 30 }, // Task Title
-        { wch: 40 }, // Description
+        { wch: 35 }, // Element/Task
         { wch: 15 }, // Status
-        { wch: 10 }, // Priority
+        { wch: 12 }, // Priority
         { wch: 12 }, // Progress
         { wch: 12 }, // Start Date
         { wch: 12 }, // Due Date
-        { wch: 15 }, // Duration
+        { wch: 12 }, // Duration
         { wch: 15 }, // Working Days
         { wch: 15 }, // Estimated Cost
         { wch: 15 }, // Actual Cost
         { wch: 15 }, // Cost Variance
         { wch: 12 }, // Variance %
         { wch: 18 }, // Budget Status
-        { wch: 20 }, // Assigned To
+        { wch: 25 }, // Assigned To
       ];
-      ws['!cols'] = colWidths;
 
-      // Create workbook and add worksheet
-      const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Gantt Chart');
 
-      // Add analytics sheet
-      const analyticsData = departmentAnalytics.map(analytics => {
-        const dept = departments.find(d => d.id === analytics.departmentId);
-        const deptElements = filteredElements.filter(e => e.departmentId === analytics.departmentId);
-        const allTasks = deptElements.flatMap(e => e.tasks);
-        
-        // Calculate total cost and variance
-        const totalEstimated = allTasks.reduce((sum, t) => sum + (t.estimated_cost || 0), 0);
-        const totalActual = allTasks.reduce((sum, t) => sum + (t.actual_cost || 0), 0);
-        const costVariance = calculateCostVariance(totalEstimated, totalActual);
-        
-        // Calculate total working days
-        const totalWorkingDays = allTasks.reduce((sum, t) => 
-          sum + calculateWorkingDays(t.start_date, t.due_date), 0
-        );
-        
-        return {
-          'Department': analytics.departmentName,
-          'Total Tasks': analytics.totalTasks,
-          'Completed Tasks': analytics.completedTasks,
-          'In Progress': allTasks.filter(t => t.status === 'in_progress').length,
-          'To Do': allTasks.filter(t => t.status === 'todo').length,
-          'Completion (%)': analytics.percentage,
-          'Total Working Days': totalWorkingDays,
-          'Estimated Cost': totalEstimated,
-          'Actual Cost': totalActual,
-          'Cost Variance': costVariance.variance,
-          'Variance %': costVariance.variancePercentage.toFixed(2),
-          'Budget Status': costVariance.statusLabel
-        };
+      // Add analytics sheet with formulas
+      const analyticsData: any[] = [];
+      let analyticsRowIndex = 2;
+      
+      // Add header
+      analyticsData.push({
+        'Department': 'Department',
+        'Total Tasks': 'Total Tasks',
+        'Completed': 'Completed',
+        'In Progress': 'In Progress',
+        'To Do': 'To Do',
+        'Completion (%)': 'Completion (%)',
+        'Total Working Days': 'Total Working Days',
+        'Estimated Cost': 'Estimated Cost',
+        'Actual Cost': 'Actual Cost',
+        'Cost Variance': 'Cost Variance',
+        'Variance %': 'Variance %',
+        'Budget Status': 'Budget Status'
       });
 
-      const wsAnalytics = XLSX.utils.json_to_sheet(analyticsData);
+      departmentAnalytics.forEach(analytics => {
+        const deptRow: any = {
+          'Department': analytics.departmentName,
+          'Total Tasks': analytics.totalTasks,
+          'Completed': analytics.completedTasks,
+          'In Progress': `=B${analyticsRowIndex}-C${analyticsRowIndex}-E${analyticsRowIndex}`,
+          'To Do': analytics.totalTasks - analytics.completedTasks,
+          'Completion (%)': `=IF(B${analyticsRowIndex}=0,0,(C${analyticsRowIndex}/B${analyticsRowIndex})*100)`,
+          'Total Working Days': `=SUMIF('Gantt Chart'!B:B,A${analyticsRowIndex},'Gantt Chart'!J:J)`,
+          'Estimated Cost': `=SUMIF('Gantt Chart'!B:B,A${analyticsRowIndex},'Gantt Chart'!K:K)`,
+          'Actual Cost': `=SUMIF('Gantt Chart'!B:B,A${analyticsRowIndex},'Gantt Chart'!L:L)`,
+          'Cost Variance': `=I${analyticsRowIndex}-H${analyticsRowIndex}`,
+          'Variance %': `=IF(H${analyticsRowIndex}=0,0,(J${analyticsRowIndex}/H${analyticsRowIndex})*100)`,
+          'Budget Status': `=IF(K${analyticsRowIndex}<=5,"ON BUDGET",IF(K${analyticsRowIndex}<=-5,"UNDER BUDGET","OVER BUDGET"))`
+        };
+        analyticsData.push(deptRow);
+        analyticsRowIndex++;
+      });
+
+      const wsAnalytics = XLSX.utils.json_to_sheet(analyticsData, { skipHeader: true });
       wsAnalytics['!cols'] = [
         { wch: 20 }, // Department
         { wch: 12 }, // Total Tasks
-        { wch: 15 }, // Completed Tasks
+        { wch: 15 }, // Completed
         { wch: 12 }, // In Progress
         { wch: 10 }, // To Do
         { wch: 15 }, // Completion %
@@ -691,7 +726,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported as Excel'
+        description: 'Gantt chart exported with formulas and hierarchical structure'
       });
     } catch (error) {
       console.error('Excel export error:', error);
