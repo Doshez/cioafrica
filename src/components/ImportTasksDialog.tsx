@@ -37,46 +37,103 @@ export function ImportTasksDialog({
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
-  const downloadTemplate = () => {
-    const template = [
-      {
-        'Task Title': 'Example Task',
-        'Element': 'Element Name',
-        'Status': 'todo',
-        'Priority': 'medium',
-        'Start Date': '2025-01-01',
-        'Due Date': '2025-01-31',
-        'Description': 'Task description',
-        'Estimated Cost': 1000,
-        'Actual Cost': 0,
-        'Estimated Hours': 40,
-      },
-    ];
+  const downloadTemplate = async () => {
+    try {
+      // Fetch department and elements data
+      const { data: department } = await supabase
+        .from('departments')
+        .select('name')
+        .eq('id', departmentId)
+        .single();
 
-    const ws = XLSX.utils.json_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Tasks Template');
-    
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 30 }, // Task Title
-      { wch: 20 }, // Element
-      { wch: 15 }, // Status
-      { wch: 10 }, // Priority
-      { wch: 12 }, // Start Date
-      { wch: 12 }, // Due Date
-      { wch: 40 }, // Description
-      { wch: 15 }, // Estimated Cost
-      { wch: 15 }, // Actual Cost
-      { wch: 15 }, // Estimated Hours
-    ];
+      const { data: elements } = await supabase
+        .from('elements')
+        .select('title, description')
+        .eq('department_id', departmentId)
+        .order('title');
 
-    XLSX.writeFile(wb, 'task-import-template.xlsx');
-    
-    toast({
-      title: 'Template Downloaded',
-      description: 'Fill in the template with your task data',
-    });
+      const departmentName = department?.name || 'Department';
+      const elementNames = elements?.map(el => el.title) || [];
+
+      // Create main template with example rows
+      const template = [
+        {
+          'Task Title': 'Example Task 1',
+          'Element': elementNames[0] || 'Element Name',
+          'Status': 'todo',
+          'Priority': 'medium',
+          'Start Date': '2025-01-01',
+          'Due Date': '2025-01-31',
+          'Description': 'Task description',
+          'Estimated Cost': 1000,
+          'Actual Cost': 0,
+          'Estimated Hours': 40,
+        },
+        {
+          'Task Title': 'Example Task 2',
+          'Element': elementNames[1] || elementNames[0] || 'Element Name',
+          'Status': 'in_progress',
+          'Priority': 'high',
+          'Start Date': '2025-02-01',
+          'Due Date': '2025-02-28',
+          'Description': 'Another task description',
+          'Estimated Cost': 2000,
+          'Actual Cost': 500,
+          'Estimated Hours': 80,
+        },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      
+      // Main tasks sheet
+      const ws = XLSX.utils.json_to_sheet(template);
+      ws['!cols'] = [
+        { wch: 30 }, // Task Title
+        { wch: 20 }, // Element
+        { wch: 15 }, // Status
+        { wch: 10 }, // Priority
+        { wch: 12 }, // Start Date
+        { wch: 12 }, // Due Date
+        { wch: 40 }, // Description
+        { wch: 15 }, // Estimated Cost
+        { wch: 15 }, // Actual Cost
+        { wch: 15 }, // Estimated Hours
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Tasks Template');
+
+      // Reference sheet with department info and available elements
+      const referenceData = [
+        { 'Information': 'Department', 'Value': departmentName },
+        { 'Information': '', 'Value': '' },
+        { 'Information': 'Available Elements:', 'Value': '' },
+        ...elementNames.map(name => ({ 'Information': '  • ' + name, 'Value': '' })),
+        { 'Information': '', 'Value': '' },
+        { 'Information': 'Valid Status Values:', 'Value': 'todo, in_progress, done, on_hold' },
+        { 'Information': 'Valid Priority Values:', 'Value': 'low, medium, high' },
+        { 'Information': 'Date Format:', 'Value': 'YYYY-MM-DD (e.g., 2025-01-31)' },
+      ];
+
+      const wsRef = XLSX.utils.json_to_sheet(referenceData);
+      wsRef['!cols'] = [
+        { wch: 30 }, // Information
+        { wch: 50 }, // Value
+      ];
+      XLSX.utils.book_append_sheet(wb, wsRef, 'Reference');
+
+      XLSX.writeFile(wb, `task-import-template-${departmentName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xlsx`);
+      
+      toast({
+        title: 'Template Downloaded',
+        description: `Template for "${departmentName}" with ${elementNames.length} available elements`,
+      });
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download template',
+        variant: 'destructive',
+      });
+    }
   };
 
   const parseExcelDate = (serial: any): string | null => {
