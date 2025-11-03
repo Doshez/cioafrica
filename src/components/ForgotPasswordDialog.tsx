@@ -18,18 +18,24 @@ export default function ForgotPasswordDialog({ open, onOpenChange }: ForgotPassw
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // First, check if user exists
+      // First, check if user is registered
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
-        .eq('email', email)
+        .eq('email', email.trim().toLowerCase())
         .single();
 
       if (profileError || !profiles) {
-        toast.error('No account found with that email address');
+        toast.error('No account found with that email address. Please check your email or contact your admin.');
         setLoading(false);
         return;
       }
@@ -46,13 +52,13 @@ export default function ForgotPasswordDialog({ open, onOpenChange }: ForgotPassw
 
       if (requestError) {
         console.error('Error creating reset request:', requestError);
-        toast.error('Failed to send request. Please try again.');
+        toast.error(`Failed to create reset request: ${requestError.message}`);
         setLoading(false);
         return;
       }
 
       // Call edge function to notify admins
-      const { error: notifyError } = await supabase.functions.invoke('notify-admin-password-reset', {
+      const { data, error: notifyError } = await supabase.functions.invoke('notify-admin-password-reset', {
         body: {
           userEmail: profiles.email,
           userFullName: profiles.full_name
@@ -61,7 +67,12 @@ export default function ForgotPasswordDialog({ open, onOpenChange }: ForgotPassw
 
       if (notifyError) {
         console.error('Error notifying admin:', notifyError);
+        toast.error(`Failed to notify admin: ${notifyError.message}`);
+        setLoading(false);
+        return;
       }
+
+      console.log('Admin notification sent successfully:', data);
 
       toast.success('Request sent — your admin has been notified. Check your email for a temporary password.', {
         icon: <Mail className="h-4 w-4" />
@@ -69,9 +80,9 @@ export default function ForgotPasswordDialog({ open, onOpenChange }: ForgotPassw
       
       setEmail('');
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Unexpected error:', error);
-      toast.error('Something went wrong. Please try again.');
+      toast.error(`Something went wrong: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
