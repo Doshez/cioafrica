@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
+import { EditProjectDialog } from '@/components/EditProjectDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface Project {
@@ -161,9 +162,14 @@ export default function Projects() {
                       {project.description}
                     </CardDescription>
                   </div>
-                  <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth flex-shrink-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  {isAdmin && (
+                    <EditProjectDialog
+                      projectId={project.id}
+                      currentName={project.name}
+                      currentDescription={project.description}
+                      onProjectUpdated={fetchProjects}
+                    />
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
