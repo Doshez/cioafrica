@@ -1070,7 +1070,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             <div className="w-full overflow-x-auto">
               <div className="inline-block min-w-full" style={{ minWidth: '1200px' }}>
               {/* Status Legend */}
-              <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 py-3 border-b bg-muted/20 text-xs sticky top-0 z-20 bg-background">
+              <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 py-3 border-b bg-background text-xs sticky top-0 z-30 shadow-sm">
                 <span className="font-medium text-muted-foreground">Status:</span>
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-[#9CA3AF] opacity-60" />
@@ -1091,8 +1091,8 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               </div>
 
               {/* Timeline Header */}
-              <div className="flex border-b bg-muted/30 sticky top-[52px] z-10">
-                <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 flex-shrink-0 bg-muted/50">
+              <div className="flex border-b bg-background sticky top-[52px] z-20 shadow-sm">
+                <div className="w-32 sm:w-40 md:w-48 lg:w-64 border-r px-2 sm:px-3 md:px-4 py-3 flex-shrink-0 bg-background">
                   <div className="grid grid-cols-2 gap-1 text-xs sm:text-sm font-semibold">
                     <div>Department / Task</div>
                     <div className="text-muted-foreground">Element</div>
