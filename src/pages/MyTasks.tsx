@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, Search, Filter, Plus, Percent, LayoutGrid, List, Columns3 } from "lucide-react";
+import { Loader2, Clock, Search, Filter, Plus, Percent, LayoutGrid, List, Columns3, Edit } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
+import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Task {
@@ -56,6 +57,7 @@ export default function MyTasks() {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [groupedTasks, setGroupedTasks] = useState<GroupedTasks[]>([]);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('cards');
+  const [editingTask, setEditingTask] = useState<any>(null);
 
   useEffect(() => {
     if (user) {
@@ -378,9 +380,19 @@ export default function MyTasks() {
                               <CardTitle className="text-base line-clamp-2">
                                 {task.title}
                               </CardTitle>
-                              <Badge className={getStatusColor(task.status, taskOverdue)}>
-                                {taskOverdue ? 'Overdue' : task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : 'To Do'}
-                              </Badge>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => setEditingTask(task)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Badge className={getStatusColor(task.status, taskOverdue)}>
+                                  {taskOverdue ? 'Overdue' : task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : 'To Do'}
+                                </Badge>
+                              </div>
                             </div>
                             {task.description && (
                               <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
@@ -502,6 +514,14 @@ export default function MyTasks() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => setEditingTask(task)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <div className="w-24">
                               <div className="text-xs text-muted-foreground mb-1">Progress</div>
                               <Slider
@@ -572,11 +592,21 @@ export default function MyTasks() {
                                 }`}>
                                   {task.title}
                                 </h4>
-                                {taskOverdue && (
-                                  <Badge variant="destructive" className="text-xs shrink-0">
-                                    Overdue
-                                  </Badge>
-                                )}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6"
+                                    onClick={() => setEditingTask(task)}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                  {taskOverdue && (
+                                    <Badge variant="destructive" className="text-xs shrink-0">
+                                      Overdue
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                               {task.description && (
                                 <p className="text-xs text-muted-foreground line-clamp-2">
@@ -638,6 +668,16 @@ export default function MyTasks() {
             );
           })}
         </div>
+      )}
+
+      {/* Edit Task Dialog */}
+      {editingTask && (
+        <EditTaskDialog
+          task={editingTask}
+          open={!!editingTask}
+          onOpenChange={(open) => !open && setEditingTask(null)}
+          onSuccess={fetchMyTasks}
+        />
       )}
     </div>
   );
