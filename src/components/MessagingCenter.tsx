@@ -26,6 +26,11 @@ interface ChatRoom {
   id: string;
   name: string | null;
   room_type: 'public' | 'private';
+  other_user?: {
+    id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
 }
 
 interface UserProfile {
@@ -116,7 +121,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     fetchOrCreatePublicRoom();
   }, [projectId, open, user, toast]);
 
-  // Fetch private rooms
+  // Fetch private rooms with other user details
   useEffect(() => {
     if (!projectId || !open || !user) return;
 
@@ -153,7 +158,34 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
           return;
         }
 
-        setPrivateRooms(rooms || []);
+        // For each room, get the other participant's details
+        const roomsWithUsers = await Promise.all(
+          (rooms || []).map(async (room) => {
+            const { data: otherParticipant } = await supabase
+              .from('chat_participants')
+              .select('user_id')
+              .eq('room_id', room.id)
+              .neq('user_id', user.id)
+              .single();
+
+            if (otherParticipant) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url')
+                .eq('id', otherParticipant.user_id)
+                .single();
+
+              return {
+                ...room,
+                other_user: profile || undefined,
+              };
+            }
+
+            return room;
+          })
+        );
+
+        setPrivateRooms(roomsWithUsers);
       } catch (error) {
         console.error('Error in fetchPrivateRooms:', error);
       }
@@ -238,12 +270,42 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
             .maybeSingle();
 
           if (existingRoom) {
+            // Get other user's profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, full_name, avatar_url')
+              .eq('id', otherUserId)
+              .single();
+
+            // Update the room in state with user info
+            const roomWithUser = {
+              ...existingRoom,
+              other_user: profile || undefined,
+            };
+
+            setPrivateRooms((prev) => {
+              const index = prev.findIndex(r => r.id === existingRoom.id);
+              if (index >= 0) {
+                const newRooms = [...prev];
+                newRooms[index] = roomWithUser;
+                return newRooms;
+              }
+              return [...prev, roomWithUser];
+            });
+
             setSelectedRoom(existingRoom.id);
             setActiveTab('private');
             return;
           }
         }
       }
+
+      // Get other user's profile first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .eq('id', otherUserId)
+        .single();
 
       // Create new room
       const { data: newRoom, error } = await supabase
@@ -283,7 +345,12 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
         return;
       }
 
-      setPrivateRooms((prev) => [...prev, newRoom]);
+      const roomWithUser = {
+        ...newRoom,
+        other_user: profile || undefined,
+      };
+
+      setPrivateRooms((prev) => [...prev, roomWithUser]);
       setSelectedRoom(newRoom.id);
       setActiveTab('private');
     } catch (error) {
@@ -296,24 +363,26 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     }
   };
 
-  const getRoomName = async (roomId: string): Promise<string> => {
-    // Get other participant(s) in the room
-    const { data: participants } = await supabase
-      .from('chat_participants')
-      .select('user_id')
-      .eq('room_id', roomId)
-      .neq('user_id', user?.id);
+  const getSelectedRoomName = () => {
+    if (!selectedRoom) return '';
+    
+    if (activeTab === 'public') {
+      return 'Project Chat';
+    }
+    
+    const room = privateRooms.find(r => r.id === selectedRoom);
+    if (room?.other_user) {
+      return room.other_user.full_name || 'Private Chat';
+    }
+    
+    return 'Private Chat';
+  };
 
-    if (!participants || participants.length === 0) return 'Private Chat';
-
-    const otherUserId = participants[0].user_id;
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', otherUserId)
-      .single();
-
-    return profile?.full_name || 'Private Chat';
+  const getSelectedRoomAvatar = () => {
+    if (!selectedRoom || activeTab === 'public') return null;
+    
+    const room = privateRooms.find(r => r.id === selectedRoom);
+    return room?.other_user?.avatar_url || null;
   };
 
   const filteredUsers = allUsers.filter(u =>
@@ -394,12 +463,22 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
                             <Button
                               key={room.id}
                               variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
-                              className="w-full justify-between"
+                              className="w-full justify-start gap-2"
                               onClick={() => setSelectedRoom(room.id)}
                             >
-                              <span>Private Chat</span>
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Avatar className="h-6 w-6 flex-shrink-0">
+                                  <AvatarImage src={room.other_user?.avatar_url || undefined} />
+                                  <AvatarFallback className="text-xs">
+                                    {room.other_user?.full_name?.charAt(0) || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="truncate text-sm">
+                                  {room.other_user?.full_name || 'Private Chat'}
+                                </span>
+                              </div>
                               {unread > 0 && (
-                                <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs">
+                                <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs flex-shrink-0">
                                   {unread}
                                 </Badge>
                               )}
@@ -462,6 +541,32 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
           <div className="flex-1 flex flex-col">
             {selectedRoom ? (
               <>
+                <div className="border-b px-6 py-3 bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    {getSelectedRoomAvatar() ? (
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={getSelectedRoomAvatar() || undefined} />
+                        <AvatarFallback>
+                          {getSelectedRoomName().charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : activeTab === 'public' ? (
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="font-semibold">{getSelectedRoomName()}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {activeTab === 'public' ? 'Project team chat' : 'Private conversation'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <MessageList
                   messages={messages}
                   loading={loading}
