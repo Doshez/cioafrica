@@ -1219,6 +1219,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   );
                 })}
               </AnimatePresence>
+              </div>
 
               {/* Task Count per Week - Bar indicator under timeline */}
               <div className="border-t bg-muted/20">
@@ -1259,7 +1260,6 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   </div>
                 </div>
               </div>
-            </div>
             </div>
           ) : (
           <GanttAnalyticsView
