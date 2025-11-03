@@ -331,7 +331,8 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        <div className="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+          <div className="space-y-3">
           {/* Project Owner */}
           <div className="flex items-center justify-between p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/20">
             <div className="flex items-center gap-3">
@@ -403,6 +404,7 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
               No additional members yet
             </p>
           )}
+        </div>
         </div>
       </CardContent>
     </Card>

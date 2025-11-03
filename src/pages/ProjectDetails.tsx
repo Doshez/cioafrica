@@ -434,8 +434,9 @@ export default function ProjectDetails() {
             </CardContent>
           </Card>
         ) : (
-          <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'space-y-4'}>
-            {getFilteredAndSortedDepartments().map((dept) => {
+          <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
+            <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'space-y-4'}>
+              {getFilteredAndSortedDepartments().map((dept) => {
               const analytics = departmentAnalytics.find(a => a.department_id === dept.id);
               const deptTasks = getDepartmentTasks(dept.id);
               const myTaskCount = getUserTaskCount(dept.id);
@@ -504,6 +505,7 @@ export default function ProjectDetails() {
                 </Card>
               );
             })}
+          </div>
           </div>
         )}
       </div>
