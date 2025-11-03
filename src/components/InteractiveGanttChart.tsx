@@ -522,108 +522,86 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         description: 'Please wait while we capture your Gantt chart'
       });
 
-      // Get the full chart element including any scrollable content
       const element = chartRef.current;
       
-      // Store original scroll position
-      const originalScrollLeft = element.scrollLeft || 0;
+      // Find the scrollable timeline container
+      const scrollableContainer = element.querySelector('.overflow-x-auto');
       
-      // Temporarily reset scroll to capture full content
-      if (element.scrollLeft) element.scrollLeft = 0;
+      // Store original styles
+      const originalOverflow = scrollableContainer ? (scrollableContainer as HTMLElement).style.overflow : '';
+      const originalMaxWidth = element.style.maxWidth;
+      const originalWidth = element.style.width;
       
-      // Capture with higher quality and full content
+      // Temporarily expand to show all content
+      if (scrollableContainer) {
+        (scrollableContainer as HTMLElement).style.overflow = 'visible';
+      }
+      element.style.maxWidth = 'none';
+      element.style.width = 'fit-content';
+      
+      // Wait for layout to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Capture with full width
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
         allowTaint: true,
         scrollX: 0,
-        scrollY: 0,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        scrollY: -window.scrollY,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight
       });
       
-      // Restore scroll position
-      if (element.scrollLeft !== originalScrollLeft) {
-        element.scrollLeft = originalScrollLeft;
+      // Restore original styles
+      if (scrollableContainer) {
+        (scrollableContainer as HTMLElement).style.overflow = originalOverflow;
       }
+      element.style.maxWidth = originalMaxWidth;
+      element.style.width = originalWidth;
       
       const imgData = canvas.toDataURL('image/png');
       
-      // Use A3 landscape for better fit (A3 is larger than A4)
+      // Use A2 landscape for very wide Gantt charts
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a3'
+        format: 'a2' // A2 is 594 x 420 mm
       });
       
-      // A3 landscape dimensions in mm
-      const pdfWidth = 420;
-      const pdfHeight = 297;
+      // A2 landscape dimensions in mm
+      const pdfWidth = 594;
+      const pdfHeight = 420;
       
-      // Calculate image dimensions to fit on page while maintaining aspect ratio
+      // Calculate scaling to fit
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const ratio = Math.min((pdfWidth - 20) / imgWidth, (pdfHeight - 20) / imgHeight);
       
       const scaledWidth = imgWidth * ratio;
       const scaledHeight = imgHeight * ratio;
       
-      // Center the image on the page
+      // Center on page
       const x = (pdfWidth - scaledWidth) / 2;
       const y = (pdfHeight - scaledHeight) / 2;
       
-      // If content is too large for one page, split into multiple pages
-      if (scaledHeight > pdfHeight - 20) {
-        // Calculate how many pages we need
-        const pageHeight = pdfHeight - 20;
-        const numPages = Math.ceil(scaledHeight / pageHeight);
-        
-        for (let page = 0; page < numPages; page++) {
-          if (page > 0) {
-            pdf.addPage();
-          }
-          
-          // Calculate the portion of the image to show on this page
-          const sourceY = (imgHeight / numPages) * page;
-          const sourceHeight = imgHeight / numPages;
-          
-          // Create a temporary canvas for this page's content
-          const pageCanvas = document.createElement('canvas');
-          pageCanvas.width = imgWidth;
-          pageCanvas.height = sourceHeight;
-          const pageCtx = pageCanvas.getContext('2d');
-          
-          if (pageCtx) {
-            pageCtx.drawImage(
-              canvas,
-              0, sourceY, imgWidth, sourceHeight,
-              0, 0, imgWidth, sourceHeight
-            );
-            
-            const pageImgData = pageCanvas.toDataURL('image/png');
-            const pageScaledHeight = sourceHeight * ratio;
-            
-            pdf.addImage(pageImgData, 'PNG', x, 10, scaledWidth, pageScaledHeight);
-            
-            // Add page number
-            pdf.setFontSize(10);
-            pdf.text(`Page ${page + 1} of ${numPages}`, pdfWidth - 30, pdfHeight - 10);
-          }
-        }
-      } else {
-        // Single page - fits nicely
-        pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
-      }
+      pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      
+      // Add title
+      pdf.setFontSize(16);
+      pdf.text('Interactive Gantt Chart', 10, 15);
+      
+      // Add date
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${format(new Date(), 'MMM dd, yyyy')}`, 10, 25);
       
       pdf.save(`gantt-chart-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported as PDF with full content'
+        description: 'Gantt chart exported as PDF'
       });
     } catch (error) {
       console.error('Export error:', error);
