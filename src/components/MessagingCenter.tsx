@@ -194,23 +194,30 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     fetchPrivateRooms();
   }, [projectId, open, user]);
 
-  // Fetch all users for private messaging
+  // Fetch all users for private messaging (including admins)
   useEffect(() => {
     if (!open || !user) return;
 
     const fetchAllUsers = async () => {
       try {
-        const { data: profiles, error } = await supabase
+        // Fetch all profiles except current user
+        const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url, email')
           .neq('id', user.id)
           .order('full_name');
 
-        if (error) {
-          console.error('Error fetching users:', error);
+        if (profilesError) {
+          console.error('Error fetching users:', profilesError);
+          toast({
+            title: 'Error loading users',
+            description: 'Could not load user list for private messaging',
+            variant: 'destructive',
+          });
           return;
         }
 
+        console.log('Fetched all users for private chat:', profiles?.length || 0);
         setAllUsers(profiles || []);
       } catch (error) {
         console.error('Error in fetchAllUsers:', error);
@@ -218,7 +225,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     };
 
     fetchAllUsers();
-  }, [open, user]);
+  }, [open, user, toast]);
 
   // Auto-select public room when switching to public tab
   useEffect(() => {
