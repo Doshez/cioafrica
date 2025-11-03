@@ -59,6 +59,12 @@ interface TaskWithProfile extends Task {
   element_name?: string;
 }
 
+interface Element {
+  id: string;
+  title: string;
+  description?: string;
+}
+
 interface DepartmentAnalytics {
   department_id: string;
   total_tasks: number;
@@ -77,6 +83,7 @@ export default function DepartmentGantt() {
   const [department, setDepartment] = useState<Department | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskWithProfile[]>([]);
+  const [elements, setElements] = useState<Element[]>([]);
   const [analytics, setAnalytics] = useState<DepartmentAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -161,6 +168,16 @@ export default function DepartmentGantt() {
 
   const fetchTasksAndAnalytics = async () => {
     try {
+      // Fetch all elements for this department
+      const { data: elementsData, error: elementsError } = await supabase
+        .from('elements')
+        .select('id, title, description')
+        .eq('department_id', departmentId)
+        .order('created_at', { ascending: true });
+
+      if (elementsError) throw elementsError;
+      setElements(elementsData || []);
+
       // Fetch tasks with element information
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
@@ -523,14 +540,15 @@ export default function DepartmentGantt() {
           </Card>
 
           {/* Tasks by Element Columns */}
-          {filteredTasks.length > 0 ? (
+          {elements.length > 0 || filteredTasks.length > 0 ? (
             <TasksByElementView
               tasks={filteredTasks}
+              elements={elements}
               onStatusUpdate={handleStatusUpdate}
               onProgressUpdate={handleProgressUpdate}
               onEditTask={(task) => setEditingTask(task)}
               onEditElement={(id, name) => {
-                const element = filteredTasks.find(t => t.element_id === id);
+                const element = elements.find(e => e.id === id);
                 if (element) {
                   setEditingElement({ id, title: name, description: element.description });
                 }

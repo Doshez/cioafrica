@@ -29,8 +29,15 @@ interface TaskWithProfile {
   element_name?: string;
 }
 
+interface Element {
+  id: string;
+  title: string;
+  description?: string;
+}
+
 interface TasksByElementViewProps {
   tasks: TaskWithProfile[];
+  elements?: Element[];
   onStatusUpdate: (taskId: string, status: string) => void;
   onProgressUpdate: (taskId: string, progress: number) => void;
   onEditTask?: (task: TaskWithProfile) => void;
@@ -39,6 +46,7 @@ interface TasksByElementViewProps {
 
 export function TasksByElementView({ 
   tasks, 
+  elements = [],
   onStatusUpdate, 
   onProgressUpdate,
   onEditTask,
@@ -60,6 +68,17 @@ export function TasksByElementView({
     
     return acc;
   }, {} as Record<string, { id: string; name: string; tasks: TaskWithProfile[] }>);
+
+  // Add elements without tasks
+  elements.forEach(element => {
+    if (!tasksByElement[element.id]) {
+      tasksByElement[element.id] = {
+        id: element.id,
+        name: element.title,
+        tasks: []
+      };
+    }
+  });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -110,7 +129,16 @@ export function TasksByElementView({
 
             {/* Tasks - Scrollable */}
             <div className="space-y-3 max-h-[calc(100vh-240px)] overflow-y-auto pr-2">
-              {elementData.tasks.map((task) => {
+              {elementData.tasks.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="py-8">
+                    <p className="text-sm text-muted-foreground text-center">
+                      No tasks in this element yet
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                elementData.tasks.map((task) => {
                 const progress = task.progress_percentage ?? (task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0);
                 const taskOverdue = isOverdue(task.due_date, task.status);
                 
@@ -222,7 +250,8 @@ export function TasksByElementView({
                     </CardContent>
                   </Card>
                 );
-              })}
+              })
+              )}
             </div>
           </div>
         ))}
