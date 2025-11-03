@@ -12,7 +12,23 @@ import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditElementDialog } from '@/components/EditElementDialog';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ArrowLeft, Plus, Filter, Calendar, Clock, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -93,6 +109,7 @@ export default function DepartmentGantt() {
   const [editingElement, setEditingElement] = useState<{ id: string; title: string; description?: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [hasAssignedTasks, setHasAssignedTasks] = useState(false);
+  const [deletingDepartment, setDeletingDepartment] = useState(false);
 
   useEffect(() => {
     if (departmentId && projectId) {
@@ -396,6 +413,78 @@ export default function DepartmentGantt() {
     }
   };
 
+  const handleDeleteElement = async (elementId: string) => {
+    try {
+      const { error } = await supabase
+        .from('elements')
+        .delete()
+        .eq('id', elementId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Element deleted successfully',
+      });
+
+      fetchTasksAndAnalytics();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Task deleted successfully',
+      });
+
+      fetchTasksAndAnalytics();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteDepartment = async () => {
+    try {
+      const { error } = await supabase
+        .from('departments')
+        .delete()
+        .eq('id', departmentId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Department deleted successfully',
+      });
+
+      navigate(`/projects/${projectId}`);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return <div className="p-8">Loading...</div>;
   }
@@ -432,6 +521,22 @@ export default function DepartmentGantt() {
               departmentId={departmentId}
               onTaskCreated={fetchTasksAndAnalytics}
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeletingDepartment(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Department
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -553,6 +658,9 @@ export default function DepartmentGantt() {
                   setEditingElement({ id, title: name, description: element.description });
                 }
               }}
+              onDeleteElement={handleDeleteElement}
+              onDeleteTask={handleDeleteTask}
+              canDelete={isAdmin || isProjectManager}
             />
           ) : (
             <Card>
@@ -590,6 +698,27 @@ export default function DepartmentGantt() {
         element={editingElement}
         onSuccess={fetchTasksAndAnalytics}
       />
+
+      {/* Delete Department Confirmation Dialog */}
+      <AlertDialog open={deletingDepartment} onOpenChange={setDeletingDepartment}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Department</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this department? This action cannot be undone. All tasks and elements in this department will also be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteDepartment}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

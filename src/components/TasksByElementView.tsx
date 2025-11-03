@@ -1,9 +1,20 @@
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Edit, User, Percent } from 'lucide-react';
+import { Calendar, Clock, Edit, User, Percent, Trash2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface AssignedUser {
   id: string;
@@ -42,6 +53,9 @@ interface TasksByElementViewProps {
   onProgressUpdate: (taskId: string, progress: number) => void;
   onEditTask?: (task: TaskWithProfile) => void;
   onEditElement?: (elementId: string, elementName: string) => void;
+  onDeleteElement?: (elementId: string) => void;
+  onDeleteTask?: (taskId: string) => void;
+  canDelete?: boolean;
 }
 
 export function TasksByElementView({ 
@@ -50,8 +64,13 @@ export function TasksByElementView({
   onStatusUpdate, 
   onProgressUpdate,
   onEditTask,
-  onEditElement
+  onEditElement,
+  onDeleteElement,
+  onDeleteTask,
+  canDelete = false
 }: TasksByElementViewProps) {
+  const [deletingElementId, setDeletingElementId] = React.useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = React.useState<string | null>(null);
   // Group tasks by element
   const tasksByElement = tasks.reduce((acc, task) => {
     const elementId = task.element_id || 'ungrouped';
@@ -123,6 +142,16 @@ export function TasksByElementView({
                       <Edit className="h-4 w-4" />
                     </Button>
                   )}
+                  {elementId !== 'ungrouped' && canDelete && onDeleteElement && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeletingElementId(elementId)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -167,6 +196,16 @@ export function TasksByElementView({
                                   onClick={() => onEditTask(task)}
                                 >
                                   <Edit className="h-3 w-3" />
+                                </Button>
+                              )}
+                              {canDelete && onDeleteTask && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => setDeletingTaskId(task.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
                                 </Button>
                               )}
                             </div>
@@ -256,6 +295,58 @@ export function TasksByElementView({
           </div>
         ))}
       </div>
+
+      {/* Delete Element Confirmation Dialog */}
+      <AlertDialog open={!!deletingElementId} onOpenChange={(open) => !open && setDeletingElementId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Element</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this element? This action cannot be undone. All tasks in this element will become ungrouped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingElementId && onDeleteElement) {
+                  onDeleteElement(deletingElementId);
+                  setDeletingElementId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Task Confirmation Dialog */}
+      <AlertDialog open={!!deletingTaskId} onOpenChange={(open) => !open && setDeletingTaskId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this task? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingTaskId && onDeleteTask) {
+                  onDeleteTask(deletingTaskId);
+                  setDeletingTaskId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
