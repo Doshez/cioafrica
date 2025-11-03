@@ -12,7 +12,7 @@ import { useUserPresence } from '@/hooks/useUserPresence';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { MessageSquare, Users } from 'lucide-react';
+import { MessageSquare, Users, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
 
@@ -392,10 +392,62 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     return room?.other_user?.avatar_url || null;
   };
 
-  const filteredUsers = allUsers.filter(u =>
-    u.full_name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
-  );
+  const deleteConversation = async (roomId: string) => {
+    if (!user) return;
+
+    try {
+      // Delete the room (cascade will delete participants and messages)
+      const { error } = await supabase
+        .from('chat_rooms')
+        .delete()
+        .eq('id', roomId);
+
+      if (error) {
+        toast({
+          title: 'Error deleting conversation',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Remove from local state
+      setPrivateRooms(prev => prev.filter(r => r.id !== roomId));
+      
+      // If this was the selected room, clear selection
+      if (selectedRoom === roomId) {
+        setSelectedRoom(null);
+      }
+
+      toast({
+        title: 'Conversation deleted',
+        description: 'The conversation has been removed',
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete conversation',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Get user IDs that already have private conversations
+  const existingConversationUserIds = privateRooms
+    .map(room => room.other_user?.id)
+    .filter(Boolean);
+
+  const filteredUsers = allUsers.filter(u => {
+    // Exclude users who already have conversations
+    if (existingConversationUserIds.includes(u.id)) return false;
+    
+    // Apply search filter
+    return (
+      u.full_name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+    );
+  });
 
   const getUserStatus = (userId: string) => {
     const presence = presenceMap.get(userId);
@@ -467,29 +519,41 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
                         {privateRooms.map((room) => {
                           const unread = unreadByRoom.get(room.id) || 0;
                           return (
-                            <Button
-                              key={room.id}
-                              variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
-                              className="w-full justify-start gap-2"
-                              onClick={() => setSelectedRoom(room.id)}
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Avatar className="h-6 w-6 flex-shrink-0">
-                                  <AvatarImage src={room.other_user?.avatar_url || undefined} />
-                                  <AvatarFallback className="text-xs">
-                                    {room.other_user?.full_name?.charAt(0) || 'U'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="truncate text-sm">
-                                  {room.other_user?.full_name || 'Private Chat'}
-                                </span>
-                              </div>
-                              {unread > 0 && (
-                                <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs flex-shrink-0">
-                                  {unread}
-                                </Badge>
-                              )}
-                            </Button>
+                            <div key={room.id} className="relative group">
+                              <Button
+                                variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
+                                className="w-full justify-start gap-2 pr-8"
+                                onClick={() => setSelectedRoom(room.id)}
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Avatar className="h-6 w-6 flex-shrink-0">
+                                    <AvatarImage src={room.other_user?.avatar_url || undefined} />
+                                    <AvatarFallback className="text-xs">
+                                      {room.other_user?.full_name?.charAt(0) || 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="truncate text-sm">
+                                    {room.other_user?.full_name || 'Unknown User'}
+                                  </span>
+                                </div>
+                                {unread > 0 && (
+                                  <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs flex-shrink-0">
+                                    {unread}
+                                  </Badge>
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteConversation(room.id);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           );
                         })}
                       </>
