@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
+import { calculateWorkingDays, formatWorkingDays, calculateCostVariance } from '@/lib/workingDays';
 
 interface Task {
   id: string;
@@ -26,6 +27,8 @@ interface Task {
   due_date: string;
   progress_percentage: number;
   status: string;
+  estimated_cost?: number;
+  actual_cost?: number;
 }
 
 interface Element {
@@ -288,7 +291,7 @@ export function ExpandableElementRow({
               <div className="flex-1 relative p-2" style={{ minWidth: '400px', minHeight: '36px' }}>
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                     <TooltipTrigger asChild>
                       <motion.div
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ 
@@ -372,12 +375,33 @@ export function ExpandableElementRow({
                             </p>
                           </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground pt-1">
+                        <p className="text-[10px] pt-1">
+                          <span className="text-muted-foreground">Working Days:</span> <span className="font-medium">{formatWorkingDays(calculateWorkingDays(task.start_date, task.due_date))}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
                           Progress: {task.progress_percentage || 0}%
                         </p>
+                        {(task.estimated_cost || task.actual_cost) && (() => {
+                          const variance = calculateCostVariance(task.estimated_cost || 0, task.actual_cost || 0);
+                          return (
+                            <div className="pt-1 border-t border-border/50">
+                              <div className="grid grid-cols-2 gap-1 text-[10px]">
+                                <div>
+                                  <span className="text-muted-foreground">Est:</span> ${(task.estimated_cost || 0).toLocaleString()}
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Actual:</span> ${(task.actual_cost || 0).toLocaleString()}
+                                </div>
+                              </div>
+                              <p className={`text-[10px] font-medium pt-0.5 ${variance.statusColor}`}>
+                                {variance.statusLabel}
+                              </p>
+                            </div>
+                          );
+                        })()}
                         {isOverdue && (
                           <p className="text-[10px] text-destructive font-medium pt-1">
-                            ⚠️ This task is overdue (EAT timezone)
+                            ⚠️ This task is overdue
                           </p>
                         )}
                       </div>

@@ -58,6 +58,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { calculateWorkingDays, formatWorkingDays, calculateCostVariance } from '@/lib/workingDays';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +75,8 @@ interface Task {
   due_date: string;
   progress_percentage: number;
   status: string;
+  estimated_cost?: number;
+  actual_cost?: number;
 }
 
 interface Element {
@@ -563,6 +566,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         // Add task rows under element
         element.tasks.forEach(task => {
           const taskDuration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
+          const workingDays = calculateWorkingDays(task.start_date, task.due_date);
+          const variance = calculateCostVariance(task.estimated_cost || 0, task.actual_cost || 0);
+          
           excelData.push({
             'Department': dept?.name || 'Unknown',
             'Element Title': element.title,
@@ -574,6 +580,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             'Start Date': format(new Date(task.start_date), 'yyyy-MM-dd'),
             'Due Date': format(new Date(task.due_date), 'yyyy-MM-dd'),
             'Duration (days)': taskDuration,
+            'Working Days': workingDays,
+            'Estimated Cost': task.estimated_cost || 0,
+            'Actual Cost': task.actual_cost || 0,
+            'Cost Variance': variance.variance,
+            'Variance %': variance.variancePercentage.toFixed(2),
+            'Budget Status': variance.statusLabel,
             'Assigned To': task.assignee || 'Unassigned'
           });
         });
@@ -594,6 +606,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         { wch: 12 }, // Start Date
         { wch: 12 }, // Due Date
         { wch: 15 }, // Duration
+        { wch: 15 }, // Working Days
+        { wch: 15 }, // Estimated Cost
+        { wch: 15 }, // Actual Cost
+        { wch: 15 }, // Cost Variance
+        { wch: 12 }, // Variance %
+        { wch: 18 }, // Budget Status
         { wch: 20 }, // Assigned To
       ];
       ws['!cols'] = colWidths;
@@ -607,24 +625,47 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         const dept = departments.find(d => d.id === analytics.departmentId);
         const deptElements = filteredElements.filter(e => e.departmentId === analytics.departmentId);
         const allTasks = deptElements.flatMap(e => e.tasks);
+        
+        // Calculate total cost and variance
+        const totalEstimated = allTasks.reduce((sum, t) => sum + (t.estimated_cost || 0), 0);
+        const totalActual = allTasks.reduce((sum, t) => sum + (t.actual_cost || 0), 0);
+        const costVariance = calculateCostVariance(totalEstimated, totalActual);
+        
+        // Calculate total working days
+        const totalWorkingDays = allTasks.reduce((sum, t) => 
+          sum + calculateWorkingDays(t.start_date, t.due_date), 0
+        );
+        
         return {
           'Department': analytics.departmentName,
           'Total Tasks': analytics.totalTasks,
           'Completed Tasks': analytics.completedTasks,
           'In Progress': allTasks.filter(t => t.status === 'in_progress').length,
           'To Do': allTasks.filter(t => t.status === 'todo').length,
-          'Completion (%)': analytics.percentage
+          'Completion (%)': analytics.percentage,
+          'Total Working Days': totalWorkingDays,
+          'Estimated Cost': totalEstimated,
+          'Actual Cost': totalActual,
+          'Cost Variance': costVariance.variance,
+          'Variance %': costVariance.variancePercentage.toFixed(2),
+          'Budget Status': costVariance.statusLabel
         };
       });
 
       const wsAnalytics = XLSX.utils.json_to_sheet(analyticsData);
       wsAnalytics['!cols'] = [
-        { wch: 20 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 10 },
-        { wch: 15 }
+        { wch: 20 }, // Department
+        { wch: 12 }, // Total Tasks
+        { wch: 15 }, // Completed Tasks
+        { wch: 12 }, // In Progress
+        { wch: 10 }, // To Do
+        { wch: 15 }, // Completion %
+        { wch: 18 }, // Total Working Days
+        { wch: 15 }, // Estimated Cost
+        { wch: 15 }, // Actual Cost
+        { wch: 15 }, // Cost Variance
+        { wch: 12 }, // Variance %
+        { wch: 18 }, // Budget Status
       ];
       XLSX.utils.book_append_sheet(wb, wsAnalytics, 'Analytics');
 

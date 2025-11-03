@@ -744,6 +744,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          actual_cost: number | null
           assignee_department_id: string | null
           assignee_user_id: string | null
           completed_at: string | null
@@ -752,6 +753,7 @@ export type Database = {
           due_date: string | null
           element_id: string | null
           estimate_hours: number | null
+          estimated_cost: number | null
           id: string
           labels: string[] | null
           logged_hours: number | null
@@ -765,6 +767,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          actual_cost?: number | null
           assignee_department_id?: string | null
           assignee_user_id?: string | null
           completed_at?: string | null
@@ -773,6 +776,7 @@ export type Database = {
           due_date?: string | null
           element_id?: string | null
           estimate_hours?: number | null
+          estimated_cost?: number | null
           id?: string
           labels?: string[] | null
           logged_hours?: number | null
@@ -786,6 +790,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          actual_cost?: number | null
           assignee_department_id?: string | null
           assignee_user_id?: string | null
           completed_at?: string | null
@@ -794,6 +799,7 @@ export type Database = {
           due_date?: string | null
           element_id?: string | null
           estimate_hours?: number | null
+          estimated_cost?: number | null
           id?: string
           labels?: string[] | null
           logged_hours?: number | null

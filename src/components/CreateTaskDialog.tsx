@@ -63,6 +63,8 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
     priority: 'medium',
     start_date: '',
     due_date: '',
+    estimated_cost: '0',
+    actual_cost: '0',
   });
 
   useEffect(() => {
@@ -160,6 +162,8 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
           priority: formData.priority,
           start_date: formData.start_date || null,
           due_date: formData.due_date || null,
+          estimated_cost: parseFloat(formData.estimated_cost) || 0,
+          actual_cost: parseFloat(formData.actual_cost) || 0,
         })
         .select()
         .single();
@@ -227,6 +231,8 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
         priority: 'medium',
         start_date: '',
         due_date: '',
+        estimated_cost: '0',
+        actual_cost: '0',
       });
       setSelectedUserIds([]);
       setOpen(false);
@@ -438,6 +444,34 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="estimated_cost">Estimated Cost</Label>
+              <Input
+                id="estimated_cost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.estimated_cost}
+                onChange={(e) => setFormData({ ...formData, estimated_cost: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="actual_cost">Actual Cost</Label>
+              <Input
+                id="actual_cost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.actual_cost}
+                onChange={(e) => setFormData({ ...formData, actual_cost: e.target.value })}
+                placeholder="0.00"
               />
             </div>
           </div>

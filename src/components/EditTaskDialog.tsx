@@ -28,6 +28,8 @@ interface EditTaskDialogProps {
     element_id?: string;
     project_id?: string;
     assignee_department_id?: string;
+    estimated_cost?: number;
+    actual_cost?: number;
   } | null;
   onSuccess: () => void;
 }
@@ -47,6 +49,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
   const [title, setTitle] = useState('');
   const [assigneeUserId, setAssigneeUserId] = useState<string>('');
   const [elementId, setElementId] = useState<string>('');
+  const [estimatedCost, setEstimatedCost] = useState<string>('0');
+  const [actualCost, setActualCost] = useState<string>('0');
   const [users, setUsers] = useState<User[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,6 +62,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
       setTitle(task.title);
       setAssigneeUserId(task.assignee_user_id || '');
       setElementId(task.element_id || '');
+      setEstimatedCost(task.estimated_cost?.toString() || '0');
+      setActualCost(task.actual_cost?.toString() || '0');
     }
   }, [task]);
 
@@ -112,6 +118,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
           title: title.trim(),
           assignee_user_id: assigneeUserId || null,
           element_id: elementId || null,
+          estimated_cost: parseFloat(estimatedCost) || 0,
+          actual_cost: parseFloat(actualCost) || 0,
         })
         .eq('id', task.id);
 
@@ -217,6 +225,33 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="estimated-cost">Estimated Cost</Label>
+                <Input
+                  id="estimated-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={estimatedCost}
+                  onChange={(e) => setEstimatedCost(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="actual-cost">Actual Cost</Label>
+                <Input
+                  id="actual-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={actualCost}
+                  onChange={(e) => setActualCost(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
             </div>
 
             <DialogFooter className="flex justify-between sm:justify-between">

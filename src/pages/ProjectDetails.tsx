@@ -26,7 +26,8 @@ import {
   List,
   Filter,
   User,
-  MessageSquare
+  MessageSquare,
+  BarChart3
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -295,6 +296,15 @@ export default function ProjectDetails() {
             >
               <GanttChartSquare className="h-5 w-5" />
               View Gantt Chart
+            </Button>
+            <Button 
+              onClick={() => navigate(`/projects/${projectId}/analytics`)}
+              className="gap-2"
+              size="lg"
+              variant="outline"
+            >
+              <BarChart3 className="h-5 w-5" />
+              View Analytics
             </Button>
             <Button 
               onClick={() => setMessagingOpen(true)}
