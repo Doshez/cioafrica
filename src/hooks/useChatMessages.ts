@@ -152,8 +152,19 @@ export const useChatMessages = (roomId: string | null) => {
   }) => {
     if (!roomId) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: 'Error sending message',
+        description: 'You must be logged in to send messages',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const messageData: any = {
       room_id: roomId,
+      user_id: user.id,
       content,
       attachment_url: attachmentData?.url || null,
       attachment_name: attachmentData?.name || null,
