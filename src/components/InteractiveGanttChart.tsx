@@ -519,33 +519,117 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     try {
       toast({
         title: 'Generating PDF...',
-        description: 'Please wait while we export your Gantt chart'
+        description: 'Please wait while we capture your Gantt chart'
       });
 
-      const canvas = await html2canvas(chartRef.current, {
+      // Get the full chart element including any scrollable content
+      const element = chartRef.current;
+      
+      // Store original scroll position
+      const originalScrollLeft = element.scrollLeft || 0;
+      
+      // Temporarily reset scroll to capture full content
+      if (element.scrollLeft) element.scrollLeft = 0;
+      
+      // Capture with higher quality and full content
+      const canvas = await html2canvas(element, {
         scale: 2,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
+      
+      // Restore scroll position
+      if (element.scrollLeft !== originalScrollLeft) {
+        element.scrollLeft = originalScrollLeft;
+      }
       
       const imgData = canvas.toDataURL('image/png');
+      
+      // Use A3 landscape for better fit (A3 is larger than A4)
       const pdf = new jsPDF({
         orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
+        unit: 'mm',
+        format: 'a3'
       });
       
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      // A3 landscape dimensions in mm
+      const pdfWidth = 420;
+      const pdfHeight = 297;
+      
+      // Calculate image dimensions to fit on page while maintaining aspect ratio
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      
+      const scaledWidth = imgWidth * ratio;
+      const scaledHeight = imgHeight * ratio;
+      
+      // Center the image on the page
+      const x = (pdfWidth - scaledWidth) / 2;
+      const y = (pdfHeight - scaledHeight) / 2;
+      
+      // If content is too large for one page, split into multiple pages
+      if (scaledHeight > pdfHeight - 20) {
+        // Calculate how many pages we need
+        const pageHeight = pdfHeight - 20;
+        const numPages = Math.ceil(scaledHeight / pageHeight);
+        
+        for (let page = 0; page < numPages; page++) {
+          if (page > 0) {
+            pdf.addPage();
+          }
+          
+          // Calculate the portion of the image to show on this page
+          const sourceY = (imgHeight / numPages) * page;
+          const sourceHeight = imgHeight / numPages;
+          
+          // Create a temporary canvas for this page's content
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = imgWidth;
+          pageCanvas.height = sourceHeight;
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          if (pageCtx) {
+            pageCtx.drawImage(
+              canvas,
+              0, sourceY, imgWidth, sourceHeight,
+              0, 0, imgWidth, sourceHeight
+            );
+            
+            const pageImgData = pageCanvas.toDataURL('image/png');
+            const pageScaledHeight = sourceHeight * ratio;
+            
+            pdf.addImage(pageImgData, 'PNG', x, 10, scaledWidth, pageScaledHeight);
+            
+            // Add page number
+            pdf.setFontSize(10);
+            pdf.text(`Page ${page + 1} of ${numPages}`, pdfWidth - 30, pdfHeight - 10);
+          }
+        }
+      } else {
+        // Single page - fits nicely
+        pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
+      }
+      
       pdf.save(`gantt-chart-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       
       toast({
         title: 'Success!',
-        description: 'Gantt chart exported as PDF'
+        description: 'Gantt chart exported as PDF with full content'
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
         title: 'Export failed',
-        description: 'Failed to export Gantt chart',
+        description: 'Failed to export Gantt chart. Please try again.',
         variant: 'destructive'
       });
     }
