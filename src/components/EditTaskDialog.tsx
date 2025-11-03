@@ -30,6 +30,8 @@ interface EditTaskDialogProps {
     assignee_department_id?: string;
     estimated_cost?: number;
     actual_cost?: number;
+    start_date?: string;
+    due_date?: string;
   } | null;
   onSuccess: () => void;
 }
@@ -51,6 +53,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
   const [elementId, setElementId] = useState<string>('');
   const [estimatedCost, setEstimatedCost] = useState<string>('0');
   const [actualCost, setActualCost] = useState<string>('0');
+  const [startDate, setStartDate] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,6 +68,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
       setElementId(task.element_id || '');
       setEstimatedCost(task.estimated_cost?.toString() || '0');
       setActualCost(task.actual_cost?.toString() || '0');
+      setStartDate(task.start_date || '');
+      setDueDate(task.due_date || '');
     }
   }, [task]);
 
@@ -120,6 +126,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
           element_id: elementId || null,
           estimated_cost: parseFloat(estimatedCost) || 0,
           actual_cost: parseFloat(actualCost) || 0,
+          start_date: startDate || null,
+          due_date: dueDate || null,
         })
         .eq('id', task.id);
 
@@ -225,6 +233,27 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Start Date</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="due-date">Due Date</Label>
+                <Input
+                  id="due-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

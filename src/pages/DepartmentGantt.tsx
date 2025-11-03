@@ -444,9 +444,7 @@ export default function DepartmentGantt() {
     }
   };
 
-  if (loading) {
-    return <div className="p-8">Loading...</div>;
-  }
+  // Don't block the UI with loading page - load data in background
 
   if (!department || !project) {
     return <div className="p-8">Department or project not found</div>;
