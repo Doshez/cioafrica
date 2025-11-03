@@ -10,7 +10,9 @@ import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { ProjectMembersCard } from '@/components/ProjectMembersCard';
 import { useUserRole } from '@/hooks/useUserRole';
 import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
-import { 
+import { MessagingCenter } from '@/components/MessagingCenter';
+import { ChatSettingsDialog } from '@/components/ChatSettingsDialog';
+import {
   ArrowLeft, 
   Folder, 
   CheckCircle2, 
@@ -22,7 +24,8 @@ import {
   Grid3x3,
   List,
   Filter,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,6 +86,7 @@ export default function ProjectDetails() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterMode, setFilterMode] = useState<'all' | 'my' | 'active'>('all');
+  const [messagingOpen, setMessagingOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -280,16 +284,36 @@ export default function ProjectDetails() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={() => navigate(`/projects/${projectId}/gantt`)}
-            className="w-full sm:w-auto gap-2"
-            size="lg"
-          >
-            <GanttChartSquare className="h-5 w-5" />
-            View Gantt Chart
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              onClick={() => navigate(`/projects/${projectId}/gantt`)}
+              className="gap-2"
+              size="lg"
+            >
+              <GanttChartSquare className="h-5 w-5" />
+              View Gantt Chart
+            </Button>
+            <Button 
+              onClick={() => setMessagingOpen(true)}
+              className="gap-2"
+              size="lg"
+              variant="outline"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Messaging Center
+            </Button>
+            {(isAdmin || isProjectManager) && (
+              <ChatSettingsDialog projectId={projectId!} />
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      <MessagingCenter 
+        open={messagingOpen}
+        onOpenChange={setMessagingOpen}
+        projectId={projectId!}
+      />
 
       {/* Project Overview and Members */}
       <div className="grid md:grid-cols-2 gap-6">
