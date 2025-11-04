@@ -28,11 +28,13 @@ import {
   Filter,
   User,
   MessageSquare,
-  BarChart3
+  BarChart3,
+  Search
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 
 interface Project {
   id: string;
@@ -89,6 +91,7 @@ export default function ProjectDetails() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterMode, setFilterMode] = useState<'all' | 'my' | 'active'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [messagingOpen, setMessagingOpen] = useState(false);
   const { unreadCount } = useUnreadMessages(projectId || null);
 
@@ -209,6 +212,14 @@ export default function ProjectDetails() {
 
   const getFilteredAndSortedDepartments = () => {
     let filtered = [...departments];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(dept => 
+        dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dept.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
     // Apply filter
     if (filterMode === 'my' && !isAdmin && !isProjectManager) {
@@ -382,9 +393,18 @@ export default function ProjectDetails() {
 
       {/* Departments and Analytics */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <h2 className="text-2xl font-bold">Departments</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search departments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-[240px]"
+              />
+            </div>
             <Select value={filterMode} onValueChange={(value: any) => setFilterMode(value)}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
