@@ -664,6 +664,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         const budgetStatus = Math.abs(variancePercent) <= 5 ? 'ON BUDGET' : 
                            variancePercent < -5 ? 'UNDER BUDGET' : 'OVER BUDGET';
         
+        // Calculate element duration: total calendar days across all tasks
         const elementDuration = element.start_date && element.due_date
           ? differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1
           : 0;
@@ -690,7 +691,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
 
         // Add task rows
         element.tasks.forEach(task => {
-          const taskDuration = differenceInDays(new Date(task.due_date), new Date(task.start_date)) + 1;
+          // Calculate duration: total calendar days including start and end dates
+          const taskStart = new Date(task.start_date);
+          const taskEnd = new Date(task.due_date);
+          const taskDuration = differenceInDays(taskEnd, taskStart) + 1;
+          
+          // Calculate working days: only weekdays (Mon-Fri) including start and end dates
           const workingDays = calculateWorkingDays(task.start_date, task.due_date);
           const taskVariance = (task.actual_cost || 0) - (task.estimated_cost || 0);
           const taskVariancePercent = (task.estimated_cost || 0) > 0 

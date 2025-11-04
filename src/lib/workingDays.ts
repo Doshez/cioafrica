@@ -12,14 +12,16 @@ export function calculateWorkingDays(
 ): number {
   if (!startDate || !endDate) return 0;
 
-  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
-  const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
+  // Parse dates and normalize to start of day to avoid timezone issues
+  const start = typeof startDate === 'string' ? parseISO(startDate.split('T')[0]) : new Date(startDate.toISOString().split('T')[0]);
+  const end = typeof endDate === 'string' ? parseISO(endDate.split('T')[0]) : new Date(endDate.toISOString().split('T')[0]);
 
   if (start > end) return 0;
 
   let workingDays = 0;
   let currentDate = start;
 
+  // Include both start and end dates in the count
   while (currentDate <= end) {
     if (!isWeekend(currentDate)) {
       workingDays++;
