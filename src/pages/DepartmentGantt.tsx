@@ -13,6 +13,7 @@ import { DepartmentGanttView } from '@/components/DepartmentGanttView';
 import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditElementDialog } from '@/components/EditElementDialog';
+import { EditDepartmentDialog } from '@/components/EditDepartmentDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical } from 'lucide-react';
 import {
@@ -112,6 +113,7 @@ export default function DepartmentGantt() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [hasAssignedTasks, setHasAssignedTasks] = useState(false);
   const [deletingDepartment, setDeletingDepartment] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<{ id: string; name: string; description?: string } | null>(null);
 
   useEffect(() => {
     if (departmentId && projectId) {
@@ -493,6 +495,10 @@ export default function DepartmentGantt() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditingDepartment(department)}>
+                  <EditIcon className="h-4 w-4 mr-2" />
+                  Edit Department
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => setDeletingDepartment(true)}
@@ -684,6 +690,14 @@ export default function DepartmentGantt() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Department Dialog */}
+      <EditDepartmentDialog
+        department={editingDepartment}
+        open={!!editingDepartment}
+        onOpenChange={(open) => !open && setEditingDepartment(null)}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
