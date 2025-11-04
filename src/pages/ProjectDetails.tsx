@@ -29,7 +29,9 @@ import {
   User,
   MessageSquare,
   BarChart3,
-  Search
+  Search,
+  LayoutGrid,
+  Table
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -89,7 +91,7 @@ export default function ProjectDetails() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact' | 'table'>('grid');
   const [filterMode, setFilterMode] = useState<'all' | 'my' | 'active'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [messagingOpen, setMessagingOpen] = useState(false);
@@ -422,16 +424,36 @@ export default function ProjectDetails() {
                 size="sm"
                 onClick={() => setViewMode('grid')}
                 className="px-2"
+                title="Grid View"
               >
                 <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('compact')}
+                className="px-2"
+                title="Compact View"
+              >
+                <LayoutGrid className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
                 className="px-2"
+                title="List View"
               >
                 <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className="px-2"
+                title="Table View"
+              >
+                <Table className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -453,16 +475,137 @@ export default function ProjectDetails() {
               )}
             </CardContent>
           </Card>
+        ) : viewMode === 'table' ? (
+          <div className="max-h-[600px] overflow-y-auto">
+            <div className="rounded-lg border">
+              <table className="w-full">
+                <thead className="bg-muted/50 sticky top-0">
+                  <tr>
+                    <th className="text-left p-4 font-semibold">Department</th>
+                    <th className="text-left p-4 font-semibold">Description</th>
+                    <th className="text-center p-4 font-semibold">Total</th>
+                    <th className="text-center p-4 font-semibold">Completed</th>
+                    <th className="text-center p-4 font-semibold">In Progress</th>
+                    <th className="text-center p-4 font-semibold">Todo</th>
+                    <th className="text-center p-4 font-semibold">Progress</th>
+                    <th className="text-right p-4 font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredAndSortedDepartments().map((dept) => {
+                    const analytics = departmentAnalytics.find(a => a.department_id === dept.id);
+                    const myTaskCount = getUserTaskCount(dept.id);
+                    const hasMyTasks = userHasTasksInDepartment(dept.id);
+                    
+                    return (
+                      <tr key={dept.id} className={`border-t hover:bg-muted/30 ${hasMyTasks && !isAdmin && !isProjectManager ? 'bg-primary/5' : ''}`}>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Folder className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{dept.name}</span>
+                            {hasMyTasks && !isAdmin && !isProjectManager && (
+                              <Badge variant="default" className="text-xs">
+                                {myTaskCount}
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm text-muted-foreground max-w-xs truncate">{dept.description}</td>
+                        <td className="p-4 text-center font-semibold">{analytics?.total_tasks || 0}</td>
+                        <td className="p-4 text-center">
+                          <span className="inline-flex items-center gap-1 text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            {analytics?.completed_tasks || 0}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="inline-flex items-center gap-1 text-blue-600">
+                            <Clock className="h-4 w-4" />
+                            {analytics?.in_progress_tasks || 0}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <ListTodo className="h-4 w-4" />
+                            {analytics?.todo_tasks || 0}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="font-semibold">{analytics?.completion_percentage || 0}%</span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/projects/${projectId}/department/${dept.id}`)}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
           <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin">
-            <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 'space-y-4'}>
+            <div className={
+              viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2' : 
+              viewMode === 'compact' ? 'grid gap-3 md:grid-cols-3 lg:grid-cols-4' : 
+              'space-y-4'
+            }>
               {getFilteredAndSortedDepartments().map((dept) => {
               const analytics = departmentAnalytics.find(a => a.department_id === dept.id);
               const deptTasks = getDepartmentTasks(dept.id);
               const myTaskCount = getUserTaskCount(dept.id);
               const hasMyTasks = userHasTasksInDepartment(dept.id);
 
-              return (
+              return viewMode === 'compact' ? (
+                <Card key={dept.id} className={`${hasMyTasks && !isAdmin && !isProjectManager ? 'border-primary' : ''}`}>
+                  <CardHeader className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Folder className="h-4 w-4 flex-shrink-0" />
+                          <CardTitle className="text-base truncate">{dept.name}</CardTitle>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 flex-shrink-0"
+                          onClick={() => navigate(`/projects/${projectId}/department/${dept.id}`)}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {hasMyTasks && !isAdmin && !isProjectManager && (
+                        <Badge variant="default" className="text-xs w-fit">
+                          {myTaskCount}
+                        </Badge>
+                      )}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {analytics?.completed_tasks || 0}
+                        </span>
+                        <span className="text-blue-600 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {analytics?.in_progress_tasks || 0}
+                        </span>
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <ListTodo className="h-3 w-3" />
+                          {analytics?.todo_tasks || 0}
+                        </span>
+                      </div>
+                      <div className="text-xs font-semibold text-center">
+                        {analytics?.completion_percentage || 0}%
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+              ) : (
                 <Card key={dept.id} className={hasMyTasks && !isAdmin && !isProjectManager ? 'border-primary' : ''}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
