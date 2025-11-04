@@ -107,10 +107,10 @@ interface InteractiveGanttChartProps {
 type ViewMode = 'day' | 'week' | 'month';
 type ChartMode = 'gantt' | 'analytics';
 
-// Department color palette
+// Department color palette - distinct colors for better differentiation
 const DEPT_COLORS = [
-  '#3B82F6', '#F59E0B', '#10B981', '#8B5CF6', '#EF4444',
-  '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1'
+  '#FF6B6B', '#4ECDC4', '#FFD93D', '#A78BFA', '#38BDF8',
+  '#FB923C', '#34D399', '#F472B6', '#818CF8', '#FCA5A5'
 ];
 
 export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps) {
@@ -435,14 +435,14 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
     switch (status) {
       case 'done':
       case 'completed':
-        return '#10B981'; // Green
+        return '#22C55E'; // Bright Green
       case 'in-progress':
       case 'in_progress':
         return '#3B82F6'; // Blue
       case 'not-started':
       case 'todo':
       default:
-        return '#9CA3AF'; // Gray
+        return '#94A3B8'; // Slate Gray
     }
   };
 
