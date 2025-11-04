@@ -253,6 +253,11 @@ export function ImportTasksDialog({
       for (let i = 0; i < jsonData.length; i++) {
         const row: any = jsonData[i];
         
+        // Skip empty rows (rows without a Task Title)
+        if (!row['Task Title'] || String(row['Task Title']).trim() === '') {
+          continue;
+        }
+        
         try {
           // Validate row
           const validated = taskRowSchema.parse({
