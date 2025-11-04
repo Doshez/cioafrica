@@ -1144,7 +1144,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   return (
     <>
       <Card className="w-full rounded-none border-x-0 overflow-hidden" ref={chartRef}>
-        <CardHeader className="px-4 sm:px-6 lg:px-8">
+        <CardHeader className="px-2 sm:px-3 py-3">
           <div className="flex flex-col gap-4">
             {/* Header Row */}
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -1314,7 +1314,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
             <div className="w-full overflow-x-auto">
               <div className="inline-block min-w-full" style={{ minWidth: '1200px' }}>
               {/* Status Legend */}
-              <div className="flex items-center gap-4 px-4 sm:px-6 lg:px-8 py-3 border-b bg-background text-xs sticky top-0 z-30 shadow-sm">
+              <div className="flex items-center gap-4 px-2 sm:px-3 py-3 border-b bg-background text-xs sticky top-0 z-30 shadow-sm">
                 <span className="font-medium text-muted-foreground">Status:</span>
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-[#9CA3AF] opacity-60" />

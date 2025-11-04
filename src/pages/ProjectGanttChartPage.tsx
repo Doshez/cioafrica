@@ -56,7 +56,7 @@ export default function ProjectGanttChartPage() {
   return (
     <div className="min-h-screen w-full flex flex-col">
       {/* Header */}
-      <div className="px-4 sm:px-6 lg:px-8 py-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex-shrink-0">
+      <div className="px-2 sm:px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex-shrink-0">
         <div className="flex items-center justify-between max-w-full">
           <div className="flex items-center gap-3 min-w-0">
             <Button 
