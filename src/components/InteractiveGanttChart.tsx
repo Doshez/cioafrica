@@ -657,17 +657,18 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
           sum + calculateWorkingDays(t.start_date, t.due_date), 0
         );
         
+        // Calculate total duration: sum of all task durations (calendar days)
+        const totalDuration = element.tasks.reduce((sum, t) => {
+          if (!t.start_date || !t.due_date) return sum;
+          return sum + (differenceInDays(new Date(t.due_date), new Date(t.start_date)) + 1);
+        }, 0);
+        
         const totalEstimated = element.tasks.reduce((sum, t) => sum + (t.estimated_cost || 0), 0);
         const totalActual = element.tasks.reduce((sum, t) => sum + (t.actual_cost || 0), 0);
         const variance = totalActual - totalEstimated;
         const variancePercent = totalEstimated > 0 ? (variance / totalEstimated) * 100 : 0;
         const budgetStatus = Math.abs(variancePercent) <= 5 ? 'ON BUDGET' : 
                            variancePercent < -5 ? 'UNDER BUDGET' : 'OVER BUDGET';
-        
-        // Calculate element duration: total calendar days from start to end (including weekends)
-        const elementDuration = element.start_date && element.due_date
-          ? differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1
-          : 0;
         
         // Add element row
         ganttData.push({
@@ -679,7 +680,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
           'Progress (%)': Math.round(avgProgress),
           'Start Date': element.start_date ? format(new Date(element.start_date), 'yyyy-MM-dd') : '',
           'Due Date': element.due_date ? format(new Date(element.due_date), 'yyyy-MM-dd') : '',
-          'Duration': elementDuration,
+          'Duration': totalDuration,
           'Working Days': totalWorkingDays,
           'Estimated Cost': totalEstimated,
           'Actual Cost': totalActual,
