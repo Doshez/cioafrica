@@ -146,17 +146,25 @@ export function ImportTasksDialog({
       return `${year}-${month}-${day}`;
     }
     
+    // Helper function to format date as YYYY-MM-DD in local timezone
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
     // If it's an Excel serial number
     if (typeof serial === 'number') {
       const date = new Date((serial - 25569) * 86400 * 1000);
-      return date.toISOString().split('T')[0];
+      return formatLocalDate(date);
     }
     
     // Try to parse as date string
     try {
       const date = new Date(serial);
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        return formatLocalDate(date);
       }
     } catch (e) {
       // Ignore parsing errors
