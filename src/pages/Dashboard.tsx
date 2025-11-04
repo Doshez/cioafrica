@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock, Loader2, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface DashboardStats {
   activeProjects: number;
   completedTasks: number;
   overdueTasks: number;
   totalTasks: number;
+}
+
+interface OverdueTask {
+  id: string;
+  title: string;
+  due_date: string;
+  project_name: string;
 }
 
 interface ProjectWithProgress {
@@ -42,6 +50,7 @@ export default function Dashboard() {
     totalTasks: 0,
   });
   const [recentProjects, setRecentProjects] = useState<ProjectWithProgress[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<OverdueTask[]>([]);
 
   useEffect(() => {
     if (user && (isAdmin !== undefined && isProjectManager !== undefined)) {
@@ -90,7 +99,17 @@ export default function Dashboard() {
       // Fetch user's tasks
       const { data: tasks, error: tasksError } = await supabase
         .from('tasks')
-        .select('id, status, due_date, project_id, title')
+        .select(`
+          id, 
+          status, 
+          due_date, 
+          project_id, 
+          title,
+          projects (
+            name
+          )
+        `)
+        .eq('assignee_user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (tasksError) throw tasksError;
@@ -101,15 +120,26 @@ export default function Dashboard() {
       const totalTasks = tasks?.length || 0;
       
       const today = new Date();
-      const overdueTasks = tasks?.filter(t => {
+      today.setHours(0, 0, 0, 0);
+      const overdueTasksList = tasks?.filter(t => {
         if (!t.due_date || t.status === 'done') return false;
         return new Date(t.due_date) < today;
-      }).length || 0;
+      }) || [];
+      
+      const overdueTasksCount = overdueTasksList.length;
+      
+      // Store overdue tasks with project names
+      setOverdueTasks(overdueTasksList.map(t => ({
+        id: t.id,
+        title: t.title,
+        due_date: t.due_date,
+        project_name: (t.projects as any)?.name || 'Unknown Project'
+      })));
 
       setStats({
         activeProjects,
         completedTasks,
-        overdueTasks,
+        overdueTasks: overdueTasksCount,
         totalTasks,
       });
 
@@ -205,6 +235,36 @@ export default function Dashboard() {
           </Button>
         )}
       </div>
+
+      {/* Overdue Tasks Alert */}
+      {stats.overdueTasks > 0 && (
+        <Alert className="border-destructive bg-destructive/10 cursor-pointer hover:bg-destructive/20 transition-colors" onClick={() => navigate('/my-tasks?filter=overdue')}>
+          <Bell className="h-5 w-5 text-destructive" />
+          <AlertTitle className="text-destructive font-semibold">
+            {stats.overdueTasks} Overdue Task{stats.overdueTasks > 1 ? 's' : ''} Require Attention
+          </AlertTitle>
+          <AlertDescription className="text-sm">
+            <div className="mt-2 space-y-1">
+              {overdueTasks.slice(0, 3).map((task) => (
+                <div key={task.id} className="flex items-start justify-between gap-2">
+                  <span className="text-xs line-clamp-1">{task.title}</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(task.due_date).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+              {overdueTasks.length > 3 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  +{overdueTasks.length - 3} more overdue task{overdueTasks.length - 3 > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+            <Button variant="destructive" size="sm" className="mt-3 w-full sm:w-auto">
+              View All Overdue Tasks
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

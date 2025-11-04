@@ -14,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSearchParams } from "react-router-dom";
 
 interface Task {
   id: string;
@@ -50,11 +51,13 @@ export default function MyTasks() {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [groupedTasks, setGroupedTasks] = useState<GroupedTasks[]>([]);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('cards');
   const [editingTask, setEditingTask] = useState<any>(null);
@@ -67,8 +70,16 @@ export default function MyTasks() {
   }, [user]);
 
   useEffect(() => {
+    // Check for filter parameter in URL
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'overdue') {
+      setStatusFilter('overdue');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     groupTasksByElement();
-  }, [tasks, searchTerm, selectedProject]);
+  }, [tasks, searchTerm, selectedProject, statusFilter]);
 
   const fetchMyTasks = async () => {
     try {
@@ -138,6 +149,17 @@ export default function MyTasks() {
     // Filter by project
     if (selectedProject !== "all") {
       filteredTasks = filteredTasks.filter(task => task.project_id === selectedProject);
+    }
+
+    // Filter by status
+    if (statusFilter === "overdue") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      filteredTasks = filteredTasks.filter(task => 
+        task.due_date && task.status !== 'done' && new Date(task.due_date) < today
+      );
+    } else if (statusFilter !== "all") {
+      filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
     }
 
     // Group by element
@@ -317,8 +339,20 @@ export default function MyTasks() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="done">Done</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={selectedProject} onValueChange={setSelectedProject}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="All Projects" />
