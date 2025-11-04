@@ -16,8 +16,8 @@ const taskRowSchema = z.object({
   'Start Date': z.union([z.string(), z.number()]).optional(),
   'Due Date': z.union([z.string(), z.number()]).optional(),
   'Description': z.string().optional(),
-  'Estimated Cost': z.number().optional(),
-  'Actual Cost': z.number().optional(),
+  'Estimated Cost': z.union([z.number(), z.string()]).optional(),
+  'Actual Cost': z.union([z.number(), z.string()]).optional(),
 });
 
 interface ImportTasksDialogProps {
@@ -263,9 +263,22 @@ export function ImportTasksDialog({
             'Start Date': row['Start Date'],
             'Due Date': row['Due Date'],
             'Description': row['Description'],
-            'Estimated Cost': typeof row['Estimated Cost'] === 'number' ? row['Estimated Cost'] : undefined,
-            'Actual Cost': typeof row['Actual Cost'] === 'number' ? row['Actual Cost'] : undefined,
+            'Estimated Cost': row['Estimated Cost'],
+            'Actual Cost': row['Actual Cost'],
           });
+
+          // Parse costs to numbers
+          const estimatedCost = validated['Estimated Cost'] 
+            ? typeof validated['Estimated Cost'] === 'number' 
+              ? validated['Estimated Cost']
+              : parseFloat(String(validated['Estimated Cost']))
+            : 0;
+          
+          const actualCost = validated['Actual Cost']
+            ? typeof validated['Actual Cost'] === 'number'
+              ? validated['Actual Cost']
+              : parseFloat(String(validated['Actual Cost']))
+            : 0;
 
           const task = {
             project_id: projectId,
@@ -276,8 +289,8 @@ export function ImportTasksDialog({
             priority: validated['Priority'] || 'medium',
             start_date: parseExcelDate(row['Start Date']),
             due_date: parseExcelDate(row['Due Date']),
-            estimated_cost: validated['Estimated Cost'] || 0,
-            actual_cost: validated['Actual Cost'] || 0,
+            estimated_cost: isNaN(estimatedCost) ? 0 : estimatedCost,
+            actual_cost: isNaN(actualCost) ? 0 : actualCost,
             element_id: validated['Element'] ? elementMap.get(validated['Element']) : null,
             progress_percentage: validated['Status'] === 'done' ? 100 : validated['Status'] === 'in_progress' ? 50 : 0,
           };
