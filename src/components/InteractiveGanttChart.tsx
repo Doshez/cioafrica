@@ -664,9 +664,9 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         const budgetStatus = Math.abs(variancePercent) <= 5 ? 'ON BUDGET' : 
                            variancePercent < -5 ? 'UNDER BUDGET' : 'OVER BUDGET';
         
-        // Calculate element duration: working days span from earliest start to latest end
+        // Calculate element duration: total calendar days from start to end (including weekends)
         const elementDuration = element.start_date && element.due_date
-          ? calculateWorkingDays(element.start_date, element.due_date)
+          ? differenceInDays(new Date(element.due_date), new Date(element.start_date)) + 1
           : 0;
         
         // Add element row
