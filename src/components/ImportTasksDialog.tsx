@@ -61,8 +61,8 @@ export function ImportTasksDialog({
           'Element': elementNames[0] || 'Element Name',
           'Status': 'todo',
           'Priority': 'medium',
-          'Start Date': '2025-01-01',
-          'Due Date': '2025-01-31',
+          'Start Date': '01-01-2025',
+          'Due Date': '01-31-2025',
           'Description': 'Task description',
           'Estimated Cost': 1000,
           'Actual Cost': 0,
@@ -72,8 +72,8 @@ export function ImportTasksDialog({
           'Element': elementNames[1] || elementNames[0] || 'Element Name',
           'Status': 'in_progress',
           'Priority': 'high',
-          'Start Date': '2025-02-01',
-          'Due Date': '2025-02-28',
+          'Start Date': '02-01-2025',
+          'Due Date': '02-28-2025',
           'Description': 'Another task description',
           'Estimated Cost': 2000,
           'Actual Cost': 500,
@@ -106,7 +106,7 @@ export function ImportTasksDialog({
         { 'Information': '', 'Value': '' },
         { 'Information': 'Valid Status Values:', 'Value': 'todo, in_progress, done, on_hold' },
         { 'Information': 'Valid Priority Values:', 'Value': 'low, medium, high' },
-        { 'Information': 'Date Format:', 'Value': 'YYYY-MM-DD (e.g., 2025-01-31)' },
+        { 'Information': 'Date Format:', 'Value': 'MM-DD-YYYY (e.g., 01-31-2025)' },
       ];
 
       const wsRef = XLSX.utils.json_to_sheet(referenceData);
@@ -135,9 +135,15 @@ export function ImportTasksDialog({
   const parseExcelDate = (serial: any): string | null => {
     if (!serial) return null;
     
-    // If it's already a string in YYYY-MM-DD format
+    // If it's already a string in YYYY-MM-DD format (for database storage)
     if (typeof serial === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(serial)) {
       return serial;
+    }
+    
+    // If it's in MM-DD-YYYY format (our template format)
+    if (typeof serial === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(serial)) {
+      const [month, day, year] = serial.split('-');
+      return `${year}-${month}-${day}`;
     }
     
     // If it's an Excel serial number
@@ -341,8 +347,8 @@ export function ImportTasksDialog({
               <li>• Element (optional)</li>
               <li>• Status: todo, in_progress, done, on_hold</li>
               <li>• Priority: low, medium, high</li>
-              <li>• Start Date (YYYY-MM-DD)</li>
-              <li>• Due Date (YYYY-MM-DD)</li>
+              <li>• Start Date (MM-DD-YYYY)</li>
+              <li>• Due Date (MM-DD-YYYY)</li>
               <li>• Description</li>
               <li>• Estimated Cost (number)</li>
               <li>• Actual Cost (number)</li>
