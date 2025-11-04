@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2 } from 'lucide-react';
@@ -49,7 +50,7 @@ interface Element {
 
 export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTaskDialogProps) {
   const [title, setTitle] = useState('');
-  const [assigneeUserId, setAssigneeUserId] = useState<string>('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [elementId, setElementId] = useState<string>('');
   const [estimatedCost, setEstimatedCost] = useState<string>('0');
   const [actualCost, setActualCost] = useState<string>('0');
@@ -64,7 +65,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
   useEffect(() => {
     if (task) {
       setTitle(task.title);
-      setAssigneeUserId(task.assignee_user_id || '');
       setElementId(task.element_id || '');
       setEstimatedCost(task.estimated_cost?.toString() || '0');
       setActualCost(task.actual_cost?.toString() || '0');
@@ -77,6 +77,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     if (open && task) {
       fetchUsers();
       fetchElements();
+      fetchTaskAssignments();
     }
   }, [open, task]);
 
@@ -112,17 +113,33 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     }
   };
 
+  const fetchTaskAssignments = async () => {
+    if (!task?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('task_assignments')
+        .select('user_id')
+        .eq('task_id', task.id);
+
+      if (error) throw error;
+      setSelectedUserIds(data?.map(a => a.user_id) || []);
+    } catch (error) {
+      console.error('Error fetching task assignments:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!task) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Update task
+      const { error: taskError } = await supabase
         .from('tasks')
         .update({
           title: title.trim(),
-          assignee_user_id: assigneeUserId || null,
           element_id: elementId || null,
           estimated_cost: parseFloat(estimatedCost) || 0,
           actual_cost: parseFloat(actualCost) || 0,
@@ -131,11 +148,33 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
         })
         .eq('id', task.id);
 
-      if (error) throw error;
+      if (taskError) throw taskError;
+
+      // Delete existing task assignments
+      const { error: deleteError } = await supabase
+        .from('task_assignments')
+        .delete()
+        .eq('task_id', task.id);
+
+      if (deleteError) throw deleteError;
+
+      // Create new task assignments
+      if (selectedUserIds.length > 0) {
+        const assignments = selectedUserIds.map(userId => ({
+          task_id: task.id,
+          user_id: userId,
+        }));
+        
+        const { error: assignError } = await supabase
+          .from('task_assignments')
+          .insert(assignments);
+
+        if (assignError) throw assignError;
+      }
 
       toast({
         title: 'Success',
-        description: 'Task updated successfully',
+        description: `Task updated with ${selectedUserIds.length} assigned user(s)`,
       });
       onSuccess();
       onOpenChange(false);
@@ -219,20 +258,39 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assignee">Assign To</Label>
-              <Select value={assigneeUserId || 'unassigned'} onValueChange={(value) => setAssigneeUserId(value === 'unassigned' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select user" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
+              <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                {users.map((user) => (
+                  <div 
+                    key={user.id} 
+                    className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                    onClick={() => {
+                      if (selectedUserIds.includes(user.id)) {
+                        setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                      } else {
+                        setSelectedUserIds([...selectedUserIds, user.id]);
+                      }
+                    }}
+                  >
+                    <Checkbox
+                      checked={selectedUserIds.includes(user.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedUserIds([...selectedUserIds, user.id]);
+                        } else {
+                          setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
+                        }
+                      }}
+                    />
+                    <span className="text-sm flex-1">{user.full_name || user.email}</span>
+                  </div>
+                ))}
+              </div>
+              {selectedUserIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedUserIds.length} user(s) selected
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
