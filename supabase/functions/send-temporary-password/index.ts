@@ -106,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send email with temporary password
-    const signInUrl = `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'lovableproject.com')}/auth`;
+    const signInUrl = 'https://projects.cioafrica.co/';
 
     await resend.emails.send({
       from: 'Project Planner <onboarding@resend.dev>',

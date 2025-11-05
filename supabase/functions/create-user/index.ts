@@ -119,7 +119,7 @@ const handler = async (req: Request): Promise<Response> => {
           <p><strong>Important:</strong> You will be required to change this temporary password when you first log in for security reasons.</p>
           
           <p>Click the button below to sign in:</p>
-          <a href="${supabaseUrl.replace('supabase.co', 'lovable.app')}/auth" 
+          <a href="https://projects.cioafrica.co/" 
              style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
             Sign In Now
           </a>
