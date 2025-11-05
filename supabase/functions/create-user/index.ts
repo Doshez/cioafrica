@@ -101,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send welcome email with temporary password
     const emailResponse = await resend.emails.send({
-      from: "Project Planner <onboarding@resend.dev>",
+      from: "Project Planner <michael.odongo@cioafrica.co>",
       to: [email],
       subject: "Welcome to Project Planner - Your Account Details",
       html: `

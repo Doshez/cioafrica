@@ -109,7 +109,7 @@ const handler = async (req: Request): Promise<Response> => {
     const signInUrl = 'https://projects.cioafrica.co/';
 
     await resend.emails.send({
-      from: 'Project Planner <onboarding@resend.dev>',
+      from: 'Project Planner <michael.odongo@cioafrica.co>',
       to: [profile.email],
       subject: "Here's your temporary password — please set a new one 💌",
       html: `
