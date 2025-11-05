@@ -75,9 +75,8 @@ export function DuplicateProjectDialog({ projectId, projectName }: DuplicateProj
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
-          <Copy className="h-4 w-4 mr-2" />
-          Duplicate
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+          <Copy className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent onClick={(e) => e.stopPropagation()}>
