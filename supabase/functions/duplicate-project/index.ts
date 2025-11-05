@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized: No authorization header');
     }
 
+    // Create client for auth verification
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -44,6 +45,8 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized: No user found');
     }
 
+    console.log(`Authenticated user: ${user.id}`);
+
     const { projectId, newProjectName } = await req.json();
 
     if (!projectId || !newProjectName) {
@@ -52,8 +55,14 @@ Deno.serve(async (req) => {
 
     console.log(`Duplicating project ${projectId} with new name: ${newProjectName}`);
 
+    // Create service role client for database operations to bypass RLS
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
     // Get the original project
-    const { data: originalProject, error: projectError } = await supabaseClient
+    const { data: originalProject, error: projectError } = await supabaseAdmin
       .from('projects')
       .select('*')
       .eq('id', projectId)
@@ -62,7 +71,7 @@ Deno.serve(async (req) => {
     if (projectError) throw projectError;
 
     // Create the new project
-    const { data: newProject, error: newProjectError } = await supabaseClient
+    const { data: newProject, error: newProjectError } = await supabaseAdmin
       .from('projects')
       .insert({
         name: newProjectName,
@@ -81,7 +90,7 @@ Deno.serve(async (req) => {
     console.log(`Created new project: ${newProject.id}`);
 
     // Get all departments from the original project
-    const { data: departments, error: deptError } = await supabaseClient
+    const { data: departments, error: deptError } = await supabaseAdmin
       .from('departments')
       .select('*')
       .eq('project_id', projectId);
@@ -94,7 +103,7 @@ Deno.serve(async (req) => {
     // Duplicate departments
     if (departments && departments.length > 0) {
       for (const dept of departments) {
-        const { data: newDept, error: newDeptError } = await supabaseClient
+        const { data: newDept, error: newDeptError } = await supabaseAdmin
           .from('departments')
           .insert({
             name: dept.name,
@@ -111,7 +120,7 @@ Deno.serve(async (req) => {
     }
 
     // Get all elements from the original project
-    const { data: elements, error: elemError } = await supabaseClient
+    const { data: elements, error: elemError } = await supabaseAdmin
       .from('elements')
       .select('*')
       .eq('project_id', projectId);
@@ -124,7 +133,7 @@ Deno.serve(async (req) => {
     // Duplicate elements
     if (elements && elements.length > 0) {
       for (const element of elements) {
-        const { data: newElement, error: newElementError } = await supabaseClient
+        const { data: newElement, error: newElementError } = await supabaseAdmin
           .from('elements')
           .insert({
             title: element.title,
@@ -145,7 +154,7 @@ Deno.serve(async (req) => {
     }
 
     // Get all tasks from the original project
-    const { data: tasks, error: tasksError } = await supabaseClient
+    const { data: tasks, error: tasksError } = await supabaseAdmin
       .from('tasks')
       .select('*')
       .eq('project_id', projectId);
@@ -155,7 +164,7 @@ Deno.serve(async (req) => {
     // Duplicate tasks (reset status to 'todo', no assignees)
     if (tasks && tasks.length > 0) {
       for (const task of tasks) {
-        const { error: newTaskError } = await supabaseClient
+        const { error: newTaskError } = await supabaseAdmin
           .from('tasks')
           .insert({
             title: task.title,
