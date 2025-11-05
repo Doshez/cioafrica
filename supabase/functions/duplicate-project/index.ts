@@ -11,25 +11,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Create auth client with the request's authorization header
-    const supabaseClient = createClient(
+    // Create service role client for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Verify the user is authenticated
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
+    // Verify JWT token and get user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
-      console.error('Authentication failed:', userError?.message || 'No user');
+      console.error('Auth verification failed:', userError?.message);
       throw new Error('Unauthorized');
     }
 
@@ -42,12 +40,6 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Duplicating project ${projectId} with new name: ${newProjectName}`);
-
-    // Create service role client for database operations to bypass RLS
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
 
     // Get the original project
     const { data: originalProject, error: projectError } = await supabaseAdmin
