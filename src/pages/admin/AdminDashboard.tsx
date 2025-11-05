@@ -94,7 +94,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex gap-2">
           <CreateProjectDialog onProjectCreated={fetchStats} />
-          <CreateTaskDialog onTaskCreated={fetchStats} />
+          <CreateTaskDialog onTaskCreated={fetchStats} showTrigger={false} />
         </div>
       </div>
 
@@ -162,12 +162,6 @@ export default function AdminDashboard() {
               </span>
             </Button>
 
-            <div>
-              <CreateTaskDialog onTaskCreated={fetchStats} />
-              <p className="text-xs text-muted-foreground mt-2">
-                Add a new task to any project
-              </p>
-            </div>
 
             <Button
               onClick={() => navigate('/analytics')}
