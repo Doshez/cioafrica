@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList, KeyRound } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -50,6 +50,7 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [resetRequestsOpen, setResetRequestsOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -323,9 +324,6 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Password Reset Requests */}
-      <PasswordResetRequestsCard />
-      
       {/* Header with Create User Button and Role Guide */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -336,6 +334,26 @@ export default function UserManagement() {
         </div>
         
         <div className="flex gap-2">
+          <Sheet open={resetRequestsOpen} onOpenChange={setResetRequestsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm">
+                <KeyRound className="h-4 w-4 mr-2" />
+                Password Reset Requests
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Password Reset Requests</SheetTitle>
+                <SheetDescription>
+                  Manage user password reset requests
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-6">
+                <PasswordResetRequestsCard />
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm">
