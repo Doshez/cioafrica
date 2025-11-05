@@ -51,10 +51,32 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [resetRequestsOpen, setResetRequestsOpen] = useState(false);
+  const [pendingResetCount, setPendingResetCount] = useState(0);
 
   useEffect(() => {
     fetchUsers();
     fetchProjects();
+    fetchPendingResetCount();
+
+    // Set up real-time subscription for password reset requests
+    const channel = supabase
+      .channel('password-reset-requests')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'password_reset_requests'
+        },
+        () => {
+          fetchPendingResetCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUsers = async () => {
@@ -101,6 +123,20 @@ export default function UserManagement() {
       setProjects(projectsData || []);
     } catch (error: any) {
       console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchPendingResetCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('password_reset_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      if (error) throw error;
+      setPendingResetCount(count || 0);
+    } catch (error: any) {
+      console.error('Error fetching pending reset count:', error);
     }
   };
 
@@ -336,9 +372,17 @@ export default function UserManagement() {
         <div className="flex gap-2">
           <Sheet open={resetRequestsOpen} onOpenChange={setResetRequestsOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="relative">
                 <KeyRound className="h-4 w-4 mr-2" />
                 Password Reset Requests
+                {pendingResetCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs"
+                  >
+                    {pendingResetCount}
+                  </Badge>
+                )}
               </Button>
             </SheetTrigger>
             <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
