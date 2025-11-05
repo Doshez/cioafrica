@@ -11,38 +11,26 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    
-    if (!authHeader) {
-      console.error('No authorization header provided');
-      throw new Error('Unauthorized: No authorization header');
-    }
-
-    // Create client for auth verification
+    // Create auth client with the request's authorization header
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: authHeader },
+          headers: { Authorization: req.headers.get('Authorization')! },
         },
       }
     );
 
-    // Get the authenticated user
+    // Verify the user is authenticated
     const {
       data: { user },
       error: userError,
     } = await supabaseClient.auth.getUser();
 
-    if (userError) {
-      console.error('Auth error:', userError);
-      throw new Error('Unauthorized: ' + userError.message);
-    }
-
-    if (!user) {
-      console.error('No user found');
-      throw new Error('Unauthorized: No user found');
+    if (userError || !user) {
+      console.error('Authentication failed:', userError?.message || 'No user');
+      throw new Error('Unauthorized');
     }
 
     console.log(`Authenticated user: ${user.id}`);
