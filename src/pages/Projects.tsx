@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { EditProjectDialog } from '@/components/EditProjectDialog';
+import { DuplicateProjectDialog } from '@/components/DuplicateProjectDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface Project {
@@ -20,6 +21,7 @@ interface Project {
   start_date: string;
   end_date: string | null;
   logo_url?: string | null;
+  owner_id?: string | null;
 }
 
 export default function Projects() {
@@ -41,7 +43,7 @@ export default function Projects() {
     try {
       let projectsQuery = supabase
         .from('projects')
-        .select('id, name, description, status, start_date, end_date, logo_url')
+        .select('id, name, description, status, start_date, end_date, logo_url, owner_id')
         .order('created_at', { ascending: false });
 
       // If user is not admin or project manager, filter by assigned projects
@@ -164,14 +166,22 @@ export default function Projects() {
                       {project.description}
                     </CardDescription>
                   </div>
-                  {isAdmin && (
-                    <EditProjectDialog
-                      projectId={project.id}
-                      currentName={project.name}
-                      currentDescription={project.description}
-                      onProjectUpdated={fetchProjects}
-                    />
-                  )}
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {(isAdmin || project.owner_id === user?.id) && (
+                      <DuplicateProjectDialog
+                        projectId={project.id}
+                        projectName={project.name}
+                      />
+                    )}
+                    {isAdmin && (
+                      <EditProjectDialog
+                        projectId={project.id}
+                        currentName={project.name}
+                        currentDescription={project.description}
+                        onProjectUpdated={fetchProjects}
+                      />
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
