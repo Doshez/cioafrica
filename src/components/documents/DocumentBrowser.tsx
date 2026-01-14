@@ -34,7 +34,10 @@ import {
   FileArchive,
   Shield,
   ArrowLeft,
+  Lock,
+  Info,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
@@ -179,6 +182,10 @@ export function DocumentBrowser({ projectId, departments }: DocumentBrowserProps
           <CardTitle className="flex items-center gap-2">
             <Folder className="h-5 w-5" />
             Documents & Links
+            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              <Lock className="h-3 w-3" />
+              Access Controlled
+            </span>
           </CardTitle>
           
           {canManage && (
@@ -216,6 +223,16 @@ export function DocumentBrowser({ projectId, departments }: DocumentBrowserProps
             </div>
           )}
         </div>
+
+        {/* Access info alert for non-managers */}
+        {!canManage && (
+          <Alert className="mt-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              You can only see folders and files you have been granted access to. Use the folder-based view for department-specific documents.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Breadcrumbs */}
         <div className="flex items-center gap-1 text-sm mt-4">

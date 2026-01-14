@@ -34,7 +34,10 @@ import {
   FileArchive,
   Shield,
   ArrowLeft,
+  Lock,
+  Info,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
@@ -227,8 +230,21 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     queryClient.invalidateQueries({ queryKey: ['department-documents', departmentId] });
   }, [queryClient, departmentId]);
 
+  // Only allow uploads inside folders (not at root level) for non-managers
+  const canUploadHere = canManage || currentFolderId !== null;
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || !user) return;
+
+    // Enforce folder-based uploads for non-managers
+    if (!canManage && !currentFolderId) {
+      toast({ 
+        title: 'Upload Restricted', 
+        description: 'Files must be uploaded inside a folder. Please navigate to a folder first.',
+        variant: 'destructive' 
+      });
+      return;
+    }
 
     for (const file of Array.from(files)) {
       try {
@@ -390,6 +406,10 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           <CardTitle className="flex items-center gap-2">
             <Folder className="h-5 w-5" />
             Documents & Links
+            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              <Lock className="h-3 w-3" />
+              Access Controlled
+            </span>
           </CardTitle>
           
           {canManage && (
@@ -416,6 +436,16 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
             </div>
           )}
         </div>
+
+        {/* Access info alert */}
+        {!canManage && (
+          <Alert className="mt-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              You can only see folders and files you have been granted access to. Contact a department lead or manager to request access.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Breadcrumbs */}
         <div className="flex items-center gap-1 text-sm mt-4">
@@ -448,6 +478,16 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
       </CardHeader>
 
       <CardContent>
+        {/* Upload restriction notice at root level for non-managers */}
+        {!canManage && !currentFolderId && (
+          <Alert className="mb-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+            <Lock className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              To upload files, navigate to a folder you have access to. Files must be organized within folders.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {currentFolderId && (
           <Button variant="ghost" size="sm" className="mb-4" onClick={() => setCurrentFolderId(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
