@@ -135,9 +135,9 @@ export function DepartmentLeadDialog({ departmentId, departmentName, projectId }
                 </SelectTrigger>
                 <SelectContent>
                   {loadingUsers ? (
-                    <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    <div className="py-2 px-3 text-sm text-muted-foreground">Loading...</div>
                   ) : availableUsers.length === 0 ? (
-                    <SelectItem value="none" disabled>No available users</SelectItem>
+                    <div className="py-2 px-3 text-sm text-muted-foreground">No available users</div>
                   ) : (
                     availableUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
