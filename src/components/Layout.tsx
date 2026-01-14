@@ -14,13 +14,17 @@ import {
   Shield,
   UserCog,
   KeyRound,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 import cioLogo from '@/assets/cio-africa-logo.png';
 import { cn } from '@/lib/utils';
 import { NotificationBell } from '@/components/NotificationBell';
 import { supabase } from '@/integrations/supabase/client';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog';
+import { GlobalMessagingCenter } from '@/components/GlobalMessagingCenter';
+import { useGlobalUnreadMessages } from '@/hooks/useGlobalUnreadMessages';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +45,8 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [messagingOpen, setMessagingOpen] = useState(false);
+  const { totalUnreadCount } = useGlobalUnreadMessages();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -108,6 +114,10 @@ export default function Layout({ children }: LayoutProps) {
         open={showPasswordChange} 
         onSuccess={handlePasswordChangeSuccess}
       />
+      <GlobalMessagingCenter
+        open={messagingOpen}
+        onOpenChange={setMessagingOpen}
+      />
       <div className="min-h-screen gradient-subtle">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -147,6 +157,25 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Global Messaging Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMessagingOpen(true)}
+              className="relative"
+              title="Messaging Center"
+            >
+              <MessageSquare className="h-5 w-5" />
+              {totalUnreadCount > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-xs flex items-center justify-center"
+                >
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </Badge>
+              )}
+            </Button>
+            
             <NotificationBell />
             
             <DropdownMenu>
