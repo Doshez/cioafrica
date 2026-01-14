@@ -143,9 +143,9 @@ export function DocumentAccessDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {availableMembers.length === 0 ? (
-                    <SelectItem value="" disabled>
+                    <div className="py-2 px-3 text-sm text-muted-foreground">
                       No available users
-                    </SelectItem>
+                    </div>
                   ) : (
                     availableMembers.map((member) => (
                       <SelectItem key={member.user_id} value={member.user_id}>
