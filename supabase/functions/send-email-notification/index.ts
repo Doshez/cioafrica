@@ -70,8 +70,8 @@ interface TaskCompletedData {
 }
 
 const getBaseUrl = () => {
-  // Use the published URL for production
-  return "https://cioafrica.lovable.app";
+  // Use the production domain
+  return "https://projects.cioafrica.co";
 };
 
 const generateEmailHtml = (
