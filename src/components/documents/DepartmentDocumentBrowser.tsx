@@ -105,32 +105,50 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch folders for this department
-      const { data: foldersData } = await supabase
+      // Fetch folders for this department - use .is() for null comparison
+      let foldersQuery = supabase
         .from('document_folders')
         .select('*')
         .eq('project_id', projectId)
-        .eq('department_id', departmentId)
-        .eq('parent_folder_id', currentFolderId || null)
-        .order('name');
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        foldersQuery = foldersQuery.eq('parent_folder_id', currentFolderId);
+      } else {
+        foldersQuery = foldersQuery.is('parent_folder_id', null);
+      }
+      
+      const { data: foldersData } = await foldersQuery.order('name');
 
-      // Fetch documents for this department
-      const { data: documentsData } = await supabase
+      // Fetch documents for this department - use .is() for null comparison
+      let documentsQuery = supabase
         .from('documents')
         .select('*')
         .eq('project_id', projectId)
-        .eq('department_id', departmentId)
-        .eq('folder_id', currentFolderId || null)
-        .order('name');
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        documentsQuery = documentsQuery.eq('folder_id', currentFolderId);
+      } else {
+        documentsQuery = documentsQuery.is('folder_id', null);
+      }
+      
+      const { data: documentsData } = await documentsQuery.order('name');
 
-      // Fetch links for this department
-      const { data: linksData } = await supabase
+      // Fetch links for this department - use .is() for null comparison
+      let linksQuery = supabase
         .from('document_links')
         .select('*')
         .eq('project_id', projectId)
-        .eq('department_id', departmentId)
-        .eq('folder_id', currentFolderId || null)
-        .order('title');
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        linksQuery = linksQuery.eq('folder_id', currentFolderId);
+      } else {
+        linksQuery = linksQuery.is('folder_id', null);
+      }
+      
+      const { data: linksData } = await linksQuery.order('title');
 
       // Get uploader names
       const uploaderIds = [...new Set(documentsData?.map(d => d.uploaded_by).filter(Boolean))];
