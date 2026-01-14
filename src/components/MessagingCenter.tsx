@@ -30,6 +30,7 @@ interface ChatRoom {
     id: string;
     full_name: string | null;
     avatar_url: string | null;
+    email?: string;
   };
 }
 
@@ -171,7 +172,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
             if (otherParticipant) {
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('id, full_name, avatar_url')
+                .select('id, full_name, avatar_url, email')
                 .eq('id', otherParticipant.user_id)
                 .single();
 
@@ -280,7 +281,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
             // Get other user's profile
             const { data: profile } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url')
+              .select('id, full_name, avatar_url, email')
               .eq('id', otherUserId)
               .single();
 
@@ -310,7 +311,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
       // Get other user's profile first
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url')
+        .select('id, full_name, avatar_url, email')
         .eq('id', otherUserId)
         .single();
 
@@ -529,11 +530,11 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
                                   <Avatar className="h-6 w-6 flex-shrink-0">
                                     <AvatarImage src={room.other_user?.avatar_url || undefined} />
                                     <AvatarFallback className="text-xs">
-                                      {room.other_user?.full_name?.charAt(0) || 'U'}
+                                      {(room.other_user?.full_name || room.other_user?.email || 'U').charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <span className="truncate text-sm">
-                                    {room.other_user?.full_name || 'Unknown User'}
+                                    {room.other_user?.full_name || room.other_user?.email || 'Unknown User'}
                                   </span>
                                 </div>
                                 {unread > 0 && (
