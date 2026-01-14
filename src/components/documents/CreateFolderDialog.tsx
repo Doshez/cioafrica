@@ -42,7 +42,7 @@ export function CreateFolderDialog({
 
     setLoading(true);
     try {
-      await onCreateFolder(name.trim(), departmentId || undefined);
+      await onCreateFolder(name.trim(), departmentId && departmentId !== 'none' ? departmentId : undefined);
       setName('');
       setDepartmentId('');
       onOpenChange(false);
@@ -83,7 +83,7 @@ export function CreateFolderDialog({
                 <SelectValue placeholder="Select a department..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No department</SelectItem>
+                <SelectItem value="none">No department</SelectItem>
                 {departments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id}>
                     {dept.name}

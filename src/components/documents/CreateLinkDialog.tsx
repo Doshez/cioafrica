@@ -49,7 +49,7 @@ export function CreateLinkDialog({
         title.trim(),
         url.trim(),
         description.trim() || undefined,
-        departmentId || undefined
+        departmentId && departmentId !== 'none' ? departmentId : undefined
       );
       setTitle('');
       setUrl('');
@@ -116,7 +116,7 @@ export function CreateLinkDialog({
                 <SelectValue placeholder="Select a department..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No department</SelectItem>
+                <SelectItem value="none">No department</SelectItem>
                 {departments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id}>
                     {dept.name}
