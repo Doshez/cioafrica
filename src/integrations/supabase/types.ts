@@ -253,6 +253,45 @@ export type Database = {
           },
         ]
       }
+      department_leads: {
+        Row: {
+          assigned_by: string | null
+          created_at: string | null
+          department_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string | null
+          department_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string | null
+          department_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_leads_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "department_leads_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           created_at: string | null
@@ -1329,6 +1368,10 @@ export type Database = {
       }
       is_chat_participant: {
         Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_department_lead: {
+        Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
       user_has_tasks_in_project: {

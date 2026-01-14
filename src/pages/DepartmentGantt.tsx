@@ -14,8 +14,11 @@ import { TasksByElementView } from '@/components/TasksByElementView';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditElementDialog } from '@/components/EditElementDialog';
 import { EditDepartmentDialog } from '@/components/EditDepartmentDialog';
+import { DepartmentDocumentBrowser } from '@/components/documents/DepartmentDocumentBrowser';
+import { DepartmentLeadDialog } from '@/components/DepartmentLeadDialog';
 import { useUserRole } from '@/hooks/useUserRole';
-import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical } from 'lucide-react';
+import { useDepartmentLead } from '@/hooks/useDepartmentLead';
+import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical, Folder } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +101,7 @@ export default function DepartmentGantt() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, isProjectManager } = useUserRole();
+  const { isCurrentUserLead } = useDepartmentLead(departmentId);
 
   const [department, setDepartment] = useState<Department | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -473,6 +477,11 @@ export default function DepartmentGantt() {
         </div>
         {(isAdmin || isProjectManager) && (
           <div className="flex items-center gap-2">
+            <DepartmentLeadDialog
+              departmentId={departmentId!}
+              departmentName={department.name}
+              projectId={projectId!}
+            />
             <ImportTasksDialog
               projectId={projectId}
               departmentId={departmentId}
@@ -565,12 +574,16 @@ export default function DepartmentGantt() {
         </Card>
       )}
 
-      <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager ? "list" : "gantt"} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="list" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager}>
+      <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager || isCurrentUserLead ? "list" : "gantt"} className="w-full">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsTrigger value="list" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager && !isCurrentUserLead}>
             List View
           </TabsTrigger>
           <TabsTrigger value="gantt">Gantt Chart</TabsTrigger>
+          <TabsTrigger value="documents">
+            <Folder className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -652,6 +665,14 @@ export default function DepartmentGantt() {
             departmentName={department.name}
             tasks={tasks}
             onTasksUpdate={fetchTasksAndAnalytics}
+          />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <DepartmentDocumentBrowser
+            projectId={projectId!}
+            departmentId={departmentId!}
+            departmentName={department.name}
           />
         </TabsContent>
       </Tabs>
