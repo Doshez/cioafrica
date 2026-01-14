@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, DragEvent } from 'react';
+import { useState, useMemo, useCallback, DragEvent, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +15,7 @@ import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentPreviewDialog } from './DocumentPreviewDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
+import { DuplicateItemDialog, DuplicateItem } from './DuplicateItemDialog';
 import { Document as DocType } from '@/hooks/useDocumentManagement';
 
 interface Department { id: string; name: string; }
@@ -33,6 +34,11 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<DocType | null>(null);
   const [accessDialogItem, setAccessDialogItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string } | null>(null);
+  
+  // Duplicate detection state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateItem, setDuplicateItem] = useState<DuplicateItem | null>(null);
+  const pendingFileRef = useRef<{ file: File; departmentId?: string } | null>(null);
   
   // Drag and drop state
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
@@ -104,16 +110,91 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     queryClient.invalidateQueries({ queryKey: ['unified-links'] });
   }, [queryClient]);
 
+  // Check for duplicate folder
+  const checkDuplicateFolder = async (name: string, departmentId?: string): Promise<{ exists: boolean; existing?: any }> => {
+    const query = currentFolderId
+      ? supabase.from('document_folders').select('*').eq('project_id', projectId).eq('parent_folder_id', currentFolderId).ilike('name', name)
+      : supabase.from('document_folders').select('*').eq('project_id', projectId).is('parent_folder_id', null).ilike('name', name);
+    
+    const { data } = await query;
+    const existing = data?.find(f => f.name.toLowerCase() === name.toLowerCase());
+    return { exists: !!existing, existing };
+  };
+
+  // Check for duplicate document
+  const checkDuplicateDocument = async (name: string): Promise<{ exists: boolean; existing?: any }> => {
+    const query = currentFolderId
+      ? supabase.from('documents').select('*').eq('project_id', projectId).eq('folder_id', currentFolderId).ilike('name', name)
+      : supabase.from('documents').select('*').eq('project_id', projectId).is('folder_id', null).ilike('name', name);
+    
+    const { data } = await query;
+    const existing = data?.find(d => d.name.toLowerCase() === name.toLowerCase());
+    return { exists: !!existing, existing };
+  };
+
+  // Check for duplicate link
+  const checkDuplicateLink = async (title: string): Promise<{ exists: boolean; existing?: any }> => {
+    const { data } = await supabase.from('document_links').select('*').eq('project_id', projectId).ilike('title', title);
+    const existing = data?.find(l => l.title.toLowerCase() === title.toLowerCase());
+    return { exists: !!existing, existing };
+  };
+
   const handleCreateFolder = async (name: string, departmentId?: string) => {
     if (!projectId || !user) return;
+    
+    // Check for duplicate
+    const { exists, existing } = await checkDuplicateFolder(name, departmentId);
+    if (exists && existing) {
+      setDuplicateItem({
+        type: 'folder',
+        existingId: existing.id,
+        existingName: existing.name,
+        existingCreatedAt: existing.created_at,
+        existingDepartment: existing.department_id ? departmentMap[existing.department_id] : 'General',
+        newName: name,
+        departmentId,
+      });
+      setDuplicateDialogOpen(true);
+      return;
+    }
+
+    await createFolderDirectly(name, departmentId);
+  };
+
+  const createFolderDirectly = async (name: string, departmentId?: string) => {
+    if (!projectId || !user) return;
     const { error } = await supabase.from('document_folders').insert({ project_id: projectId, department_id: departmentId || null, parent_folder_id: currentFolderId, name, created_by: user.id });
-    if (!error) { toast({ title: 'Folder created' }); invalidateQueries(); } else toast({ title: 'Error', variant: 'destructive' });
+    if (!error) { toast({ title: 'Folder created' }); invalidateQueries(); setCreateFolderOpen(false); } else toast({ title: 'Error', variant: 'destructive' });
   };
 
   const handleCreateLink = async (title: string, url: string, description?: string, departmentId?: string) => {
     if (!projectId || !user) return;
+    
+    // Check for duplicate
+    const { exists, existing } = await checkDuplicateLink(title);
+    if (exists && existing) {
+      setDuplicateItem({
+        type: 'link',
+        existingId: existing.id,
+        existingName: existing.title,
+        existingCreatedAt: existing.created_at,
+        existingDepartment: existing.department_id ? departmentMap[existing.department_id] : 'General',
+        newName: title,
+        newUrl: url,
+        newDescription: description,
+        departmentId,
+      });
+      setDuplicateDialogOpen(true);
+      return;
+    }
+
+    await createLinkDirectly(title, url, description, departmentId);
+  };
+
+  const createLinkDirectly = async (title: string, url: string, description?: string, departmentId?: string) => {
+    if (!projectId || !user) return;
     const { error } = await supabase.from('document_links').insert({ project_id: projectId, department_id: departmentId || null, folder_id: currentFolderId, title, url, description, created_by: user.id });
-    if (!error) { toast({ title: 'Link added' }); invalidateQueries(); } else toast({ title: 'Error', variant: 'destructive' });
+    if (!error) { toast({ title: 'Link added' }); invalidateQueries(); setCreateLinkOpen(false); } else toast({ title: 'Error', variant: 'destructive' });
   };
 
   const handleDelete = async (type: 'folder' | 'document' | 'link', id: string) => {
@@ -126,12 +207,78 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     const file = e.target.files?.[0];
     if (!file || !user || !projectId) return;
     if (!canManage && !currentFolderId) { toast({ title: 'Upload restricted', description: 'Navigate into a folder first', variant: 'destructive' }); e.target.value = ''; return; }
-    const filePath = `${projectId}/${currentFolderId || 'root'}/${Date.now()}-${file.name}`;
+    
+    // Check for duplicate
+    const { exists, existing } = await checkDuplicateDocument(file.name);
+    if (exists && existing) {
+      pendingFileRef.current = { file };
+      setDuplicateItem({
+        type: 'document',
+        existingId: existing.id,
+        existingName: existing.name,
+        existingCreatedAt: existing.created_at,
+        existingDepartment: existing.department_id ? departmentMap[existing.department_id] : 'General',
+        newName: file.name,
+        newFile: file,
+      });
+      setDuplicateDialogOpen(true);
+      e.target.value = '';
+      return;
+    }
+
+    await uploadDocumentDirectly(file);
+    e.target.value = '';
+  };
+
+  const uploadDocumentDirectly = async (file: File, customName?: string) => {
+    if (!user || !projectId) return;
+    const fileName = customName || file.name;
+    const filePath = `${projectId}/${currentFolderId || 'root'}/${Date.now()}-${fileName}`;
     const { error: uploadError } = await supabase.storage.from('project-documents').upload(filePath, file);
     if (uploadError) { toast({ title: 'Upload failed', variant: 'destructive' }); return; }
     const { data: urlData } = supabase.storage.from('project-documents').getPublicUrl(filePath);
-    await supabase.from('documents').insert({ project_id: projectId, folder_id: currentFolderId, name: file.name, file_url: urlData.publicUrl, file_type: file.type, file_size: file.size, uploaded_by: user.id });
-    toast({ title: 'Document uploaded' }); invalidateQueries(); e.target.value = '';
+    await supabase.from('documents').insert({ project_id: projectId, folder_id: currentFolderId, name: fileName, file_url: urlData.publicUrl, file_type: file.type, file_size: file.size, uploaded_by: user.id });
+    toast({ title: 'Document uploaded' }); invalidateQueries();
+  };
+
+  // Handle duplicate resolution
+  const handleDuplicateReplace = async () => {
+    if (!duplicateItem || !user || !projectId) return;
+
+    if (duplicateItem.type === 'folder') {
+      // Delete existing folder and create new one
+      await supabase.from('document_folders').delete().eq('id', duplicateItem.existingId);
+      await createFolderDirectly(duplicateItem.newName, duplicateItem.departmentId);
+    } else if (duplicateItem.type === 'document' && duplicateItem.newFile) {
+      // Delete existing document and upload new one
+      await supabase.from('documents').delete().eq('id', duplicateItem.existingId);
+      await uploadDocumentDirectly(duplicateItem.newFile);
+    } else if (duplicateItem.type === 'link' && duplicateItem.newUrl) {
+      // Delete existing link and create new one
+      await supabase.from('document_links').delete().eq('id', duplicateItem.existingId);
+      await createLinkDirectly(duplicateItem.newName, duplicateItem.newUrl, duplicateItem.newDescription, duplicateItem.departmentId);
+    }
+
+    pendingFileRef.current = null;
+  };
+
+  const handleDuplicateRename = async (newName: string) => {
+    if (!duplicateItem || !user || !projectId) return;
+
+    if (duplicateItem.type === 'folder') {
+      await createFolderDirectly(newName, duplicateItem.departmentId);
+    } else if (duplicateItem.type === 'document' && duplicateItem.newFile) {
+      await uploadDocumentDirectly(duplicateItem.newFile, newName);
+    } else if (duplicateItem.type === 'link' && duplicateItem.newUrl) {
+      await createLinkDirectly(newName, duplicateItem.newUrl, duplicateItem.newDescription, duplicateItem.departmentId);
+    }
+
+    pendingFileRef.current = null;
+  };
+
+  const handleDuplicateCancel = () => {
+    setDuplicateItem(null);
+    pendingFileRef.current = null;
   };
 
   // Drag and Drop handlers
@@ -361,6 +508,14 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
       <CreateLinkDialog open={createLinkOpen} onOpenChange={setCreateLinkOpen} onCreateLink={handleCreateLink} departments={departments} />
       {previewDoc && <DocumentPreviewDialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)} document={previewDoc} />}
       {accessDialogItem && <DocumentAccessDialog open={!!accessDialogItem} onOpenChange={() => setAccessDialogItem(null)} itemType={accessDialogItem.type} itemId={accessDialogItem.id} itemName={accessDialogItem.name} projectId={projectId} />}
+      <DuplicateItemDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
+        duplicateItem={duplicateItem}
+        onReplace={handleDuplicateReplace}
+        onRename={handleDuplicateRename}
+        onCancel={handleDuplicateCancel}
+      />
     </div>
   );
 }
