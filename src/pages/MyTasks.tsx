@@ -15,6 +15,7 @@ import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSearchParams } from "react-router-dom";
+import { sendTaskCompletedNotification, getProjectManagers } from "@/hooks/useEmailNotifications";
 
 interface Task {
   id: string;
@@ -185,7 +186,9 @@ export default function MyTasks() {
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
-      let newPercentage = tasks.find(t => t.id === taskId)?.progress_percentage || 0;
+      const task = tasks.find(t => t.id === taskId);
+      let newPercentage = task?.progress_percentage || 0;
+      const previousStatus = task?.status;
       
       // Sync percentage with status
       if (newStatus === 'todo') {
@@ -207,20 +210,62 @@ export default function MyTasks() {
 
       if (error) throw error;
 
-      setTasks(tasks.map(task => 
-        task.id === taskId ? { ...task, status: newStatus, progress_percentage: newPercentage } : task
+      setTasks(tasks.map(t => 
+        t.id === taskId ? { ...t, status: newStatus, progress_percentage: newPercentage } : t
       ));
 
       toast({
         title: "Success",
         description: "Task status updated successfully",
       });
+
+      // Send task completed notification if status changed to done
+      if (newStatus === 'done' && previousStatus !== 'done' && task && user) {
+        sendTaskCompletionEmail(task);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const sendTaskCompletionEmail = async (task: Task) => {
+    try {
+      // Get user profile for completer name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user!.id)
+        .single();
+
+      // Get department info
+      const { data: taskDetails } = await supabase
+        .from('tasks')
+        .select('assignee_department_id, departments!tasks_assignee_department_id_fkey(name)')
+        .eq('id', task.id)
+        .single();
+
+      const departmentName = (taskDetails?.departments as any)?.name || 'General';
+      const projectName = task.projects?.name || 'Project';
+      const completedByName = profile?.full_name || 'Someone';
+
+      // Get project managers
+      const projectManagerIds = await getProjectManagers(task.project_id);
+
+      await sendTaskCompletedNotification({
+        task_id: task.id,
+        task_name: task.title,
+        department_name: departmentName,
+        project_name: projectName,
+        project_id: task.project_id,
+        completed_by_name: completedByName,
+        project_manager_ids: projectManagerIds,
+      });
+    } catch (error) {
+      console.error('Error sending task completion notification:', error);
     }
   };
 

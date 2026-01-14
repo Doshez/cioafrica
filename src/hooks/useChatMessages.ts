@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from './use-toast';
+import { 
+  sendChatMessageNotification, 
+  getChatRoomDetails, 
+  getPrivateChatRecipient 
+} from './useEmailNotifications';
 
 export interface ChatMessage {
   id: string;
@@ -180,7 +185,50 @@ export const useChatMessages = (roomId: string | null) => {
         description: error.message,
         variant: 'destructive',
       });
+      return;
     }
+
+    // Send email notification asynchronously (don't block the UI)
+    (async () => {
+      try {
+        // Get user profile for sender name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        const senderName = profile?.full_name || 'Someone';
+
+        // Get chat room details
+        const roomDetails = await getChatRoomDetails(roomId);
+        if (!roomDetails) return;
+
+        const projectName = (roomDetails.projects as any)?.name || 'Project';
+        const roomType = roomDetails.room_type as 'public' | 'private';
+
+        let recipientIds: string[] = [];
+
+        if (roomType === 'private') {
+          // Get the other participant in private chat
+          recipientIds = await getPrivateChatRecipient(roomId, user.id);
+        }
+        // For public chats, the edge function will fetch all project members
+
+        await sendChatMessageNotification({
+          room_type: roomType,
+          sender_name: senderName,
+          message_preview: content,
+          project_id: roomDetails.project_id,
+          project_name: projectName,
+          room_id: roomId,
+          recipient_ids: recipientIds,
+          sender_id: user.id,
+        });
+      } catch (notifyError) {
+        console.error('Error sending notification:', notifyError);
+      }
+    })();
   };
 
   const editMessage = async (messageId: string, newContent: string) => {

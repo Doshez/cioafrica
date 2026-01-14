@@ -1,1 +1,7 @@
 project_id = "svdbuvdrpoblcbdksxpj"
+
+[functions.send-email-notification]
+verify_jwt = false
+
+[functions.check-overdue-tasks]
+verify_jwt = false
