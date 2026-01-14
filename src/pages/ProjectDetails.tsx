@@ -312,6 +312,15 @@ export default function ProjectDetails() {
               View Gantt Chart
             </Button>
             <Button 
+              onClick={() => navigate(`/projects/${projectId}/documents`)}
+              className="gap-2"
+              size="lg"
+              variant="outline"
+            >
+              <Folder className="h-5 w-5" />
+              Documents & Links
+            </Button>
+            <Button 
               onClick={() => navigate(`/projects/${projectId}/analytics`)}
               className="gap-2"
               size="lg"
