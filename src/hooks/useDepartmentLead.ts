@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -16,15 +17,15 @@ export interface DepartmentLead {
 export function useDepartmentLead(departmentId: string | undefined) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [leads, setLeads] = useState<DepartmentLead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isCurrentUserLead, setIsCurrentUserLead] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchLeads = useCallback(async () => {
-    if (!departmentId) return;
+  const queryKey = ['department-leads', departmentId];
 
-    setLoading(true);
-    try {
+  const { data: leads = [], isLoading: loading, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (!departmentId) return [];
+
       const { data, error } = await supabase
         .from('department_leads')
         .select('*')
@@ -50,47 +51,25 @@ export function useDepartmentLead(departmentId: string | undefined) {
         }
       }
 
-      const leadsWithProfiles = (data || []).map(l => ({
+      return (data || []).map(l => ({
         ...l,
         user_name: userProfiles[l.user_id]?.name,
         user_email: userProfiles[l.user_id]?.email,
       }));
+    },
+    enabled: !!departmentId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
+  });
 
-      setLeads(leadsWithProfiles);
-      setIsCurrentUserLead(user ? leadsWithProfiles.some(l => l.user_id === user.id) : false);
-    } catch (error) {
-      console.error('Error fetching department leads:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [departmentId, user]);
+  const isCurrentUserLead = useMemo(() => {
+    return user ? leads.some(l => l.user_id === user.id) : false;
+  }, [leads, user]);
 
-  useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+  const assignLeadMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      if (!departmentId || !user) throw new Error('Missing required data');
 
-  // Real-time subscription
-  useEffect(() => {
-    if (!departmentId) return;
-
-    const channel = supabase
-      .channel(`department-leads-${departmentId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'department_leads', filter: `department_id=eq.${departmentId}` },
-        () => fetchLeads()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [departmentId, fetchLeads]);
-
-  const assignLead = async (userId: string) => {
-    if (!departmentId || !user) return;
-
-    try {
       const { error } = await supabase.from('department_leads').insert({
         department_id: departmentId,
         user_id: userId,
@@ -98,41 +77,49 @@ export function useDepartmentLead(departmentId: string | undefined) {
       });
 
       if (error) throw error;
-
+    },
+    onSuccess: () => {
       toast({ title: 'Department lead assigned successfully' });
-      fetchLeads();
-    } catch (error: any) {
-      console.error('Error assigning department lead:', error);
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to assign department lead',
         variant: 'destructive',
       });
-    }
-  };
+    },
+  });
 
-  const removeLead = async (leadId: string) => {
-    if (!user) return;
-
-    try {
+  const removeLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
       const { error } = await supabase
         .from('department_leads')
         .delete()
         .eq('id', leadId);
 
       if (error) throw error;
-
+    },
+    onSuccess: () => {
       toast({ title: 'Department lead removed successfully' });
-      fetchLeads();
-    } catch (error: any) {
-      console.error('Error removing department lead:', error);
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (error: Error) => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to remove department lead',
         variant: 'destructive',
       });
-    }
-  };
+    },
+  });
+
+  const assignLead = useCallback((userId: string) => {
+    assignLeadMutation.mutate(userId);
+  }, [assignLeadMutation]);
+
+  const removeLead = useCallback((leadId: string) => {
+    removeLeadMutation.mutate(leadId);
+  }, [removeLeadMutation]);
 
   return {
     leads,
@@ -140,6 +127,6 @@ export function useDepartmentLead(departmentId: string | undefined) {
     isCurrentUserLead,
     assignLead,
     removeLead,
-    refetch: fetchLeads,
+    refetch,
   };
 }

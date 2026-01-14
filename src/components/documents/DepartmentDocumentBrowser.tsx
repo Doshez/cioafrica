@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useDepartmentLead } from '@/hooks/useDepartmentLead';
 import { Button } from '@/components/ui/button';
@@ -78,18 +79,14 @@ interface DepartmentDocumentBrowserProps {
 export function DepartmentDocumentBrowser({ projectId, departmentId, departmentName }: DepartmentDocumentBrowserProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isAdmin, isProjectManager } = useUserRole();
   const { isCurrentUserLead } = useDepartmentLead(departmentId);
   
   const canManage = isAdmin || isProjectManager || isCurrentUserLead;
 
-  const [folders, setFolders] = useState<DocumentFolder[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [links, setLinks] = useState<DocumentLink[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null; name: string }[]>([]);
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
@@ -102,56 +99,38 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Fetch folders for this department - use .is() for null comparison
-      let foldersQuery = supabase
-        .from('document_folders')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('department_id', departmentId);
-      
-      if (currentFolderId) {
-        foldersQuery = foldersQuery.eq('parent_folder_id', currentFolderId);
-      } else {
-        foldersQuery = foldersQuery.is('parent_folder_id', null);
-      }
-      
-      const { data: foldersData } = await foldersQuery.order('name');
+  // Query key for caching
+  const queryKey = ['department-documents', departmentId, currentFolderId];
 
-      // Fetch documents for this department - use .is() for null comparison
-      let documentsQuery = supabase
-        .from('documents')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('department_id', departmentId);
-      
-      if (currentFolderId) {
-        documentsQuery = documentsQuery.eq('folder_id', currentFolderId);
-      } else {
-        documentsQuery = documentsQuery.is('folder_id', null);
-      }
-      
-      const { data: documentsData } = await documentsQuery.order('name');
+  // Fetch documents data with React Query
+  const { data, isLoading: loading, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      // Fetch all data in parallel
+      const [foldersResult, documentsResult, linksResult] = await Promise.all([
+        supabase
+          .from('document_folders')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('department_id', departmentId)
+          .then(q => currentFolderId 
+            ? supabase.from('document_folders').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('parent_folder_id', currentFolderId).order('name')
+            : supabase.from('document_folders').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('parent_folder_id', null).order('name')
+          ),
+        currentFolderId
+          ? supabase.from('documents').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('folder_id', currentFolderId).order('name')
+          : supabase.from('documents').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('folder_id', null).order('name'),
+        currentFolderId
+          ? supabase.from('document_links').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('folder_id', currentFolderId).order('title')
+          : supabase.from('document_links').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('folder_id', null).order('title'),
+      ]);
 
-      // Fetch links for this department - use .is() for null comparison
-      let linksQuery = supabase
-        .from('document_links')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('department_id', departmentId);
-      
-      if (currentFolderId) {
-        linksQuery = linksQuery.eq('folder_id', currentFolderId);
-      } else {
-        linksQuery = linksQuery.is('folder_id', null);
-      }
-      
-      const { data: linksData } = await linksQuery.order('title');
+      const foldersData = foldersResult.data || [];
+      const documentsData = documentsResult.data || [];
+      const linksData = linksResult.data || [];
 
       // Get uploader names
-      const uploaderIds = [...new Set(documentsData?.map(d => d.uploaded_by).filter(Boolean))];
+      const uploaderIds = [...new Set(documentsData.map(d => d.uploaded_by).filter(Boolean))];
       let userProfiles: Record<string, string> = {};
       
       if (uploaderIds.length > 0) {
@@ -168,33 +147,30 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
         }
       }
 
-      setFolders(foldersData || []);
-      setDocuments((documentsData || []).map(d => ({
-        ...d,
-        uploader_name: d.uploaded_by ? userProfiles[d.uploaded_by] : undefined,
-      })));
-      setLinks(linksData || []);
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      toast({ title: 'Error', description: 'Failed to load documents', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, departmentId, currentFolderId, toast]);
+      return {
+        folders: foldersData,
+        documents: documentsData.map(d => ({
+          ...d,
+          uploader_name: d.uploaded_by ? userProfiles[d.uploaded_by] : undefined,
+        })),
+        links: linksData,
+      };
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const folders = data?.folders || [];
+  const documents = data?.documents || [];
+  const links = data?.links || [];
 
   // Build breadcrumbs
-  useEffect(() => {
-    const buildBreadcrumbs = async () => {
+  const { data: breadcrumbs = [{ id: null, name: departmentName }] } = useQuery({
+    queryKey: ['breadcrumbs', departmentId, currentFolderId],
+    queryFn: async () => {
       const crumbs: { id: string | null; name: string }[] = [{ id: null, name: departmentName }];
       
-      if (!currentFolderId) {
-        setBreadcrumbs(crumbs);
-        return;
-      }
+      if (!currentFolderId) return crumbs;
 
       let folderId: string | null = currentFolderId;
       const folderPath: { id: string; name: string }[] = [];
@@ -214,25 +190,15 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
         }
       }
 
-      setBreadcrumbs([...crumbs, ...folderPath]);
-    };
+      return [...crumbs, ...folderPath];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-    buildBreadcrumbs();
-  }, [currentFolderId, departmentName]);
-
-  // Real-time subscriptions
-  useEffect(() => {
-    const channel = supabase
-      .channel(`dept-docs-${departmentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter: `department_id=eq.${departmentId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'document_links', filter: `department_id=eq.${departmentId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'document_folders', filter: `department_id=eq.${departmentId}` }, () => fetchData())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [departmentId, fetchData]);
+  // Invalidate query on mutations
+  const invalidateData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['department-documents', departmentId] });
+  }, [queryClient, departmentId]);
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || !user) return;
@@ -269,7 +235,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
         });
 
         toast({ title: 'Document uploaded successfully' });
-        fetchData();
+        invalidateData();
       } catch (error) {
         console.error('Error uploading document:', error);
         toast({ title: 'Error', description: 'Failed to upload document', variant: 'destructive' });
@@ -290,7 +256,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
       });
 
       toast({ title: 'Folder created successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error creating folder:', error);
       toast({ title: 'Error', description: 'Failed to create folder', variant: 'destructive' });
@@ -312,7 +278,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
       });
 
       toast({ title: 'Link added successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error creating link:', error);
       toast({ title: 'Error', description: 'Failed to add link', variant: 'destructive' });
@@ -324,7 +290,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
       const table = type === 'document' ? 'documents' : type === 'link' ? 'document_links' : 'document_folders';
       await supabase.from(table).delete().eq('id', id);
       toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully` });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error(`Error deleting ${type}:`, error);
       toast({ title: 'Error', description: `Failed to delete ${type}`, variant: 'destructive' });
