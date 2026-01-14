@@ -1394,7 +1394,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "project_manager" | "member" | "viewer"
       chat_room_type: "public" | "private"
-      document_permission: "view_only" | "download"
+      document_permission: "view_only" | "download" | "edit"
       project_role: "owner" | "manager" | "member" | "viewer"
       user_status: "online" | "away" | "busy" | "offline"
     }
@@ -1526,7 +1526,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "project_manager", "member", "viewer"],
       chat_room_type: ["public", "private"],
-      document_permission: ["view_only", "download"],
+      document_permission: ["view_only", "download", "edit"],
       project_role: ["owner", "manager", "member", "viewer"],
       user_status: ["online", "away", "busy", "offline"],
     },
