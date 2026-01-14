@@ -9,7 +9,7 @@ export interface AccessEntry {
   link_id: string | null;
   folder_id: string | null;
   user_id: string;
-  permission: 'view_only' | 'download';
+  permission: 'view_only' | 'download' | 'edit';
   granted_by: string | null;
   created_at: string;
   user_name?: string;
@@ -93,7 +93,7 @@ export function useDocumentAccess(
     };
   }, [itemId, fetchAccess]);
 
-  const grantAccess = async (userId: string, permission: 'view_only' | 'download') => {
+  const grantAccess = async (userId: string, permission: 'view_only' | 'download' | 'edit') => {
     if (!itemId || !user) return;
 
     try {
@@ -129,7 +129,7 @@ export function useDocumentAccess(
     }
   };
 
-  const updateAccess = async (accessId: string, permission: 'view_only' | 'download') => {
+  const updateAccess = async (accessId: string, permission: 'view_only' | 'download' | 'edit') => {
     if (!user) return;
 
     try {

@@ -21,7 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Shield, UserPlus, Trash2, Eye, Download, Crown, Users, Building2 } from 'lucide-react';
+import { Shield, UserPlus, Trash2, Eye, Download, Crown, Users, Building2, Pencil } from 'lucide-react';
 
 interface DocumentAccessDialogProps {
   open: boolean;
@@ -59,7 +59,7 @@ export function DocumentAccessDialog({
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
   const [roleBasedAccess, setRoleBasedAccess] = useState<RoleBasedAccess[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedPermission, setSelectedPermission] = useState<'view_only' | 'download'>('view_only');
+  const [selectedPermission, setSelectedPermission] = useState<'view_only' | 'download' | 'edit'>('view_only');
   const [addingAccess, setAddingAccess] = useState(false);
   const [loadingRoleAccess, setLoadingRoleAccess] = useState(true);
 
@@ -456,14 +456,17 @@ export function DocumentAccessDialog({
               </Select>
               <Select 
                 value={selectedPermission} 
-                onValueChange={(v) => setSelectedPermission(v as 'view_only' | 'download')}
+                onValueChange={(v) => setSelectedPermission(v as 'view_only' | 'download' | 'edit')}
               >
-                <SelectTrigger className="w-full sm:w-[120px]">
+                <SelectTrigger className="w-full sm:w-[130px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="view_only">View Only</SelectItem>
                   <SelectItem value="download">Download</SelectItem>
+                  {itemType === 'folder' && (
+                    <SelectItem value="edit">Edit / Upload</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -516,9 +519,9 @@ export function DocumentAccessDialog({
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         <Select
                           value={access.permission}
-                          onValueChange={(v) => updateAccess(access.id, v as 'view_only' | 'download')}
+                          onValueChange={(v) => updateAccess(access.id, v as 'view_only' | 'download' | 'edit')}
                         >
-                          <SelectTrigger className="h-7 w-[90px] sm:w-[100px] text-xs">
+                          <SelectTrigger className="h-7 w-[100px] sm:w-[110px] text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -534,6 +537,14 @@ export function DocumentAccessDialog({
                                 <span>Download</span>
                               </div>
                             </SelectItem>
+                            {itemType === 'folder' && (
+                              <SelectItem value="edit">
+                                <div className="flex items-center gap-1">
+                                  <Pencil className="h-3 w-3 shrink-0" />
+                                  <span>Edit</span>
+                                </div>
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         
@@ -565,6 +576,12 @@ export function DocumentAccessDialog({
                 <Download className="h-3 w-3 mr-1 shrink-0" />
                 Download
               </Badge>
+              {itemType === 'folder' && (
+                <Badge variant="outline" className="text-xs">
+                  <Pencil className="h-3 w-3 mr-1 shrink-0" />
+                  Edit / Upload
+                </Badge>
+              )}
             </div>
           </div>
         </div>
