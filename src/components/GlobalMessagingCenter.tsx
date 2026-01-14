@@ -557,33 +557,33 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[80vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle>Messaging Center</DialogTitle>
+      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+            <DialogTitle className="text-lg sm:text-xl">Messaging Center</DialogTitle>
             
             {/* Project Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 min-w-[200px] justify-between" disabled={loadingProjects}>
+                <Button variant="outline" className="gap-2 w-full sm:w-auto sm:min-w-[200px] justify-between" disabled={loadingProjects}>
                   {loadingProjects ? (
-                    <span className="text-muted-foreground">Loading projects...</span>
+                    <span className="text-muted-foreground text-sm">Loading...</span>
                   ) : selectedProject ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       {selectedProject.logo_url ? (
-                        <img src={selectedProject.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
+                        <img src={selectedProject.logo_url} alt="" className="h-5 w-5 object-contain rounded flex-shrink-0" />
                       ) : (
-                        <FolderKanban className="h-4 w-4" />
+                        <FolderKanban className="h-4 w-4 flex-shrink-0" />
                       )}
-                      <span className="truncate">{selectedProject.name}</span>
+                      <span className="truncate text-sm">{selectedProject.name}</span>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground">Select a project</span>
+                    <span className="text-muted-foreground text-sm">Select a project</span>
                   )}
-                  <ChevronDown className="h-4 w-4 opacity-50" />
+                  <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[250px]">
+              <DropdownMenuContent align="end" className="w-[250px] max-h-[300px] overflow-y-auto">
                 {projects.map(project => (
                   <DropdownMenuItem
                     key={project.id}
@@ -591,9 +591,9 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                     className="gap-2"
                   >
                     {project.logo_url ? (
-                      <img src={project.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
+                      <img src={project.logo_url} alt="" className="h-5 w-5 object-contain rounded flex-shrink-0" />
                     ) : (
-                      <FolderKanban className="h-4 w-4" />
+                      <FolderKanban className="h-4 w-4 flex-shrink-0" />
                     )}
                     <span className="truncate">{project.name}</span>
                   </DropdownMenuItem>
@@ -611,35 +611,36 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 overflow-hidden">
-            <div className="w-64 border-r">
+          <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
+            {/* Sidebar - collapsible on mobile */}
+            <div className="w-full sm:w-64 border-b sm:border-b-0 sm:border-r flex-shrink-0">
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="h-full flex flex-col">
-                <TabsList className="w-full rounded-none border-b">
-                  <TabsTrigger value="public" className="flex-1 relative">
-                    <Users className="h-4 w-4 mr-2" />
-                    Public
+                <TabsList className="w-full rounded-none border-b grid grid-cols-2">
+                  <TabsTrigger value="public" className="relative text-xs sm:text-sm">
+                    <Users className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Public</span>
                     {publicRoom && unreadByRoom.get(publicRoom.id) ? (
-                      <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                      <Badge variant="destructive" className="ml-1 sm:ml-2 h-4 sm:h-5 min-w-4 sm:min-w-5 px-1 text-[10px] sm:text-xs">
                         {unreadByRoom.get(publicRoom.id)}
                       </Badge>
                     ) : null}
                   </TabsTrigger>
-                  <TabsTrigger value="private" className="flex-1 relative">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Private
+                  <TabsTrigger value="private" className="relative text-xs sm:text-sm">
+                    <MessageSquare className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Private</span>
                     {privateRooms.reduce((sum, room) => sum + (unreadByRoom.get(room.id) || 0), 0) > 0 && (
-                      <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1 text-xs">
+                      <Badge variant="destructive" className="ml-1 sm:ml-2 h-4 sm:h-5 min-w-4 sm:min-w-5 px-1 text-[10px] sm:text-xs">
                         {privateRooms.reduce((sum, room) => sum + (unreadByRoom.get(room.id) || 0), 0)}
                       </Badge>
                     )}
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="public" className="flex-1 m-0 p-4">
+                <TabsContent value="public" className="flex-1 m-0 p-2 sm:p-4">
                   {publicRoom && (
                     <Button
                       variant={selectedRoom === publicRoom.id ? 'secondary' : 'ghost'}
-                      className="w-full justify-start"
+                      className="w-full justify-start text-sm"
                       onClick={() => setSelectedRoom(publicRoom.id)}
                     >
                       <Users className="h-4 w-4 mr-2" />
@@ -648,7 +649,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                   )}
                 </TabsContent>
 
-                <TabsContent value="private" className="flex-1 m-0">
+                <TabsContent value="private" className="flex-1 m-0 max-h-[200px] sm:max-h-none overflow-hidden">
                   <ScrollArea className="h-full">
                     <div className="p-2 space-y-2">
                       {privateRooms.length > 0 && (
@@ -662,7 +663,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                               <div key={room.id} className="relative group">
                                 <Button
                                   variant={selectedRoom === room.id ? 'secondary' : 'ghost'}
-                                  className="w-full justify-start gap-2 pr-8"
+                                  className="w-full justify-start gap-2 pr-8 text-sm"
                                   onClick={() => setSelectedRoom(room.id)}
                                 >
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -707,34 +708,34 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                           placeholder="Search users..."
                           value={userSearchQuery}
                           onChange={(e) => setUserSearchQuery(e.target.value)}
-                          className="h-9"
+                          className="h-8 sm:h-9 text-sm"
                         />
                       </div>
-                      {filteredUsers.map((userProfile) => {
+                      {filteredUsers.slice(0, 10).map((userProfile) => {
                         const status = getUserStatus(userProfile.id);
                         return (
                           <Button
                             key={userProfile.id}
                             variant="ghost"
-                            className="w-full justify-start"
+                            className="w-full justify-start text-sm"
                             onClick={() => createPrivateChat(userProfile.id)}
                           >
                             <div className="flex items-center gap-2 w-full">
                               <div className="relative">
-                                <Avatar className="h-8 w-8">
+                                <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                                   <AvatarImage src={userProfile.avatar_url || undefined} />
-                                  <AvatarFallback>
+                                  <AvatarFallback className="text-xs">
                                     {userProfile.full_name?.charAt(0) || userProfile.email.charAt(0).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(status)}`} />
+                                <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-background ${getStatusColor(status)}`} />
                               </div>
                               <div className="flex flex-col items-start flex-1 min-w-0">
                                 <span className="truncate text-sm font-medium">
                                   {userProfile.full_name || userProfile.email}
                                 </span>
                                 {userProfile.full_name && (
-                                  <span className="truncate text-xs text-muted-foreground">
+                                  <span className="truncate text-xs text-muted-foreground hidden sm:block">
                                     {userProfile.email}
                                   </span>
                                 )}
@@ -749,29 +750,30 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
               </Tabs>
             </div>
 
-            <div className="flex-1 flex flex-col">
+            {/* Chat area */}
+            <div className="flex-1 flex flex-col min-h-0">
               {selectedRoom ? (
                 <>
-                  <div className="border-b px-6 py-3 bg-muted/50">
-                    <div className="flex items-center gap-3">
+                  <div className="border-b px-3 sm:px-6 py-2 sm:py-3 bg-muted/50 flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       {getSelectedRoomAvatar() ? (
-                        <Avatar className="h-10 w-10">
+                        <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                           <AvatarImage src={getSelectedRoomAvatar() || undefined} />
-                          <AvatarFallback>
+                          <AvatarFallback className="text-sm">
                             {getSelectedRoomName().charAt(0)}
                           </AvatarFallback>
                         </Avatar>
                       ) : activeTab === 'public' ? (
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Users className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         </div>
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <MessageSquare className="h-5 w-5 text-primary" />
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         </div>
                       )}
-                      <div>
-                        <h3 className="font-semibold">{getSelectedRoomName()}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-sm sm:text-base truncate">{getSelectedRoomName()}</h3>
                         <p className="text-xs text-muted-foreground">
                           {activeTab === 'public' ? 'Project team chat' : 'Private conversation'}
                         </p>
@@ -787,8 +789,8 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                   <MessageInput onSend={sendMessage} />
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                  <p>Select a conversation to start messaging</p>
+                <div className="flex-1 flex items-center justify-center text-muted-foreground p-4 text-center">
+                  <p className="text-sm">Select a conversation to start messaging</p>
                 </div>
               )}
             </div>
