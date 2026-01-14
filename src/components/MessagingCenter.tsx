@@ -26,6 +26,7 @@ interface ChatRoom {
   id: string;
   name: string | null;
   room_type: 'public' | 'private';
+  last_message_at?: string | null;
   other_user?: {
     id: string;
     full_name: string | null;
@@ -122,7 +123,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     fetchOrCreatePublicRoom();
   }, [projectId, open, user, toast]);
 
-  // Fetch private rooms with other user details
+  // Fetch private rooms with other user details and last message timestamp
   useEffect(() => {
     if (!projectId || !open || !user) return;
 
@@ -159,15 +160,30 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
           return;
         }
 
-        // For each room, get the other participant's details
+        // For each room, get the other participant's details and last message timestamp
         const roomsWithUsers = await Promise.all(
           (rooms || []).map(async (room) => {
+            // Get other participant
             const { data: otherParticipant } = await supabase
               .from('chat_participants')
               .select('user_id')
               .eq('room_id', room.id)
               .neq('user_id', user.id)
               .single();
+
+            // Get last message timestamp
+            const { data: lastMessage } = await supabase
+              .from('chat_messages')
+              .select('created_at')
+              .eq('room_id', room.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            let roomData: ChatRoom = {
+              ...room,
+              last_message_at: lastMessage?.created_at || room.created_at,
+            };
 
             if (otherParticipant) {
               const { data: profile } = await supabase
@@ -176,15 +192,19 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
                 .eq('id', otherParticipant.user_id)
                 .single();
 
-              return {
-                ...room,
-                other_user: profile || undefined,
-              };
+              roomData.other_user = profile || undefined;
             }
 
-            return room;
+            return roomData;
           })
         );
+
+        // Sort by last message timestamp (most recent first)
+        roomsWithUsers.sort((a, b) => {
+          const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+          const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+          return timeB - timeA;
+        });
 
         setPrivateRooms(roomsWithUsers);
       } catch (error) {
@@ -193,6 +213,48 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
     };
 
     fetchPrivateRooms();
+
+    // Subscribe to new messages to reorder conversations in real-time
+    const messageChannel = supabase
+      .channel(`private-rooms-messages-${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        (payload) => {
+          const roomId = payload.new.room_id;
+          const createdAt = payload.new.created_at;
+          
+          // Update last_message_at and reorder
+          setPrivateRooms(prev => {
+            const roomIndex = prev.findIndex(r => r.id === roomId);
+            if (roomIndex === -1) return prev;
+            
+            const updatedRooms = [...prev];
+            updatedRooms[roomIndex] = {
+              ...updatedRooms[roomIndex],
+              last_message_at: createdAt,
+            };
+            
+            // Sort by last message timestamp (most recent first)
+            updatedRooms.sort((a, b) => {
+              const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+              const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+              return timeB - timeA;
+            });
+            
+            return updatedRooms;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messageChannel);
+    };
   }, [projectId, open, user]);
 
   // Fetch all users for private messaging (including admins)
