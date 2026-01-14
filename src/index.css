@@ -188,4 +188,19 @@ All colors MUST be HSL.
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--primary) / 0.3) hsl(var(--muted));
   }
+
+  /* Safe area insets for mobile devices */
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Extra small breakpoint utilities */
+@media (min-width: 480px) {
+  .xs\:inline { display: inline; }
+  .xs\:hidden { display: none; }
+  .xs\:block { display: block; }
+  .xs\:flex { display: flex; }
 }

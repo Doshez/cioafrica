@@ -262,22 +262,22 @@ export default function ProjectDetails() {
     : 0;
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/projects')}>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate('/projects')} className="flex-shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           {project?.logo_url && (
-            <img src={project.logo_url} alt={`${project.name} logo`} className="h-16 w-16 object-contain rounded" />
+            <img src={project.logo_url} alt={`${project.name} logo`} className="h-12 w-12 sm:h-16 sm:w-16 object-contain rounded flex-shrink-0" />
           )}
-          <div>
-            <h1 className="text-3xl font-bold">{project?.name || 'Loading...'}</h1>
-            <p className="text-muted-foreground">{project?.description}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">{project?.name || 'Loading...'}</h1>
+            <p className="text-sm text-muted-foreground line-clamp-2">{project?.description}</p>
           </div>
         </div>
         {(isAdmin || isProjectManager) && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <UpdateProjectLogoDialog
               projectId={projectId!}
               currentLogoUrl={project.logo_url}
@@ -298,47 +298,49 @@ export default function ProjectDetails() {
 
       {/* Quick Actions */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
+        <CardHeader className="pb-2 sm:pb-4">
+          <CardTitle className="text-lg sm:text-xl">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
             <Button 
               onClick={() => navigate(`/projects/${projectId}/gantt`)}
-              className="gap-2"
-              size="lg"
+              className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
+              size="default"
             >
-              <GanttChartSquare className="h-5 w-5" />
-              View Gantt Chart
+              <GanttChartSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden xs:inline">View </span>Gantt
             </Button>
             <Button 
               onClick={() => navigate(`/projects/${projectId}/documents`)}
-              className="gap-2"
-              size="lg"
+              className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
+              size="default"
               variant="outline"
             >
-              <Folder className="h-5 w-5" />
-              Documents & Links
+              <Folder className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden xs:inline">Documents</span>
+              <span className="xs:hidden">Docs</span>
             </Button>
             <Button 
               onClick={() => navigate(`/projects/${projectId}/analytics`)}
-              className="gap-2"
-              size="lg"
+              className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
+              size="default"
               variant="outline"
             >
-              <BarChart3 className="h-5 w-5" />
-              View Analytics
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+              Analytics
             </Button>
             <Button 
               onClick={() => setMessagingOpen(true)}
-              className="gap-2 relative"
-              size="lg"
+              className="gap-1.5 sm:gap-2 relative text-xs sm:text-sm"
+              size="default"
               variant="outline"
             >
-              <MessageSquare className="h-5 w-5" />
-              Messaging Center
+              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden xs:inline">Messages</span>
+              <span className="xs:hidden">Chat</span>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="absolute -top-2 -right-2 h-6 min-w-6 px-1.5 text-xs">
+                <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 min-w-5 px-1 text-[10px] sm:text-xs">
                   {unreadCount}
                 </Badge>
               )}
@@ -357,40 +359,40 @@ export default function ProjectDetails() {
       />
 
       {/* Project Overview and Members */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
               Project Progress
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span>Overall Completion</span>
                 <span className="font-semibold">{projectProgress}%</span>
               </div>
               <Progress value={projectProgress} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Total Departments</p>
-                <p className="text-2xl font-bold">{departments.length}</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-0.5 sm:space-y-1">
+                <p className="text-xs sm:text-sm text-muted-foreground">Departments</p>
+                <p className="text-lg sm:text-2xl font-bold">{departments.length}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Total Tasks</p>
-                <p className="text-2xl font-bold">{tasks.length}</p>
+              <div className="space-y-0.5 sm:space-y-1">
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Tasks</p>
+                <p className="text-lg sm:text-2xl font-bold">{tasks.length}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold text-green-600">
+              <div className="space-y-0.5 sm:space-y-1">
+                <p className="text-xs sm:text-sm text-muted-foreground">Completed</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600">
                   {tasks.filter(t => t.status === 'done').length}
                 </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">
+              <div className="space-y-0.5 sm:space-y-1">
+                <p className="text-xs sm:text-sm text-muted-foreground">In Progress</p>
+                <p className="text-lg sm:text-2xl font-bold text-blue-600">
                   {tasks.filter(t => t.status === 'in_progress').length}
                 </p>
               </div>
@@ -403,67 +405,69 @@ export default function ProjectDetails() {
       </div>
 
       {/* Departments and Analytics */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <h2 className="text-2xl font-bold">Departments</h2>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Departments</h2>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search departments..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-[240px]"
+                className="pl-9 w-full sm:w-[200px] lg:w-[240px]"
               />
             </div>
-            <Select value={filterMode} onValueChange={(value: any) => setFilterMode(value)}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                <SelectItem value="my">My Departments</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex border rounded-lg p-1">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="px-2"
-                title="Grid View"
-              >
-                <Grid3x3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'compact' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('compact')}
-                className="px-2"
-                title="Compact View"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="px-2"
-                title="List View"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'table' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="px-2"
-                title="Table View"
-              >
-                <Table className="h-4 w-4" />
-              </Button>
+            <div className="flex gap-2">
+              <Select value={filterMode} onValueChange={(value: any) => setFilterMode(value)}>
+                <SelectTrigger className="flex-1 sm:w-[140px] lg:w-[180px]">
+                  <Filter className="h-4 w-4 mr-1 sm:mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="my">My Depts</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex border rounded-lg p-0.5 sm:p-1 flex-shrink-0">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="px-1.5 sm:px-2 h-8"
+                  title="Grid View"
+                >
+                  <Grid3x3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'compact' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('compact')}
+                  className="px-1.5 sm:px-2 h-8 hidden sm:flex"
+                  title="Compact View"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="px-1.5 sm:px-2 h-8"
+                  title="List View"
+                >
+                  <List className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="px-1.5 sm:px-2 h-8 hidden md:flex"
+                  title="Table View"
+                >
+                  <Table className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>

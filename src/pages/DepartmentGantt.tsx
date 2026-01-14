@@ -460,23 +460,23 @@ export default function DepartmentGantt() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-4 sm:py-6 space-y-4 sm:space-y-6 px-4 sm:px-6">
       {/* Header */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/projects/${projectId}`)}>
-            <ArrowLeft className="h-5 w-5" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-3 sm:pb-4 gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/projects/${projectId}`)} className="flex-shrink-0">
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{department.name}</h1>
-            <p className="text-sm text-muted-foreground">{project.name}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight truncate">{department.name}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{project.name}</p>
             {department.description && (
-              <p className="text-sm text-muted-foreground mt-1">{department.description}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">{department.description}</p>
             )}
           </div>
         </div>
         {(isAdmin || isProjectManager) && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
             <DepartmentLeadDialog
               departmentId={departmentId!}
               departmentName={department.name}
