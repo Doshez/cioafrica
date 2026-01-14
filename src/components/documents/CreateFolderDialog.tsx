@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,8 @@ interface CreateFolderDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreateFolder: (name: string, departmentId?: string) => Promise<void>;
   departments: { id: string; name: string }[];
+  defaultDepartmentId?: string;
+  showDepartmentSelect?: boolean;
 }
 
 export function CreateFolderDialog({
@@ -31,10 +33,19 @@ export function CreateFolderDialog({
   onOpenChange,
   onCreateFolder,
   departments,
+  defaultDepartmentId,
+  showDepartmentSelect = true,
 }: CreateFolderDialogProps) {
   const [name, setName] = useState('');
   const [departmentId, setDepartmentId] = useState<string>('');
   const [loading, setLoading] = useState(false);
+
+  // Set default department when dialog opens
+  useEffect(() => {
+    if (open && defaultDepartmentId) {
+      setDepartmentId(defaultDepartmentId);
+    }
+  }, [open, defaultDepartmentId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +53,8 @@ export function CreateFolderDialog({
 
     setLoading(true);
     try {
-      await onCreateFolder(name.trim(), departmentId && departmentId !== 'none' ? departmentId : undefined);
+      const finalDepartmentId = defaultDepartmentId || (departmentId && departmentId !== 'none' ? departmentId : undefined);
+      await onCreateFolder(name.trim(), finalDepartmentId);
       setName('');
       setDepartmentId('');
       onOpenChange(false);
@@ -76,22 +88,24 @@ export function CreateFolderDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="department">Department (Optional)</Label>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a department..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No department</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showDepartmentSelect && !defaultDepartmentId && (
+            <div className="space-y-2">
+              <Label htmlFor="department">Department (Optional)</Label>
+              <Select value={departmentId} onValueChange={setDepartmentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a department..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No department</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
