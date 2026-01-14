@@ -216,7 +216,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
 
     // Subscribe to new messages to reorder conversations in real-time
     const messageChannel = supabase
-      .channel(`private-rooms-messages-${projectId}`)
+      .channel(`private-rooms-messages-${projectId}-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -224,14 +224,19 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
           schema: 'public',
           table: 'chat_messages',
         },
-        (payload) => {
+        async (payload) => {
           const roomId = payload.new.room_id;
           const createdAt = payload.new.created_at;
           
-          // Update last_message_at and reorder
+          // Check if this room is in our private rooms
           setPrivateRooms(prev => {
             const roomIndex = prev.findIndex(r => r.id === roomId);
-            if (roomIndex === -1) return prev;
+            if (roomIndex === -1) {
+              // Room not in list - might be a new chat from another user
+              // Trigger a refetch to pick up the new room
+              fetchPrivateRooms();
+              return prev;
+            }
             
             const updatedRooms = [...prev];
             updatedRooms[roomIndex] = {
@@ -252,8 +257,27 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
       )
       .subscribe();
 
+    // Subscribe to new chat participants (for when someone starts a chat with you)
+    const participantChannel = supabase
+      .channel(`chat-participants-${projectId}-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_participants',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          // Refetch rooms when user is added to a new room
+          fetchPrivateRooms();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(messageChannel);
+      supabase.removeChannel(participantChannel);
     };
   }, [projectId, open, user]);
 
@@ -415,12 +439,14 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
         return;
       }
 
-      const roomWithUser = {
+      const roomWithUser: ChatRoom = {
         ...newRoom,
         other_user: profile || undefined,
+        last_message_at: newRoom.created_at, // Use creation time for ordering
       };
 
-      setPrivateRooms((prev) => [...prev, roomWithUser]);
+      // Add new room at the beginning (most recent first)
+      setPrivateRooms((prev) => [roomWithUser, ...prev]);
       setSelectedRoom(newRoom.id);
       setActiveTab('private');
     } catch (error) {
