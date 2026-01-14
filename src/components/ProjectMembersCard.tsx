@@ -240,24 +240,24 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Project Members ({members.length + 1})
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Users className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+            <span className="truncate">Project Members ({members.length + 1})</span>
           </CardTitle>
           {canManageMembers && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="w-full sm:w-auto">
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add Member
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto">
                 <DialogHeader>
-                  <DialogTitle>Add Project Member</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-base sm:text-lg">Add Project Member</DialogTitle>
+                  <DialogDescription className="text-sm">
                     Assign a user to this project with a specific role
                   </DialogDescription>
                 </DialogHeader>
@@ -266,13 +266,13 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Select User</label>
                     <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose a user" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[200px]">
                         {availableUsers.map((user) => (
                           <SelectItem key={user.id} value={user.id}>
-                            {user.full_name || user.email}
+                            <span className="truncate">{user.full_name || user.email}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -282,26 +282,26 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Project Role</label>
                     <Select value={selectedRole} onValueChange={setSelectedRole}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="viewer">
                           <div className="flex items-center gap-2">
-                            <Eye className="h-4 w-4" />
-                            <span>Viewer - View only</span>
+                            <Eye className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Viewer - View only</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="member">
                           <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            <span>Member - Create & manage tasks</span>
+                            <Users className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Member - Create & manage tasks</span>
                           </div>
                         </SelectItem>
                         <SelectItem value="manager">
                           <div className="flex items-center gap-2">
-                            <UserCog className="h-4 w-4" />
-                            <span>Manager - Full project control</span>
+                            <UserCog className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Manager - Full project control</span>
                           </div>
                         </SelectItem>
                       </SelectContent>
@@ -316,11 +316,11 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
                   </div>
                 </div>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isAdding}>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isAdding} className="w-full sm:w-auto">
                     Cancel
                   </Button>
-                  <Button onClick={addMember} disabled={isAdding}>
+                  <Button onClick={addMember} disabled={isAdding} className="w-full sm:w-auto">
                     {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Add Member
                   </Button>
@@ -330,49 +330,49 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
-          <div className="space-y-3">
+      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+        <div className="max-h-[400px] overflow-y-auto pr-1 sm:pr-2 scrollbar-thin">
+          <div className="space-y-2 sm:space-y-3">
           {/* Project Owner */}
-          <div className="flex items-center justify-between p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/20">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500 text-white">
-                <Crown className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between p-2 sm:p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/20">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-500 text-white shrink-0">
+                <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
-              <div>
-                <p className="font-medium text-sm">Project Owner</p>
+              <div className="min-w-0">
+                <p className="font-medium text-xs sm:text-sm truncate">Project Owner</p>
                 <p className="text-xs text-muted-foreground">Full control</p>
               </div>
             </div>
-            <Badge className="bg-purple-500 text-white">Owner</Badge>
+            <Badge className="bg-purple-500 text-white self-start sm:self-center text-xs shrink-0">Owner</Badge>
           </div>
 
           {/* Project Members */}
           {members.map((member) => (
             <div
               key={member.id}
-              className="flex items-center justify-between p-3 rounded-lg border"
+              className="flex flex-col gap-2 p-2 sm:p-3 rounded-lg border"
             >
-              <div className="flex items-center gap-3 flex-1">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 shrink-0">
                   {getRoleIcon(member.role)}
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-xs sm:text-sm truncate">
                     {member.profiles.full_name || member.profiles.email}
                   </p>
-                  <p className="text-xs text-muted-foreground">{member.profiles.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{member.profiles.email}</p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-end">
                 {canManageMembers ? (
                   <>
                     <Select
                       value={member.role}
                       onValueChange={(value) => updateMemberRole(member.id, value)}
                     >
-                      <SelectTrigger className="w-[140px] h-8">
+                      <SelectTrigger className="w-full sm:w-[120px] h-8 text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -384,7 +384,7 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 shrink-0"
                       onClick={() => removeMember(member.id)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -400,7 +400,7 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
           ))}
 
           {members.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">
               No additional members yet
             </p>
           )}

@@ -365,59 +365,61 @@ export function DocumentAccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Manage Access
+      <DialogContent className="max-w-[95vw] sm:max-w-lg mx-auto max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Shield className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+            <span className="truncate">Manage Access</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm truncate">
             Control who can access "{itemName}"
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 overflow-y-auto flex-1 pr-1">
           {/* Role-based access section */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-amber-500" />
-              Automatic Access (by Role)
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="flex items-center gap-2 text-sm">
+              <Crown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500 shrink-0" />
+              <span>Automatic Access (by Role)</span>
             </Label>
             <p className="text-xs text-muted-foreground">
               These users have full access based on their system role
             </p>
             {loadingRoleAccess ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Loading...</p>
             ) : roleBasedAccess.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 No users with automatic role-based access
               </p>
             ) : (
-              <ScrollArea className="h-[150px]">
+              <ScrollArea className="h-[120px] sm:h-[150px]">
                 <div className="space-y-2">
                   {roleBasedAccess.map((access) => (
                     <div
                       key={access.user_id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-dashed"
+                      className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-muted/30 border border-dashed"
                     >
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
                           <AvatarFallback className="text-xs">
                             {getInitials(access.full_name, access.email)}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium truncate">
                             {access.full_name || access.email}
                           </p>
                           {access.full_name && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {access.email}
                             </p>
                           )}
                         </div>
                       </div>
-                      {getAccessReasonBadge(access.access_reason)}
+                      <div className="self-start sm:self-center shrink-0">
+                        {getAccessReasonBadge(access.access_reason)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -428,25 +430,25 @@ export function DocumentAccessDialog({
           <Separator />
 
           {/* Add new explicit access */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Grant Additional Access
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="flex items-center gap-2 text-sm">
+              <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+              <span>Grant Additional Access</span>
             </Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="w-full sm:flex-1">
                   <SelectValue placeholder="Select a user..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[200px]">
                   {availableMembers.length === 0 ? (
-                    <div className="py-2 px-3 text-sm text-muted-foreground">
+                    <div className="py-2 px-3 text-xs sm:text-sm text-muted-foreground">
                       No available users
                     </div>
                   ) : (
                     availableMembers.map((member) => (
                       <SelectItem key={member.user_id} value={member.user_id}>
-                        {member.full_name || member.email}
+                        <span className="truncate">{member.full_name || member.email}</span>
                       </SelectItem>
                     ))
                   )}
@@ -456,7 +458,7 @@ export function DocumentAccessDialog({
                 value={selectedPermission} 
                 onValueChange={(v) => setSelectedPermission(v as 'view_only' | 'download')}
               >
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-full sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -477,59 +479,59 @@ export function DocumentAccessDialog({
           </div>
 
           {/* Explicit access list */}
-          <div className="space-y-3">
-            <Label>Users with Explicit Access</Label>
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-sm">Users with Explicit Access</Label>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Loading...</p>
             ) : accessList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 No additional users have been granted access
               </p>
             ) : (
-              <ScrollArea className="h-[150px]">
+              <ScrollArea className="h-[120px] sm:h-[150px]">
                 <div className="space-y-2">
                   {accessList.map((access) => (
                     <div
                       key={access.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                      className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-muted/50"
                     >
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
                           <AvatarFallback className="text-xs">
                             {getInitials(access.user_name, access.user_email || '')}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium truncate">
                             {access.user_name || access.user_email}
                           </p>
                           {access.user_name && access.user_email && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {access.user_email}
                             </p>
                           )}
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         <Select
                           value={access.permission}
                           onValueChange={(v) => updateAccess(access.id, v as 'view_only' | 'download')}
                         >
-                          <SelectTrigger className="h-7 w-[100px] text-xs">
+                          <SelectTrigger className="h-7 w-[90px] sm:w-[100px] text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="view_only">
                               <div className="flex items-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                View Only
+                                <Eye className="h-3 w-3 shrink-0" />
+                                <span>View Only</span>
                               </div>
                             </SelectItem>
                             <SelectItem value="download">
                               <div className="flex items-center gap-1">
-                                <Download className="h-3 w-3" />
-                                Download
+                                <Download className="h-3 w-3 shrink-0" />
+                                <span>Download</span>
                               </div>
                             </SelectItem>
                           </SelectContent>
@@ -538,7 +540,7 @@ export function DocumentAccessDialog({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
                           onClick={() => revokeAccess(access.id)}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -552,21 +554,17 @@ export function DocumentAccessDialog({
           </div>
 
           {/* Permission legend */}
-          <div className="pt-2 border-t">
+          <div className="pt-2 border-t shrink-0">
             <p className="text-xs text-muted-foreground mb-2">Permission Levels:</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="text-xs">
-                  <Eye className="h-3 w-3 mr-1" />
-                  View Only
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="text-xs">
-                  <Download className="h-3 w-3 mr-1" />
-                  Download
-                </Badge>
-              </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline" className="text-xs">
+                <Eye className="h-3 w-3 mr-1 shrink-0" />
+                View Only
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                <Download className="h-3 w-3 mr-1 shrink-0" />
+                Download
+              </Badge>
             </div>
           </div>
         </div>
