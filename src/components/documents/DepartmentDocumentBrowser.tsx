@@ -106,23 +106,50 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   const { data, isLoading: loading, refetch } = useQuery({
     queryKey,
     queryFn: async () => {
+      // Build folder query
+      let foldersQuery = supabase
+        .from('document_folders')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        foldersQuery = foldersQuery.eq('parent_folder_id', currentFolderId);
+      } else {
+        foldersQuery = foldersQuery.is('parent_folder_id', null);
+      }
+
+      // Build documents query
+      let documentsQuery = supabase
+        .from('documents')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        documentsQuery = documentsQuery.eq('folder_id', currentFolderId);
+      } else {
+        documentsQuery = documentsQuery.is('folder_id', null);
+      }
+
+      // Build links query
+      let linksQuery = supabase
+        .from('document_links')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('department_id', departmentId);
+      
+      if (currentFolderId) {
+        linksQuery = linksQuery.eq('folder_id', currentFolderId);
+      } else {
+        linksQuery = linksQuery.is('folder_id', null);
+      }
+
       // Fetch all data in parallel
       const [foldersResult, documentsResult, linksResult] = await Promise.all([
-        supabase
-          .from('document_folders')
-          .select('*')
-          .eq('project_id', projectId)
-          .eq('department_id', departmentId)
-          .then(q => currentFolderId 
-            ? supabase.from('document_folders').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('parent_folder_id', currentFolderId).order('name')
-            : supabase.from('document_folders').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('parent_folder_id', null).order('name')
-          ),
-        currentFolderId
-          ? supabase.from('documents').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('folder_id', currentFolderId).order('name')
-          : supabase.from('documents').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('folder_id', null).order('name'),
-        currentFolderId
-          ? supabase.from('document_links').select('*').eq('project_id', projectId).eq('department_id', departmentId).eq('folder_id', currentFolderId).order('title')
-          : supabase.from('document_links').select('*').eq('project_id', projectId).eq('department_id', departmentId).is('folder_id', null).order('title'),
+        foldersQuery.order('name'),
+        documentsQuery.order('name'),
+        linksQuery.order('title'),
       ]);
 
       const foldersData = foldersResult.data || [];
