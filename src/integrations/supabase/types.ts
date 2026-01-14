@@ -1335,11 +1335,23 @@ export type Database = {
         Args: { _document_id: string; _user_id: string }
         Returns: boolean
       }
+      has_document_access_via_folder: {
+        Args: { _document_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_folder_access: {
         Args: { _folder_id: string; _user_id: string }
         Returns: boolean
       }
+      has_folder_access_recursive: {
+        Args: { _folder_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_link_access: {
+        Args: { _link_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_link_access_via_folder: {
         Args: { _link_id: string; _user_id: string }
         Returns: boolean
       }
