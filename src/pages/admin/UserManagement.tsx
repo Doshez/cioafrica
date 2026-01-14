@@ -140,10 +140,56 @@ export default function UserManagement() {
     }
   };
 
-  const updateUserRole = async (userId: string, role: string, action: 'add' | 'remove') => {
+  // Replace all roles with a single new role to ensure clean permission assignment
+  const setUserRole = async (userId: string, newRole: string) => {
     try {
-      if (action === 'add') {
-        // Use upsert to avoid duplicate key errors
+      // First, delete all existing roles for this user
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (deleteError) throw deleteError;
+
+      // Then, insert the new role
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert({ 
+          user_id: userId, 
+          role: newRole as 'admin' | 'project_manager' | 'member' | 'viewer'
+        });
+      
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Success",
+        description: `Role updated to ${newRole.replace('_', ' ')} successfully`,
+      });
+
+      // Automatically refresh the user list
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Role update error:', error);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to update role',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Toggle a specific role (add if not present, remove if present)
+  const toggleUserRole = async (userId: string, role: string, currentlyHasRole: boolean) => {
+    try {
+      if (currentlyHasRole) {
+        const { error } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('role', role as 'admin' | 'project_manager' | 'member' | 'viewer');
+        
+        if (error) throw error;
+      } else {
         const { error } = await supabase
           .from('user_roles')
           .upsert({ 
@@ -155,28 +201,19 @@ export default function UserManagement() {
           });
         
         if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', role as 'admin' | 'project_manager' | 'member' | 'viewer');
-        
-        if (error) throw error;
       }
 
       toast({
         title: "Success",
-        description: `Role ${action === 'add' ? 'added' : 'removed'} successfully`,
+        description: `Role ${currentlyHasRole ? 'removed' : 'added'} successfully`,
       });
 
-      // Automatically refresh the user list
       await fetchUsers();
     } catch (error: any) {
-      console.error('Role update error:', error);
+      console.error('Role toggle error:', error);
       toast({
         title: "Error",
-        description: error.message || `Failed to ${action} role`,
+        description: error.message || 'Failed to update role',
         variant: "destructive",
       });
     }
@@ -455,7 +492,7 @@ export default function UserManagement() {
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    <strong>Note:</strong> Beyond these system roles, you can also assign project-specific permissions when adding members to individual projects.
+                    <strong>Note:</strong> Each user has a single system role that determines their base permissions. Beyond this, you can assign project-specific permissions when adding members to individual projects.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -730,13 +767,11 @@ export default function UserManagement() {
                 <CardContent>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Select
-                      onValueChange={(value) => {
-                        const hasRole = user.roles.includes(value);
-                        updateUserRole(user.id, value, hasRole ? 'remove' : 'add');
-                      }}
+                      value={user.roles[0] || ''}
+                      onValueChange={(value) => setUserRole(user.id, value)}
                     >
                       <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Assign role" />
+                        <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
@@ -813,10 +848,8 @@ export default function UserManagement() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Select
-                            onValueChange={(value) => {
-                              const hasRole = user.roles.includes(value);
-                              updateUserRole(user.id, value, hasRole ? 'remove' : 'add');
-                            }}
+                            value={user.roles[0] || ''}
+                            onValueChange={(value) => setUserRole(user.id, value)}
                           >
                             <SelectTrigger className="w-[140px] h-8">
                               <SelectValue placeholder="Role" />
