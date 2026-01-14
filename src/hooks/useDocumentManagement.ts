@@ -71,33 +71,51 @@ export function useDocumentManagement(projectId: string | undefined) {
 
     setLoading(true);
     try {
-      // Fetch folders
-      const { data: foldersData, error: foldersError } = await supabase
+      // Fetch folders - use .is() for null comparison
+      let foldersQuery = supabase
         .from('document_folders')
         .select('*')
-        .eq('project_id', projectId)
-        .eq('parent_folder_id', currentFolderId || null)
-        .order('name');
+        .eq('project_id', projectId);
+      
+      if (currentFolderId) {
+        foldersQuery = foldersQuery.eq('parent_folder_id', currentFolderId);
+      } else {
+        foldersQuery = foldersQuery.is('parent_folder_id', null);
+      }
+      
+      const { data: foldersData, error: foldersError } = await foldersQuery.order('name');
 
       if (foldersError) throw foldersError;
 
-      // Fetch documents
-      const { data: documentsData, error: documentsError } = await supabase
+      // Fetch documents - use .is() for null comparison
+      let documentsQuery = supabase
         .from('documents')
         .select('*')
-        .eq('project_id', projectId)
-        .eq('folder_id', currentFolderId || null)
-        .order('name');
+        .eq('project_id', projectId);
+      
+      if (currentFolderId) {
+        documentsQuery = documentsQuery.eq('folder_id', currentFolderId);
+      } else {
+        documentsQuery = documentsQuery.is('folder_id', null);
+      }
+      
+      const { data: documentsData, error: documentsError } = await documentsQuery.order('name');
 
       if (documentsError) throw documentsError;
 
-      // Fetch links
-      const { data: linksData, error: linksError } = await supabase
+      // Fetch links - use .is() for null comparison
+      let linksQuery = supabase
         .from('document_links')
         .select('*')
-        .eq('project_id', projectId)
-        .eq('folder_id', currentFolderId || null)
-        .order('title');
+        .eq('project_id', projectId);
+      
+      if (currentFolderId) {
+        linksQuery = linksQuery.eq('folder_id', currentFolderId);
+      } else {
+        linksQuery = linksQuery.is('folder_id', null);
+      }
+      
+      const { data: linksData, error: linksError } = await linksQuery.order('title');
 
       if (linksError) throw linksError;
 
