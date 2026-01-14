@@ -949,6 +949,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_chat_room: {
+        Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_project_role: {
         Args: {
           _project_id: string
