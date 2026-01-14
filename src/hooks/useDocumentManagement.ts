@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -59,69 +60,38 @@ export interface DocumentAccess {
 export function useDocumentManagement(projectId: string | undefined) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [folders, setFolders] = useState<DocumentFolder[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [links, setLinks] = useState<DocumentLink[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchData = useCallback(async () => {
-    if (!projectId) return;
+  const queryKey = ['all-documents', projectId, currentFolderId];
 
-    setLoading(true);
-    try {
-      // Fetch folders - use .is() for null comparison
-      let foldersQuery = supabase
-        .from('document_folders')
-        .select('*')
-        .eq('project_id', projectId);
-      
-      if (currentFolderId) {
-        foldersQuery = foldersQuery.eq('parent_folder_id', currentFolderId);
-      } else {
-        foldersQuery = foldersQuery.is('parent_folder_id', null);
-      }
-      
-      const { data: foldersData, error: foldersError } = await foldersQuery.order('name');
+  // Fetch data with React Query caching
+  const { data, isLoading: loading, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (!projectId) return { folders: [], documents: [], links: [] };
 
-      if (foldersError) throw foldersError;
+      // Fetch all data in parallel for better performance
+      const [foldersResult, documentsResult, linksResult] = await Promise.all([
+        currentFolderId
+          ? supabase.from('document_folders').select('*').eq('project_id', projectId).eq('parent_folder_id', currentFolderId).order('name')
+          : supabase.from('document_folders').select('*').eq('project_id', projectId).is('parent_folder_id', null).order('name'),
+        currentFolderId
+          ? supabase.from('documents').select('*').eq('project_id', projectId).eq('folder_id', currentFolderId).order('name')
+          : supabase.from('documents').select('*').eq('project_id', projectId).is('folder_id', null).order('name'),
+        currentFolderId
+          ? supabase.from('document_links').select('*').eq('project_id', projectId).eq('folder_id', currentFolderId).order('title')
+          : supabase.from('document_links').select('*').eq('project_id', projectId).is('folder_id', null).order('title'),
+      ]);
 
-      // Fetch documents - use .is() for null comparison
-      let documentsQuery = supabase
-        .from('documents')
-        .select('*')
-        .eq('project_id', projectId);
-      
-      if (currentFolderId) {
-        documentsQuery = documentsQuery.eq('folder_id', currentFolderId);
-      } else {
-        documentsQuery = documentsQuery.is('folder_id', null);
-      }
-      
-      const { data: documentsData, error: documentsError } = await documentsQuery.order('name');
-
-      if (documentsError) throw documentsError;
-
-      // Fetch links - use .is() for null comparison
-      let linksQuery = supabase
-        .from('document_links')
-        .select('*')
-        .eq('project_id', projectId);
-      
-      if (currentFolderId) {
-        linksQuery = linksQuery.eq('folder_id', currentFolderId);
-      } else {
-        linksQuery = linksQuery.is('folder_id', null);
-      }
-      
-      const { data: linksData, error: linksError } = await linksQuery.order('title');
-
-      if (linksError) throw linksError;
+      const foldersData = foldersResult.data || [];
+      const documentsData = documentsResult.data || [];
+      const linksData = linksResult.data || [];
 
       // Get uploader names for documents
-      const uploaderIds = [...new Set(documentsData?.map(d => d.uploaded_by).filter(Boolean))];
-      const creatorIds = [...new Set(linksData?.map(l => l.created_by).filter(Boolean))];
+      const uploaderIds = [...new Set(documentsData.map(d => d.uploaded_by).filter(Boolean))];
+      const creatorIds = [...new Set(linksData.map(l => l.created_by).filter(Boolean))];
       const allUserIds = [...new Set([...uploaderIds, ...creatorIds])];
 
       let userProfiles: Record<string, string> = {};
@@ -139,72 +109,31 @@ export function useDocumentManagement(projectId: string | undefined) {
         }
       }
 
-      setFolders(foldersData || []);
-      setDocuments(
-        (documentsData || []).map(d => ({
+      return {
+        folders: foldersData,
+        documents: documentsData.map(d => ({
           ...d,
           uploader_name: d.uploaded_by ? userProfiles[d.uploaded_by] : undefined,
-        }))
-      );
-      setLinks(
-        (linksData || []).map(l => ({
+        })),
+        links: linksData.map(l => ({
           ...l,
           creator_name: l.created_by ? userProfiles[l.created_by] : undefined,
-        }))
-      );
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load documents',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, currentFolderId, toast]);
+        })),
+      };
+    },
+    enabled: !!projectId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const folders = data?.folders || [];
+  const documents = data?.documents || [];
+  const links = data?.links || [];
 
-  // Real-time subscriptions
-  useEffect(() => {
-    if (!projectId) return;
-
-    const documentsChannel = supabase
-      .channel(`documents-${projectId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'documents', filter: `project_id=eq.${projectId}` },
-        () => fetchData()
-      )
-      .subscribe();
-
-    const linksChannel = supabase
-      .channel(`document-links-${projectId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'document_links', filter: `project_id=eq.${projectId}` },
-        () => fetchData()
-      )
-      .subscribe();
-
-    const foldersChannel = supabase
-      .channel(`document-folders-${projectId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'document_folders', filter: `project_id=eq.${projectId}` },
-        () => fetchData()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(documentsChannel);
-      supabase.removeChannel(linksChannel);
-      supabase.removeChannel(foldersChannel);
-    };
-  }, [projectId, fetchData]);
+  // Invalidate query helper
+  const invalidateData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['all-documents', projectId] });
+  }, [queryClient, projectId]);
 
   const createFolder = async (name: string, departmentId?: string) => {
     if (!projectId || !user) return;
@@ -228,7 +157,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Folder created successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error creating folder:', error);
       toast({
@@ -280,7 +209,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Document uploaded successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error uploading document:', error);
       toast({
@@ -319,7 +248,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Link added successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error creating link:', error);
       toast({
@@ -348,7 +277,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Document deleted successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error deleting document:', error);
       toast({
@@ -377,7 +306,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Link deleted successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error deleting link:', error);
       toast({
@@ -406,7 +335,7 @@ export function useDocumentManagement(projectId: string | undefined) {
       });
 
       toast({ title: 'Folder deleted successfully' });
-      fetchData();
+      invalidateData();
     } catch (error) {
       console.error('Error deleting folder:', error);
       toast({
@@ -447,16 +376,23 @@ export function useDocumentManagement(projectId: string | undefined) {
     return [...breadcrumbs, ...folderPath];
   };
 
-  // Filter by search query
-  const filteredFolders = folders.filter(f =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filter by search query using useMemo for performance
+  const filteredFolders = useMemo(() => 
+    folders.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())),
+    [folders, searchQuery]
   );
-  const filteredDocuments = documents.filter(d =>
-    d.name.toLowerCase().includes(searchQuery.toLowerCase())
+  
+  const filteredDocuments = useMemo(() =>
+    documents.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase())),
+    [documents, searchQuery]
   );
-  const filteredLinks = links.filter(l =>
-    l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.url.toLowerCase().includes(searchQuery.toLowerCase())
+  
+  const filteredLinks = useMemo(() =>
+    links.filter(l =>
+      l.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      l.url.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [links, searchQuery]
   );
 
   return {
@@ -475,6 +411,6 @@ export function useDocumentManagement(projectId: string | undefined) {
     deleteFolder,
     navigateToFolder,
     getBreadcrumbs,
-    refetch: fetchData,
+    refetch,
   };
 }

@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DocumentBrowser } from '@/components/documents/DocumentBrowser';
 import { DepartmentDocumentBrowser } from '@/components/documents/DepartmentDocumentBrowser';
@@ -9,6 +10,7 @@ import { ArrowLeft, Folder, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Department {
   id: string;
@@ -24,84 +26,99 @@ interface Project {
 export default function ProjectDocuments() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useAuth();
-  const { isAdmin, isProjectManager } = useUserRole();
-  const [project, setProject] = useState<Project | null>(null);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { isAdmin, isProjectManager, loading: roleLoading } = useUserRole();
   const [activeTab, setActiveTab] = useState<string>('all');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!projectId || !user) return;
+  // Fetch project data with caching
+  const { data: project, isLoading: projectLoading } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, owner_id')
+        .eq('id', projectId)
+        .single();
+      if (error) throw error;
+      return data as Project;
+    },
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      try {
-        // Fetch project
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('id, name, owner_id')
-          .eq('id', projectId)
-          .single();
+  // Fetch departments with caching
+  const { data: departments = [], isLoading: deptsLoading } = useQuery({
+    queryKey: ['departments', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from('departments')
+        .select('id, name')
+        .eq('project_id', projectId)
+        .order('name');
+      if (error) throw error;
+      return data as Department[];
+    },
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-        if (projectError) throw projectError;
-        setProject(projectData);
-
-        // Fetch all departments
-        const { data: deptData, error: deptError } = await supabase
-          .from('departments')
-          .select('id, name')
+  // Fetch user's accessible departments
+  const { data: accessData, isLoading: accessLoading } = useQuery({
+    queryKey: ['user-department-access', projectId, user?.id],
+    queryFn: async () => {
+      if (!projectId || !user) return { leadDeptIds: new Set<string>(), memberRole: null };
+      
+      const [leadResult, memberResult] = await Promise.all([
+        supabase
+          .from('department_leads')
+          .select('department_id')
+          .eq('user_id', user.id),
+        supabase
+          .from('project_members')
+          .select('role')
           .eq('project_id', projectId)
-          .order('name');
+          .eq('user_id', user.id)
+          .maybeSingle()
+      ]);
 
-        if (deptError) throw deptError;
-        setDepartments(deptData || []);
+      return {
+        leadDeptIds: new Set(leadResult.data?.map(d => d.department_id) || []),
+        memberRole: memberResult.data?.role,
+      };
+    },
+    enabled: !!projectId && !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
-        // Determine accessible departments based on role
-        const isOwner = projectData?.owner_id === user.id;
-        
-        if (isAdmin || isProjectManager || isOwner) {
-          // Admin, PM, and owner can access all departments
-          setAccessibleDepartments(deptData || []);
-        } else {
-          // Check department lead status
-          const { data: leadDepts } = await supabase
-            .from('department_leads')
-            .select('department_id')
-            .eq('user_id', user.id);
+  // Compute accessible departments
+  const accessibleDepartments = useMemo(() => {
+    if (!user || !project || !accessData) return [];
+    
+    const isOwner = project.owner_id === user.id;
+    
+    if (isAdmin || isProjectManager || isOwner) {
+      return departments;
+    }
 
-          const leadDeptIds = new Set(leadDepts?.map(d => d.department_id) || []);
+    const { leadDeptIds, memberRole } = accessData;
 
-          // Check project member role
-          const { data: memberData } = await supabase
-            .from('project_members')
-            .select('role')
-            .eq('project_id', projectId)
-            .eq('user_id', user.id)
-            .single();
+    if (memberRole === 'owner' || memberRole === 'manager') {
+      return departments;
+    }
 
-          if (memberData?.role === 'owner' || memberData?.role === 'manager') {
-            // Project role with management permissions
-            setAccessibleDepartments(deptData || []);
-          } else {
-            // Filter to only departments where user is lead or has explicit access
-            const accessible = (deptData || []).filter(dept => leadDeptIds.has(dept.id));
-            setAccessibleDepartments(accessible);
-            
-            // If user has no specific department access but is a project member, show all
-            if (accessible.length === 0 && memberData) {
-              setAccessibleDepartments(deptData || []);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Filter to only departments where user is lead
+    const accessible = departments.filter(dept => leadDeptIds.has(dept.id));
+    
+    // If user has no specific department access but is a project member, show all
+    if (accessible.length === 0 && memberRole) {
+      return departments;
+    }
 
-    fetchData();
-  }, [projectId, user, isAdmin, isProjectManager]);
+    return accessible;
+  }, [user, project, departments, accessData, isAdmin, isProjectManager]);
+
+  const loading = projectLoading || deptsLoading || accessLoading || roleLoading;
 
   if (loading) {
     return (
