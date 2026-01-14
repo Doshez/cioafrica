@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Folder, Link2, Search, Building2, ExternalLink, FileText, MoreVertical, Trash2, Download, Eye, ChevronRight, ArrowLeft, FolderPlus, Upload, LinkIcon } from 'lucide-react';
+import { Folder, Link2, Search, Building2, ExternalLink, FileText, MoreVertical, Trash2, Download, Eye, ChevronRight, ArrowLeft, FolderPlus, Upload, LinkIcon, GripVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateLinkDialog } from './CreateLinkDialog';
@@ -33,6 +33,10 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<DocType | null>(null);
   const [accessDialogItem, setAccessDialogItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string } | null>(null);
+  
+  // Drag and drop state
+  const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
 
   const departmentMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -129,6 +133,67 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     toast({ title: 'Document uploaded' }); invalidateQueries(); e.target.value = '';
   };
 
+  // Drag and Drop handlers
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, docId: string, docName: string) => {
+    e.dataTransfer.setData('text/plain', docId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedDocId(docId);
+    
+    // Create custom drag image
+    const dragImage = document.createElement('div');
+    dragImage.className = 'bg-background border rounded-lg px-3 py-2 shadow-lg text-sm font-medium';
+    dragImage.textContent = docName;
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedDocId(null);
+    setDropTargetFolderId(null);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>, folderId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetFolderId(folderId);
+  };
+
+  const handleDragLeave = () => {
+    setDropTargetFolderId(null);
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLDivElement>, targetFolderId: string) => {
+    e.preventDefault();
+    const docId = e.dataTransfer.getData('text/plain');
+    
+    if (!docId || !canManage) {
+      setDraggedDocId(null);
+      setDropTargetFolderId(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ folder_id: targetFolderId })
+        .eq('id', docId);
+
+      if (error) throw error;
+
+      toast({ title: 'File moved successfully', description: 'The file has been moved to the folder.' });
+      invalidateQueries();
+    } catch (error) {
+      console.error('Error moving document:', error);
+      toast({ title: 'Move failed', description: 'Could not move the file to this folder.', variant: 'destructive' });
+    }
+
+    setDraggedDocId(null);
+    setDropTargetFolderId(null);
+  };
+
   const formatFileSize = (bytes: number | null) => { if (!bytes) return ''; if (bytes < 1024) return `${bytes} B`; if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`; return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; };
   const loading = foldersLoading || docsLoading || linksLoading;
 
@@ -140,6 +205,14 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
         {canManage && <div className="flex gap-2">{activeTab === 'folders' && <><Button onClick={() => setCreateFolderOpen(true)} size="sm" variant="outline"><FolderPlus className="h-4 w-4 mr-2" />Folder</Button><Button size="sm" variant="outline" asChild><label className="cursor-pointer"><Upload className="h-4 w-4 mr-2" />Upload<input type="file" className="hidden" onChange={handleFileUpload} /></label></Button></>}{activeTab === 'links' && <Button onClick={() => setCreateLinkOpen(true)} size="sm" variant="outline"><LinkIcon className="h-4 w-4 mr-2" />Add Link</Button>}</div>}
       </div>
 
+      {/* Drag hint */}
+      {canManage && activeTab === 'folders' && filteredDocuments.length > 0 && filteredFolders.length > 0 && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <GripVertical className="h-3 w-3" />
+          Tip: Drag files to move them into folders
+        </p>
+      )}
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'folders' | 'links')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md"><TabsTrigger value="folders"><Folder className="h-4 w-4 mr-2" />Folders<Badge variant="secondary" className="ml-2 text-xs">{filteredFolders.length + filteredDocuments.length}</Badge></TabsTrigger><TabsTrigger value="links"><Link2 className="h-4 w-4 mr-2" />Links<Badge variant="secondary" className="ml-2 text-xs">{filteredLinks.length}</Badge></TabsTrigger></TabsList>
 
@@ -149,8 +222,128 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           
           {loading ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{[1,2,3,4].map(i => <Card key={i}><CardContent className="p-4 h-24 bg-muted animate-pulse rounded" /></Card>)}</div> : (
             <>
-              {filteredFolders.length > 0 && <div className="space-y-3"><h3 className="text-sm font-medium text-muted-foreground">Folders</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{filteredFolders.map(f => <Card key={f.id} className="group hover:shadow-md cursor-pointer" onClick={() => setCurrentFolderId(f.id)}><CardContent className="p-4 flex items-start justify-between"><div className="flex items-center gap-3 min-w-0 flex-1"><div className="p-2 rounded-lg bg-primary/10 text-primary"><Folder className="h-5 w-5" /></div><div className="min-w-0"><p className="font-medium truncate">{f.name}</p><Badge variant="outline" className="text-xs mt-1"><Building2 className="h-3 w-3 mr-1" />{f.department_name}</Badge></div></div>{canManage && <DropdownMenu><DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}><Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={e => { e.stopPropagation(); setAccessDialogItem({ type: 'folder', id: f.id, name: f.name }); }}><Eye className="h-4 w-4 mr-2" />Manage Access</DropdownMenuItem><DropdownMenuItem onClick={e => { e.stopPropagation(); handleDelete('folder', f.id); }} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</CardContent></Card>)}</div></div>}
-              {filteredDocuments.length > 0 && <div className="space-y-3"><h3 className="text-sm font-medium text-muted-foreground">Files</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{filteredDocuments.map(d => <Card key={d.id} className="group hover:shadow-md"><CardContent className="p-4 flex items-start justify-between"><div className="flex items-center gap-3 min-w-0 flex-1"><div className="p-2 rounded-lg bg-blue-500/10 text-blue-600"><FileText className="h-5 w-5" /></div><div className="min-w-0"><p className="font-medium truncate">{d.name}</p><p className="text-xs text-muted-foreground">{formatFileSize(d.file_size)}</p><Badge variant="outline" className="text-xs mt-1"><Building2 className="h-3 w-3 mr-1" />{d.department_name}</Badge></div></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setPreviewDoc(d as DocType)}><Eye className="h-4 w-4 mr-2" />Preview</DropdownMenuItem><DropdownMenuItem asChild><a href={d.file_url} download target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4 mr-2" />Download</a></DropdownMenuItem>{canManage && <><DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'document', id: d.id, name: d.name })}><Eye className="h-4 w-4 mr-2" />Manage Access</DropdownMenuItem><DropdownMenuItem onClick={() => handleDelete('document', d.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem></>}</DropdownMenuContent></DropdownMenu></CardContent></Card>)}</div></div>}
+              {/* Folders - Drop targets */}
+              {filteredFolders.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">Folders</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredFolders.map(f => (
+                      <Card 
+                        key={f.id} 
+                        className={`group cursor-pointer transition-all ${
+                          dropTargetFolderId === f.id 
+                            ? 'ring-2 ring-primary bg-primary/5 shadow-lg scale-[1.02]' 
+                            : 'hover:shadow-md'
+                        }`}
+                        onClick={() => !draggedDocId && setCurrentFolderId(f.id)}
+                        onDragOver={(e) => handleDragOver(e, f.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, f.id)}
+                      >
+                        <CardContent className="p-4 flex items-start justify-between">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`p-2 rounded-lg transition-colors ${
+                              dropTargetFolderId === f.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
+                            }`}>
+                              <Folder className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{f.name}</p>
+                              <Badge variant="outline" className="text-xs mt-1"><Building2 className="h-3 w-3 mr-1" />{f.department_name}</Badge>
+                              {dropTargetFolderId === f.id && (
+                                <p className="text-xs text-primary mt-1 font-medium">Drop here to move</p>
+                              )}
+                            </div>
+                          </div>
+                          {canManage && !draggedDocId && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={e => { e.stopPropagation(); setAccessDialogItem({ type: 'folder', id: f.id, name: f.name }); }}>
+                                  <Eye className="h-4 w-4 mr-2" />Manage Access
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={e => { e.stopPropagation(); handleDelete('folder', f.id); }} className="text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" />Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Files - Draggable */}
+              {filteredDocuments.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">Files</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredDocuments.map(d => (
+                      <Card 
+                        key={d.id} 
+                        className={`group transition-all ${
+                          draggedDocId === d.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
+                        } ${canManage ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        draggable={canManage}
+                        onDragStart={(e) => handleDragStart(e, d.id, d.name)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <CardContent className="p-4 flex items-start justify-between">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {canManage && (
+                              <div className="text-muted-foreground/50 group-hover:text-muted-foreground transition-colors cursor-grab">
+                                <GripVertical className="h-4 w-4" />
+                              </div>
+                            )}
+                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600">
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{d.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatFileSize(d.file_size)}</p>
+                              <Badge variant="outline" className="text-xs mt-1"><Building2 className="h-3 w-3 mr-1" />{d.department_name}</Badge>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setPreviewDoc(d as DocType)}>
+                                <Eye className="h-4 w-4 mr-2" />Preview
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <a href={d.file_url} download target="_blank" rel="noopener noreferrer">
+                                  <Download className="h-4 w-4 mr-2" />Download
+                                </a>
+                              </DropdownMenuItem>
+                              {canManage && (
+                                <>
+                                  <DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'document', id: d.id, name: d.name })}>
+                                    <Eye className="h-4 w-4 mr-2" />Manage Access
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDelete('document', d.id)} className="text-destructive">
+                                    <Trash2 className="h-4 w-4 mr-2" />Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {filteredFolders.length === 0 && filteredDocuments.length === 0 && <div className="text-center py-16"><Folder className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" /><p className="text-lg font-medium text-muted-foreground">No folders or files found</p></div>}
             </>
           )}
