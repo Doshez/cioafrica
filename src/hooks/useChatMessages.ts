@@ -28,6 +28,7 @@ export interface ChatMessage {
     full_name: string | null;
     avatar_url: string | null;
   };
+  user_email?: string; // Fallback for user identification
 }
 
 export const useChatMessages = (roomId: string | null) => {
@@ -67,14 +68,18 @@ export const useChatMessages = (roomId: string | null) => {
       const userIds = [...new Set(messagesData?.map(m => m.user_id) || [])];
       const { data: profilesData } = await supabase
         .from('profiles')
-        .select('id, full_name, avatar_url')
+        .select('id, full_name, avatar_url, email')
         .in('id', userIds);
 
-      // Merge profiles with messages
-      const messagesWithProfiles = messagesData?.map(message => ({
-        ...message,
-        user: profilesData?.find(p => p.id === message.user_id),
-      })) || [];
+      // Merge profiles with messages - ensure profile data is always available
+      const messagesWithProfiles = messagesData?.map(message => {
+        const profile = profilesData?.find(p => p.id === message.user_id);
+        return {
+          ...message,
+          user: profile ? { full_name: profile.full_name, avatar_url: profile.avatar_url } : undefined,
+          user_email: profile?.email || undefined,
+        };
+      }) || [];
 
       setMessages(messagesWithProfiles);
       setLoading(false);
@@ -103,13 +108,14 @@ export const useChatMessages = (roomId: string | null) => {
           if (messageData) {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url')
+              .select('id, full_name, avatar_url, email')
               .eq('id', messageData.user_id)
               .single();
 
             setMessages((prev) => [...prev, {
               ...messageData,
-              user: profileData,
+              user: profileData ? { full_name: profileData.full_name, avatar_url: profileData.avatar_url } : undefined,
+              user_email: profileData?.email || undefined,
             }]);
           }
         }
@@ -123,9 +129,12 @@ export const useChatMessages = (roomId: string | null) => {
           filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
+          // Preserve user data when updating message
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === payload.new.id ? { ...msg, ...payload.new } : msg
+              msg.id === payload.new.id 
+                ? { ...msg, content: payload.new.content, edited_at: payload.new.edited_at } 
+                : msg
             )
           );
         }
