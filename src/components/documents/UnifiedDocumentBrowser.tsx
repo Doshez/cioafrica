@@ -98,10 +98,11 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   const filteredLinks = useMemo(() => allLinks.filter(l => (l.title.toLowerCase().includes(searchQuery.toLowerCase()) || l.url.toLowerCase().includes(searchQuery.toLowerCase())) && (departmentFilter === 'all' || (departmentFilter === 'general' ? !l.department_id : l.department_id === departmentFilter))), [allLinks, searchQuery, departmentFilter]);
 
   const invalidateQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['unified-folders', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['unified-documents', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['unified-links', projectId] });
-  }, [queryClient, projectId]);
+    // Invalidate all folder/document queries regardless of currentFolderId
+    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+  }, [queryClient]);
 
   const handleCreateFolder = async (name: string, departmentId?: string) => {
     if (!projectId || !user) return;
