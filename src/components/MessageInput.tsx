@@ -34,12 +34,15 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Create a signed URL for private bucket (valid for 1 year)
+      const { data: signedData, error: signedError } = await supabase.storage
         .from('chat-attachments')
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 60 * 60 * 24 * 365);
+
+      if (signedError) throw signedError;
 
       setAttachment({
-        url: publicUrl,
+        url: signedData.signedUrl,
         name: file.name,
         type: file.type,
         size: file.size,
