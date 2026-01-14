@@ -350,7 +350,7 @@ export function useDocumentManagement(projectId: string | undefined) {
     setCurrentFolderId(folderId);
   };
 
-  const getBreadcrumbs = async (): Promise<{ id: string | null; name: string }[]> => {
+  const getBreadcrumbs = useCallback(async (): Promise<{ id: string | null; name: string }[]> => {
     const breadcrumbs: { id: string | null; name: string }[] = [{ id: null, name: 'Documents' }];
     
     if (!currentFolderId) return breadcrumbs;
@@ -374,7 +374,7 @@ export function useDocumentManagement(projectId: string | undefined) {
     }
 
     return [...breadcrumbs, ...folderPath];
-  };
+  }, [currentFolderId]);
 
   // Filter by search query using useMemo for performance
   const filteredFolders = useMemo(() => 
