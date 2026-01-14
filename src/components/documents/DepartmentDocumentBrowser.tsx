@@ -600,6 +600,8 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
         onOpenChange={setCreateFolderOpen}
         onCreateFolder={handleCreateFolder}
         departments={[]}
+        defaultDepartmentId={departmentId}
+        showDepartmentSelect={false}
       />
 
       <CreateLinkDialog
@@ -607,6 +609,8 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
         onOpenChange={setCreateLinkOpen}
         onCreateLink={handleCreateLink}
         departments={[]}
+        defaultDepartmentId={departmentId}
+        showDepartmentSelect={false}
       />
 
       {selectedItem && accessDialogOpen && (
