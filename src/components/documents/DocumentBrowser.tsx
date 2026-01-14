@@ -81,14 +81,24 @@ export function DocumentBrowser({ projectId, departments }: DocumentBrowserProps
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const updateBreadcrumbs = useCallback(async () => {
-    const crumbs = await getBreadcrumbs();
-    setBreadcrumbs(crumbs);
-  }, [getBreadcrumbs]);
-
+  // Update breadcrumbs when folder changes - avoid infinite loop by not depending on getBreadcrumbs
   useEffect(() => {
-    updateBreadcrumbs();
-  }, [currentFolderId, updateBreadcrumbs]);
+    let isMounted = true;
+    
+    const loadBreadcrumbs = async () => {
+      const crumbs = await getBreadcrumbs();
+      if (isMounted) {
+        setBreadcrumbs(crumbs);
+      }
+    };
+    
+    loadBreadcrumbs();
+    
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFolderId]);
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return;
