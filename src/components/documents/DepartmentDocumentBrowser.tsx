@@ -509,12 +509,20 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     // Don't allow dropping a folder onto itself
     if (draggedItem?.type === 'folder' && draggedItem.id === folderId) return;
     e.dataTransfer.dropEffect = 'move';
-    setDropTargetFolderId(folderId);
+    // Only update state if the target folder changed to prevent infinite loop
+    if (dropTargetFolderId !== folderId) {
+      setDropTargetFolderId(folderId);
+    }
   };
 
   const handleFolderDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setDropTargetFolderId(null);
+    e.stopPropagation();
+    // Only clear if we're actually leaving the folder, not entering a child
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDropTargetFolderId(null);
+    }
   };
 
   const handleFolderDrop = async (e: React.DragEvent, targetFolderId: string) => {
