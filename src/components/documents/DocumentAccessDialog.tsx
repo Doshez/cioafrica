@@ -21,7 +21,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Shield, UserPlus, Trash2, Eye, Download, Crown, Users, Building2, Pencil } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Shield, UserPlus, Trash2, Eye, Download, Crown, Users, Building2, Pencil, CheckSquare } from 'lucide-react';
 
 interface DocumentAccessDialogProps {
   open: boolean;
@@ -58,7 +59,7 @@ export function DocumentAccessDialog({
   const { accessList, loading, grantAccess, updateAccess, revokeAccess } = useDocumentAccess(itemId, itemType);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
   const [roleBasedAccess, setRoleBasedAccess] = useState<RoleBasedAccess[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedPermission, setSelectedPermission] = useState<'view_only' | 'download' | 'edit'>('view_only');
   const [addingAccess, setAddingAccess] = useState(false);
   const [loadingRoleAccess, setLoadingRoleAccess] = useState(true);
@@ -296,16 +297,35 @@ export function DocumentAccessDialog({
   }, [projectId, itemId, itemType, open]);
 
   const handleGrantAccess = async () => {
-    if (!selectedUserId) return;
+    if (selectedUserIds.length === 0) return;
 
     setAddingAccess(true);
     try {
-      await grantAccess(selectedUserId, selectedPermission);
-      setSelectedUserId('');
+      // Grant access to all selected users
+      for (const userId of selectedUserIds) {
+        await grantAccess(userId, selectedPermission);
+      }
+      setSelectedUserIds([]);
       setSelectedPermission('view_only');
     } finally {
       setAddingAccess(false);
     }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const selectAllAvailable = () => {
+    setSelectedUserIds(availableMembers.map(m => m.user_id));
+  };
+
+  const clearSelection = () => {
+    setSelectedUserIds([]);
   };
 
   const getInitials = (name: string | null | undefined, email: string) => {
@@ -429,36 +449,28 @@ export function DocumentAccessDialog({
 
           <Separator />
 
-          {/* Add new explicit access */}
+          {/* Add new explicit access - Bulk Grant */}
           <div className="space-y-2 sm:space-y-3">
-            <Label className="flex items-center gap-2 text-sm">
-              <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-              <span>Grant Additional Access</span>
-            </Label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger className="w-full sm:flex-1">
-                  <SelectValue placeholder="Select a user..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {availableMembers.length === 0 ? (
-                    <div className="py-2 px-3 text-xs sm:text-sm text-muted-foreground">
-                      No available users
-                    </div>
-                  ) : (
-                    availableMembers.map((member) => (
-                      <SelectItem key={member.user_id} value={member.user_id}>
-                        <span className="truncate">{member.full_name || member.email}</span>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-sm">
+                <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span>Grant Additional Access</span>
+              </Label>
+              {selectedUserIds.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedUserIds.length} selected
+                </Badge>
+              )}
+            </div>
+            
+            {/* Permission selector */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground shrink-0">Permission:</Label>
               <Select 
                 value={selectedPermission} 
                 onValueChange={(v) => setSelectedPermission(v as 'view_only' | 'download' | 'edit')}
               >
-                <SelectTrigger className="w-full sm:w-[130px]">
+                <SelectTrigger className="w-full sm:w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -470,14 +482,93 @@ export function DocumentAccessDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* User selection list */}
+            {availableMembers.length === 0 ? (
+              <p className="text-xs sm:text-sm text-muted-foreground py-2">
+                No available users to grant access
+              </p>
+            ) : (
+              <>
+                {/* Quick actions */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllAvailable}
+                    disabled={selectedUserIds.length === availableMembers.length}
+                    className="text-xs h-7"
+                  >
+                    <CheckSquare className="h-3 w-3 mr-1" />
+                    Select All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearSelection}
+                    disabled={selectedUserIds.length === 0}
+                    className="text-xs h-7"
+                  >
+                    Clear
+                  </Button>
+                </div>
+
+                {/* User list with checkboxes */}
+                <ScrollArea className="h-[120px] sm:h-[150px] border rounded-lg">
+                  <div className="p-2 space-y-1">
+                    {availableMembers.map((member) => (
+                      <div
+                        key={member.user_id}
+                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                          selectedUserIds.includes(member.user_id)
+                            ? 'bg-primary/10 border border-primary/30'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleUserSelection(member.user_id)}
+                      >
+                        <Checkbox
+                          checked={selectedUserIds.includes(member.user_id)}
+                          onCheckedChange={() => toggleUserSelection(member.user_id)}
+                          className="shrink-0"
+                        />
+                        <Avatar className="h-6 w-6 shrink-0">
+                          <AvatarFallback className="text-xs">
+                            {getInitials(member.full_name, member.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-medium truncate">
+                            {member.full_name || member.email}
+                          </p>
+                          {member.full_name && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {member.email}
+                            </p>
+                          )}
+                        </div>
+                        {member.role && (
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {member.role}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
+
             <Button
               onClick={handleGrantAccess}
-              disabled={!selectedUserId || addingAccess}
+              disabled={selectedUserIds.length === 0 || addingAccess}
               className="w-full"
               size="sm"
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              {addingAccess ? 'Granting...' : 'Grant Access'}
+              {addingAccess 
+                ? `Granting to ${selectedUserIds.length} user${selectedUserIds.length > 1 ? 's' : ''}...` 
+                : `Grant Access${selectedUserIds.length > 0 ? ` to ${selectedUserIds.length} user${selectedUserIds.length > 1 ? 's' : ''}` : ''}`
+              }
             </Button>
           </div>
 
