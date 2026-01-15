@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Folder,
   File,
@@ -38,6 +39,9 @@ import {
   Lock,
   Info,
   MoveRight,
+  CheckSquare,
+  X,
+  Trash2 as Trash2Icon,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -45,6 +49,7 @@ import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
 import { DocumentPreviewDialog } from './DocumentPreviewDialog';
 import { MoveToDepartmentDialog } from './MoveToDepartmentDialog';
+import { BulkMoveToDepartmentDialog } from './BulkMoveToDepartmentDialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,6 +119,11 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   // Move dialog state
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; departmentId: string | null } | null>(null);
+
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
 
   // Query key for caching
   const queryKey = ['department-documents', departmentId, currentFolderId];
@@ -430,6 +440,88 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     setMoveDialogOpen(true);
   };
 
+  // Selection handlers
+  const toggleItemSelection = (itemId: string, itemType: string) => {
+    const key = `${itemType}:${itemId}`;
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const isItemSelected = (itemId: string, itemType: string) => {
+    return selectedItems.has(`${itemType}:${itemId}`);
+  };
+
+  const clearSelection = () => {
+    setSelectedItems(new Set());
+    setSelectionMode(false);
+  };
+
+  const selectAllVisible = () => {
+    const allItems = new Set<string>();
+    filteredFolders.forEach(f => allItems.add(`folder:${f.id}`));
+    filteredDocuments.forEach(d => allItems.add(`document:${d.id}`));
+    filteredLinks.forEach(l => allItems.add(`link:${l.id}`));
+    setSelectedItems(allItems);
+  };
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    
+    const confirmed = window.confirm(`Are you sure you want to delete ${selectedItems.size} items? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    let deleted = 0;
+    for (const item of selectedItems) {
+      const [type, id] = item.split(':');
+      const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (!error) deleted++;
+    }
+
+    toast({ title: `Deleted ${deleted} items` });
+    clearSelection();
+    invalidateData();
+  };
+
+  // Bulk move handler
+  const handleBulkMove = async (targetDepartmentId: string | null) => {
+    if (selectedItems.size === 0) return;
+
+    let moved = 0;
+    for (const item of selectedItems) {
+      const [type, id] = item.split(':');
+      const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
+      const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', id);
+      if (!error) moved++;
+    }
+
+    const targetName = targetDepartmentId 
+      ? allDepartments.find(d => d.id === targetDepartmentId)?.name || 'department'
+      : 'General';
+    toast({ title: `Moved ${moved} items to ${targetName}` });
+    clearSelection();
+    invalidateData();
+    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+  };
+
+  // Get selected items for bulk move dialog
+  const getSelectedItemsForBulkMove = () => {
+    return Array.from(selectedItems).map(item => {
+      const [type, id] = item.split(':');
+      return { type: type as 'folder' | 'document' | 'link', id };
+    });
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -504,25 +596,37 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           
           {canManage && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCreateFolderOpen(true)}>
-                <FolderPlus className="h-4 w-4 mr-2" />
-                New Folder
+              <Button
+                variant={selectionMode ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => selectionMode ? clearSelection() : setSelectionMode(true)}
+              >
+                <CheckSquare className="h-4 w-4 mr-2" />
+                {selectionMode ? 'Cancel' : 'Select'}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setCreateLinkOpen(true)}>
-                <Link2Icon className="h-4 w-4 mr-2" />
-                Add Link
-              </Button>
-              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files)}
-              />
+              {!selectionMode && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setCreateFolderOpen(true)}>
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                    New Folder
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setCreateLinkOpen(true)}>
+                    <Link2Icon className="h-4 w-4 mr-2" />
+                    Add Link
+                  </Button>
+                  <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -578,6 +682,31 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           </Alert>
         )}
 
+        {/* Bulk selection bar */}
+        {selectionMode && selectedItems.size > 0 && (
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-primary/5 border border-primary/20 mb-4">
+            <span className="text-sm font-medium">{selectedItems.size} item(s) selected</span>
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={selectAllVisible}>
+                Select All
+              </Button>
+              <Button variant="outline" size="sm" onClick={clearSelection}>
+                <X className="h-4 w-4 mr-1" />Clear
+              </Button>
+              {canManage && allDepartments.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setBulkMoveDialogOpen(true)}>
+                  <MoveRight className="h-4 w-4 mr-2" />Move to Department
+                </Button>
+              )}
+              {canManage && (
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Trash2Icon className="h-4 w-4 mr-2" />Delete Selected
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {currentFolderId && (
           <Button variant="ghost" size="sm" className="mb-4" onClick={() => setCurrentFolderId(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -612,10 +741,20 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                 {filteredFolders.map((folder) => (
                   <div
                     key={folder.id}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group"
-                    onClick={() => setCurrentFolderId(folder.id)}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group",
+                      isItemSelected(folder.id, 'folder') && "ring-2 ring-primary bg-primary/5"
+                    )}
+                    onClick={() => !selectionMode && setCurrentFolderId(folder.id)}
                   >
                     <div className="flex items-center gap-3">
+                      {selectionMode && (
+                        <Checkbox 
+                          checked={isItemSelected(folder.id, 'folder')}
+                          onCheckedChange={() => toggleItemSelection(folder.id, 'folder')}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
                       <Folder className="h-8 w-8 text-amber-500" />
                       <div>
                         <p className="font-medium">{folder.name}</p>
@@ -625,7 +764,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                       </div>
                     </div>
                     
-                    {canManage && (
+                    {canManage && !selectionMode && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
@@ -656,8 +795,17 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
 
                 {/* Documents */}
                 {filteredDocuments.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group">
+                  <div key={doc.id} className={cn(
+                    "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group",
+                    isItemSelected(doc.id, 'document') && "ring-2 ring-primary bg-primary/5"
+                  )}>
                     <div className="flex items-center gap-3">
+                      {selectionMode && (
+                        <Checkbox 
+                          checked={isItemSelected(doc.id, 'document')}
+                          onCheckedChange={() => toggleItemSelection(doc.id, 'document')}
+                        />
+                      )}
                       {getFileIcon(doc.file_type)}
                       <div>
                         <p className="font-medium">{doc.name}</p>
@@ -667,48 +815,59 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => { setSelectedItem({ type: 'document', item: doc }); setPreviewDialogOpen(true); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(doc.file_url, '_blank')}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      
-                      {canManage && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'document', item: doc }); setAccessDialogOpen(true); }}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Manage Access
-                            </DropdownMenuItem>
-                            {allDepartments.length > 0 && (
-                              <DropdownMenuItem onClick={() => openMoveDialog('document', doc.id, doc.name)}>
-                                <MoveRight className="h-4 w-4 mr-2" />
-                                Move to Department
+                    {!selectionMode && (
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => { setSelectedItem({ type: 'document', item: doc }); setPreviewDialogOpen(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(doc.file_url, '_blank')}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        
+                        {canManage && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'document', item: doc }); setAccessDialogOpen(true); }}>
+                                <Shield className="h-4 w-4 mr-2" />
+                                Manage Access
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('document', doc.id)}>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
+                              {allDepartments.length > 0 && (
+                                <DropdownMenuItem onClick={() => openMoveDialog('document', doc.id, doc.name)}>
+                                  <MoveRight className="h-4 w-4 mr-2" />
+                                  Move to Department
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('document', doc.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
 
                 {/* Links */}
                 {filteredLinks.map((link) => (
-                  <div key={link.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group">
+                  <div key={link.id} className={cn(
+                    "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group",
+                    isItemSelected(link.id, 'link') && "ring-2 ring-primary bg-primary/5"
+                  )}>
                     <div className="flex items-center gap-3">
+                      {selectionMode && (
+                        <Checkbox 
+                          checked={isItemSelected(link.id, 'link')}
+                          onCheckedChange={() => toggleItemSelection(link.id, 'link')}
+                        />
+                      )}
                       <LinkIcon className="h-8 w-8 text-blue-500" />
                       <div>
                         <p className="font-medium">{link.title}</p>
@@ -717,38 +876,40 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(link.url, '_blank')}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      
-                      {canManage && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'link', item: link }); setAccessDialogOpen(true); }}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Manage Access
-                            </DropdownMenuItem>
-                            {allDepartments.length > 0 && (
-                              <DropdownMenuItem onClick={() => openMoveDialog('link', link.id, link.title)}>
-                                <MoveRight className="h-4 w-4 mr-2" />
-                                Move to Department
+                    {!selectionMode && (
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(link.url, '_blank')}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        
+                        {canManage && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'link', item: link }); setAccessDialogOpen(true); }}>
+                                <Shield className="h-4 w-4 mr-2" />
+                                Manage Access
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('link', link.id)}>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
+                              {allDepartments.length > 0 && (
+                                <DropdownMenuItem onClick={() => openMoveDialog('link', link.id, link.title)}>
+                                  <MoveRight className="h-4 w-4 mr-2" />
+                                  Move to Department
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('link', link.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -803,6 +964,15 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           currentDepartmentId={departmentId}
           departments={allDepartments}
           onMove={handleMoveToDepartment}
+        />
+      )}
+      {allDepartments.length > 0 && (
+        <BulkMoveToDepartmentDialog
+          open={bulkMoveDialogOpen}
+          onOpenChange={setBulkMoveDialogOpen}
+          selectedItems={getSelectedItemsForBulkMove()}
+          departments={allDepartments}
+          onMove={handleBulkMove}
         />
       )}
     </Card>
