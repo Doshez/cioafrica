@@ -259,7 +259,20 @@ export default function DepartmentGantt() {
     }
   };
 
+  // Filter tasks based on user role and assignment
   const filteredTasks = tasks.filter(task => {
+    // First apply role-based visibility filter
+    // Admins and project managers can see all tasks
+    // Regular users can only see tasks assigned to them
+    if (!isAdmin && !isProjectManager && !isCurrentUserLead && currentUserId) {
+      const isAssignedViaAssignments = task.assigned_users?.some(u => u.id === currentUserId);
+      const isAssignedLegacy = task.assignee_user_id === currentUserId;
+      if (!isAssignedViaAssignments && !isAssignedLegacy) {
+        return false;
+      }
+    }
+    
+    // Then apply user-selected filters
     if (filterStatus !== 'all' && task.status !== filterStatus) return false;
     if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -650,7 +663,11 @@ export default function DepartmentGantt() {
               elements={elements}
               onStatusUpdate={handleStatusUpdate}
               onProgressUpdate={handleProgressUpdate}
-              onEditTask={(task) => setEditingTask(task)}
+              onEditTask={(task) => setEditingTask({
+                ...task,
+                project_id: projectId,
+                assignee_department_id: departmentId
+              })}
               onEditElement={(id, name) => {
                 const element = elements.find(e => e.id === id);
                 if (element) {

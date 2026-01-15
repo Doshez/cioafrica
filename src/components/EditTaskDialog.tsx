@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,9 +59,14 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
   const [users, setUsers] = useState<User[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
+  
+  // Track the task ID we've loaded data for to prevent redundant fetches
+  const loadedTaskIdRef = useRef<string | null>(null);
 
+  // Reset form when task changes
   useEffect(() => {
     if (task) {
       setTitle(task.title);
@@ -70,75 +75,79 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
       setActualCost(task.actual_cost?.toString() || '0');
       setStartDate(task.start_date || '');
       setDueDate(task.due_date || '');
+    } else {
+      // Reset form when no task
+      setTitle('');
+      setElementId('');
+      setEstimatedCost('0');
+      setActualCost('0');
+      setStartDate('');
+      setDueDate('');
+      setSelectedUserIds([]);
+      loadedTaskIdRef.current = null;
     }
-  }, [task]);
+  }, [task?.id, task?.title, task?.element_id, task?.estimated_cost, task?.actual_cost, task?.start_date, task?.due_date]);
 
+  // Fetch users, elements, and assignments when dialog opens
   useEffect(() => {
-    if (open && task) {
-      fetchUsers();
-      fetchElements();
-      fetchTaskAssignments();
+    if (!open || !task?.id) {
+      return;
     }
-  }, [open, task]);
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name');
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
-
-  const fetchElements = async () => {
-    if (!task?.project_id || !task?.assignee_department_id) return;
     
-    try {
-      const { data, error } = await supabase
-        .from('elements')
-        .select('id, title')
-        .eq('project_id', task.project_id)
-        .eq('department_id', task.assignee_department_id)
-        .order('title');
-
-      if (error) throw error;
-      setElements(data || []);
-    } catch (error) {
-      console.error('Error fetching elements:', error);
+    // Prevent redundant fetches for the same task
+    if (loadedTaskIdRef.current === task.id) {
+      return;
     }
-  };
+    
+    loadedTaskIdRef.current = task.id;
+    
+    const loadData = async () => {
+      setDataLoading(true);
+      try {
+        // Fetch users, elements, and assignments in parallel
+        const [usersResult, elementsResult, assignmentsResult] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email').order('full_name'),
+          task.project_id && task.assignee_department_id
+            ? supabase.from('elements').select('id, title').eq('project_id', task.project_id).eq('department_id', task.assignee_department_id).order('title')
+            : Promise.resolve({ data: [], error: null }),
+          supabase.from('task_assignments').select('user_id').eq('task_id', task.id)
+        ]);
 
-  const fetchTaskAssignments = async () => {
-    if (!task?.id) return;
+        if (usersResult.error) throw usersResult.error;
+        if (elementsResult.error) throw elementsResult.error;
+        if (assignmentsResult.error) throw assignmentsResult.error;
 
-    try {
-      const { data, error } = await supabase
-        .from('task_assignments')
-        .select('user_id')
-        .eq('task_id', task.id);
+        setUsers(usersResult.data || []);
+        setElements(elementsResult.data || []);
+        
+        const assignedIds = (assignmentsResult.data || []).map(a => a.user_id).filter(Boolean) as string[];
+        setSelectedUserIds(assignedIds);
+      } catch (error) {
+        console.error('Error loading task data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
 
-      if (error) throw error;
+    loadData();
+  }, [open, task?.id, task?.project_id, task?.assignee_department_id]);
 
-      const nextIds = (data || []).map((a) => a.user_id).filter(Boolean) as string[];
-
-      // Guard against unnecessary state updates (prevents render loops)
-      setSelectedUserIds((prev) => {
-        const prevSorted = [...prev].sort();
-        const nextSorted = [...nextIds].sort();
-        const same =
-          prevSorted.length === nextSorted.length &&
-          prevSorted.every((v, i) => v === nextSorted[i]);
-        return same ? prev : nextIds;
-      });
-    } catch (error) {
-      console.error('Error fetching task assignments:', error);
+  // Reset loaded task ref when dialog closes
+  useEffect(() => {
+    if (!open) {
+      loadedTaskIdRef.current = null;
     }
-  };
+  }, [open]);
+
+  const handleUserToggle = useCallback((userId: string, checked: boolean) => {
+    setSelectedUserIds(prev => {
+      if (checked) {
+        return prev.includes(userId) ? prev : [...prev, userId];
+      } else {
+        return prev.filter(id => id !== userId);
+      }
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,6 +241,9 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     }
   };
 
+  // Don't render content until we have loaded data
+  const isReady = !dataLoading && users.length > 0;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -239,147 +251,148 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Task Name</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter task name"
-                required
-              />
+          
+          {dataLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading task data...</span>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Task Name</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter task name"
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="element">Element</Label>
-              <Select value={elementId || 'no-element'} onValueChange={(value) => setElementId(value === 'no-element' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select element" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no-element">No Element</SelectItem>
-                  {elements.map((element) => (
-                    <SelectItem key={element.id} value={element.id}>
-                      {element.title}
-                    </SelectItem>
+              <div className="space-y-2">
+                <Label htmlFor="element">Element</Label>
+                <Select 
+                  value={elementId || 'no-element'} 
+                  onValueChange={(value) => setElementId(value === 'no-element' ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select element" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-element">No Element</SelectItem>
+                    {elements.map((element) => (
+                      <SelectItem key={element.id} value={element.id}>
+                        {element.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {elements.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No elements available in this department</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
+                <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                      onClick={() => handleUserToggle(user.id, !selectedUserIds.includes(user.id))}
+                    >
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.id)}
+                        onCheckedChange={(checked) => handleUserToggle(user.id, checked === true)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="text-sm flex-1">{user.full_name || user.email}</span>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+                {selectedUserIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedUserIds.length} user(s) selected
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
-              <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
-                {users.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                    onClick={() => {
-                      setSelectedUserIds((prev) =>
-                        prev.includes(user.id)
-                          ? prev.filter((id) => id !== user.id)
-                          : [...prev, user.id]
-                      );
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedUserIds.includes(user.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onCheckedChange={(checked) => {
-                        const isChecked = checked === true;
-                        setSelectedUserIds((prev) => {
-                          const has = prev.includes(user.id);
-                          if (isChecked) return has ? prev : [...prev, user.id];
-                          return has ? prev.filter((id) => id !== user.id) : prev;
-                        });
-                      }}
-                    />
-                    <span className="text-sm flex-1">{user.full_name || user.email}</span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="due-date">Due Date</Label>
+                  <Input
+                    id="due-date"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                </div>
               </div>
-              {selectedUserIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedUserIds.length} user(s) selected
-                </p>
-              )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-date">Start Date</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="estimated-cost">Estimated Cost</Label>
+                  <Input
+                    id="estimated-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={estimatedCost}
+                    onChange={(e) => setEstimatedCost(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="actual-cost">Actual Cost</Label>
+                  <Input
+                    id="actual-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={actualCost}
+                    onChange={(e) => setActualCost(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="due-date">Due Date</Label>
-                <Input
-                  id="due-date"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="estimated-cost">Estimated Cost</Label>
-                <Input
-                  id="estimated-cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={estimatedCost}
-                  onChange={(e) => setEstimatedCost(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="actual-cost">Actual Cost</Label>
-                <Input
-                  id="actual-cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={actualCost}
-                  onChange={(e) => setActualCost(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="flex justify-between sm:justify-between">
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={loading}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-              <div className="flex gap-2">
+              <DialogFooter className="flex justify-between sm:justify-between">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
                   disabled={loading}
                 >
-                  Cancel
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Save Changes
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
