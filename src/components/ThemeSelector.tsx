@@ -52,9 +52,11 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({ open, onOpenChange
             <button
               key={t.value}
               onClick={() => handleThemeSelect(t.value)}
+              style={{ transform: 'none' }}
               className={cn(
-                "relative flex flex-col items-center p-4 rounded-lg border-2 transition-all duration-200",
-                "hover:scale-[1.02] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "relative flex flex-col items-center p-4 rounded-lg border-2 transition-colors duration-200",
+                "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "!transform-none hover:!transform-none",
                 theme === t.value
                   ? "border-primary bg-primary/5 shadow-sm"
                   : "border-border hover:border-primary/50"
