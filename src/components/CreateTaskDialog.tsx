@@ -362,25 +362,27 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
             <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
             <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
               {profiles.map((profile) => (
-                <div 
-                  key={profile.id} 
+                <div
+                  key={profile.id}
                   className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
                   onClick={() => {
-                    if (selectedUserIds.includes(profile.id)) {
-                      setSelectedUserIds(selectedUserIds.filter(id => id !== profile.id));
-                    } else {
-                      setSelectedUserIds([...selectedUserIds, profile.id]);
-                    }
+                    setSelectedUserIds((prev) =>
+                      prev.includes(profile.id)
+                        ? prev.filter((id) => id !== profile.id)
+                        : [...prev, profile.id]
+                    );
                   }}
                 >
                   <Checkbox
                     checked={selectedUserIds.includes(profile.id)}
+                    onClick={(e) => e.stopPropagation()}
                     onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedUserIds([...selectedUserIds, profile.id]);
-                      } else {
-                        setSelectedUserIds(selectedUserIds.filter(id => id !== profile.id));
-                      }
+                      const isChecked = checked === true;
+                      setSelectedUserIds((prev) => {
+                        const has = prev.includes(profile.id);
+                        if (isChecked) return has ? prev : [...prev, profile.id];
+                        return has ? prev.filter((id) => id !== profile.id) : prev;
+                      });
                     }}
                   />
                   <span className="text-sm flex-1">{profile.full_name || profile.email}</span>
