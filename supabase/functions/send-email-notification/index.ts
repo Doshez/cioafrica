@@ -34,8 +34,18 @@ const corsHeaders = {
 };
 
 interface EmailNotificationRequest {
-  type: 'chat_message' | 'task_overdue' | 'task_completed';
-  data: ChatMessageData | TaskOverdueData | TaskCompletedData;
+  type: 'chat_message' | 'task_overdue' | 'task_completed' | 'document_access_granted';
+  data: ChatMessageData | TaskOverdueData | TaskCompletedData | DocumentAccessData;
+}
+
+interface DocumentAccessData {
+  item_type: 'document' | 'folder' | 'link';
+  item_name: string;
+  permission: 'view_only' | 'download' | 'edit';
+  project_id: string;
+  project_name: string;
+  granted_by_name: string;
+  recipient_user_id: string;
 }
 
 interface ChatMessageData {
@@ -324,6 +334,55 @@ const handler = async (req: Request): Promise<Response> => {
           'View in Project Planner',
           ctaLink,
           `This notification is from ${taskData.project_name} on CIO Africa Project Planner`
+        );
+
+        emails.push({ to: profile.email, subject, html });
+      }
+    } else if (type === 'document_access_granted') {
+      const accessData = data as DocumentAccessData;
+      const ctaLink = `${baseUrl}/projects/${accessData.project_id}/documents`;
+      
+      const itemTypeLabel = accessData.item_type === 'document' ? 'File' : 
+                            accessData.item_type === 'folder' ? 'Folder' : 'Link';
+      
+      const permissionLabel = accessData.permission === 'view_only' ? 'View Only' :
+                              accessData.permission === 'download' ? 'Download' : 'Edit';
+      
+      const subject = `📁 You've been granted access to a ${itemTypeLabel.toLowerCase()} in ${accessData.project_name}`;
+
+      // Get recipient profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .eq('id', accessData.recipient_user_id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching recipient profile:', profileError);
+        throw profileError;
+      }
+
+      if (profile?.email) {
+        const body = `
+          <p style="margin: 0 0 12px; color: #334155; font-size: 14px;">
+            <strong>${accessData.granted_by_name}</strong> has granted you access to a ${itemTypeLabel.toLowerCase()}:
+          </p>
+          <div class="message">
+            <p><strong>${itemTypeLabel}:</strong> ${accessData.item_name}</p>
+            <p><strong>Permission:</strong> ${permissionLabel}</p>
+            <p><strong>Project:</strong> ${accessData.project_name}</p>
+          </div>
+          <p style="margin: 12px 0 0; color: #64748b; font-size: 13px;">
+            You can now access this ${itemTypeLabel.toLowerCase()} in the project's documents section.
+          </p>
+        `;
+
+        const html = generateEmailHtml(
+          `📁 ${itemTypeLabel} Access Granted`,
+          body,
+          'View Documents',
+          ctaLink,
+          `This notification is from ${accessData.project_name} on CIO Africa Project Planner`
         );
 
         emails.push({ to: profile.email, subject, html });
