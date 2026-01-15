@@ -69,6 +69,7 @@ interface Task {
   title: string;
   assignee?: string;
   assignee_user_id?: string;
+  assigned_user_ids?: string[]; // from task_assignments
   start_date: string;
   due_date: string;
   progress_percentage: number;
@@ -192,23 +193,42 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       
       console.log('Fetched tasks for Interactive Gantt:', tasksData?.length || 0, tasksData);
       
-      // Fetch user profiles for assignees
-      const userIds = [...new Set(
-        (tasksData || [])
-          .map((t: any) => t.assignee_user_id)
-          .filter(Boolean)
-      )] as string[];
+      // Fetch task_assignments for all tasks
+      const taskIds = (tasksData || []).map((t: any) => t.id);
+      let taskAssignmentsMap: Record<string, string[]> = {};
+      
+      if (taskIds.length > 0) {
+        const { data: assignmentsData } = await supabase
+          .from('task_assignments')
+          .select('task_id, user_id')
+          .in('task_id', taskIds);
+        
+        (assignmentsData || []).forEach((a: any) => {
+          if (!taskAssignmentsMap[a.task_id]) {
+            taskAssignmentsMap[a.task_id] = [];
+          }
+          taskAssignmentsMap[a.task_id].push(a.user_id);
+        });
+      }
+      
+      // Collect all user IDs from both legacy assignee_user_id AND task_assignments
+      const allUserIds = [
+        ...new Set([
+          ...(tasksData || []).map((t: any) => t.assignee_user_id).filter(Boolean),
+          ...Object.values(taskAssignmentsMap).flat()
+        ])
+      ] as string[];
       
       const userMap: Record<string, string> = {};
-      if (userIds.length > 0) {
+      if (allUserIds.length > 0) {
         const { data: userData } = await supabase
           .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
+          .select('id, full_name, email')
+          .in('id', allUserIds);
         
         if (userData) {
           userData.forEach(user => {
-            userMap[user.id] = user.full_name || 'Unknown User';
+            userMap[user.id] = user.full_name || user.email || 'Unknown User';
           });
         }
       }
@@ -237,11 +257,21 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       (tasksData || []).forEach((task: any) => {
         if (!task.start_date || !task.due_date) return;
         
+        const taskAssignedUserIds = taskAssignmentsMap[task.id] || [];
+        // Build assignee display: prefer task_assignments, fallback to legacy
+        let assigneeDisplay = 'Unassigned';
+        if (taskAssignedUserIds.length > 0) {
+          assigneeDisplay = taskAssignedUserIds.map(id => userMap[id] || 'Unknown').join(', ');
+        } else if (task.assignee_user_id) {
+          assigneeDisplay = userMap[task.assignee_user_id] || 'Unassigned';
+        }
+        
         const taskObj: Task = {
           id: task.id,
           title: task.title,
-          assignee: task.assignee_user_id ? (userMap[task.assignee_user_id] || 'Unassigned') : 'Unassigned',
+          assignee: assigneeDisplay,
           assignee_user_id: task.assignee_user_id,
+          assigned_user_ids: taskAssignedUserIds,
           start_date: task.start_date,
           due_date: task.due_date,
           progress_percentage: task.progress_percentage || 0,
@@ -373,8 +403,11 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
       return;
     }
 
-    // Check if user is assigned to any task in this element
-    const isAssignedToTask = element.tasks.some(task => task.assignee_user_id === user.id);
+    // Check if user is assigned to any task in this element (via legacy OR task_assignments)
+    const isAssignedToTask = element.tasks.some(task => 
+      task.assignee_user_id === user.id || 
+      task.assigned_user_ids?.includes(user.id)
+    );
     console.log('Is assigned to task:', isAssignedToTask);
 
     if (isAssignedToTask) {

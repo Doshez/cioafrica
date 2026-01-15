@@ -194,12 +194,24 @@ export default function DepartmentGantt() {
       setElements(elementsResult.data || []);
       const tasksData = tasksResult.data || [];
 
-      // Fetch task assignments and profiles in parallel
+      // Fetch task assignments first
       const taskIds = tasksData.map(task => task.id);
-      const [assignmentsResult, profilesResult] = await Promise.all([
-        taskIds.length > 0 ? supabase.from('task_assignments').select('task_id, user_id').in('task_id', taskIds) : Promise.resolve({ data: [] }),
-        taskIds.length > 0 ? supabase.from('profiles').select('id, full_name, email').in('id', [...new Set(tasksData.map(t => t.assignee_user_id).filter(Boolean))]) : Promise.resolve({ data: [] })
-      ]);
+      const assignmentsResult = taskIds.length > 0 
+        ? await supabase.from('task_assignments').select('task_id, user_id').in('task_id', taskIds) 
+        : { data: [] };
+
+      // Collect all user IDs from assignments AND legacy assignee_user_id
+      const allUserIds = [
+        ...new Set([
+          ...(assignmentsResult.data || []).map(a => a.user_id),
+          ...tasksData.map(t => t.assignee_user_id).filter(Boolean)
+        ])
+      ];
+
+      // Fetch all profiles for these users
+      const profilesResult = allUserIds.length > 0
+        ? await supabase.from('profiles').select('id, full_name, email').in('id', allUserIds)
+        : { data: [] };
 
       // Map tasks with profiles
       const tasksWithProfiles: TaskWithProfile[] = tasksData.map(task => {
@@ -208,7 +220,7 @@ export default function DepartmentGantt() {
           const profile = profilesResult.data?.find(p => p.id === assignment.user_id);
           return {
             id: assignment.user_id,
-            name: profile?.full_name || 'Unknown',
+            name: profile?.full_name || profile?.email || 'Unknown User',
             email: profile?.email,
           };
         });
@@ -218,7 +230,7 @@ export default function DepartmentGantt() {
         return {
           ...task,
           assigned_users: assignedUsers,
-          assignee_name: legacyProfile?.full_name,
+          assignee_name: legacyProfile?.full_name || legacyProfile?.email,
           assignee_email: legacyProfile?.email,
           element_id: (task.element as any)?.id,
           element_name: (task.element as any)?.title,
@@ -227,9 +239,12 @@ export default function DepartmentGantt() {
 
       setTasks(tasksWithProfiles);
 
-      // Check user access
+      // Check user access - also check task_assignments
       if (userId && !isAdmin && !isProjectManager) {
-        setHasAssignedTasks(tasksWithProfiles.some(task => task.assignee_user_id === userId));
+        setHasAssignedTasks(tasksWithProfiles.some(task => 
+          task.assignee_user_id === userId || 
+          task.assigned_users?.some(u => u.id === userId)
+        ));
       } else {
         setHasAssignedTasks(true);
       }
