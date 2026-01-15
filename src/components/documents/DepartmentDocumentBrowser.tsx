@@ -421,7 +421,20 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   const handleMoveToDepartment = async (targetDepartmentId: string | null) => {
     if (!moveItem) return;
     const table = moveItem.type === 'folder' ? 'document_folders' : moveItem.type === 'document' ? 'documents' : 'document_links';
-    const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', moveItem.id);
+    
+    // When moving to a different department, also clear folder_id to move to root
+    const updateData: { department_id: string | null; folder_id?: null; parent_folder_id?: null } = { 
+      department_id: targetDepartmentId 
+    };
+    
+    // Clear folder association when moving between departments
+    if (moveItem.type === 'folder') {
+      updateData.parent_folder_id = null;
+    } else {
+      updateData.folder_id = null;
+    }
+    
+    const { error } = await supabase.from(table).update(updateData).eq('id', moveItem.id);
     if (error) {
       toast({ title: 'Failed to move item', variant: 'destructive' });
       return;
@@ -499,7 +512,19 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     for (const item of selectedItems) {
       const [type, id] = item.split(':');
       const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
-      const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', id);
+      
+      // When moving to a different department, also clear folder_id to move to root
+      const updateData: { department_id: string | null; folder_id?: null; parent_folder_id?: null } = { 
+        department_id: targetDepartmentId 
+      };
+      
+      if (type === 'folder') {
+        updateData.parent_folder_id = null;
+      } else {
+        updateData.folder_id = null;
+      }
+      
+      const { error } = await supabase.from(table).update(updateData).eq('id', id);
       if (!error) moved++;
     }
 
@@ -735,183 +760,229 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
               <p className="text-sm">Upload files or create folders to get started</p>
             </div>
           ) : (
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
-                {/* Folders */}
-                {filteredFolders.map((folder) => (
-                  <div
-                    key={folder.id}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer group",
-                      isItemSelected(folder.id, 'folder') && "ring-2 ring-primary bg-primary/5"
-                    )}
-                    onClick={() => !selectionMode && setCurrentFolderId(folder.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      {selectionMode && (
-                        <Checkbox 
-                          checked={isItemSelected(folder.id, 'folder')}
-                          onCheckedChange={() => toggleItemSelection(folder.id, 'folder')}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
-                      <Folder className="h-8 w-8 text-amber-500" />
-                      <div>
-                        <p className="font-medium">{folder.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Created {format(new Date(folder.created_at), 'MMM d, yyyy')}
-                        </p>
+            <ScrollArea className="h-[500px]">
+              <div className="space-y-6">
+                {/* Folders Section */}
+                {filteredFolders.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                        <Folder className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                       </div>
+                      <h3 className="text-sm font-semibold text-foreground">Folders</h3>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        {filteredFolders.length}
+                      </span>
                     </div>
-                    
-                    {canManage && !selectionMode && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedItem({ type: 'folder', item: folder }); setAccessDialogOpen(true); }}>
-                            <Shield className="h-4 w-4 mr-2" />
-                            Manage Access
-                          </DropdownMenuItem>
-                          {allDepartments.length > 0 && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMoveDialog('folder', folder.id, folder.name); }}>
-                              <MoveRight className="h-4 w-4 mr-2" />
-                              Move to Department
-                            </DropdownMenuItem>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {filteredFolders.map((folder) => (
+                        <div
+                          key={folder.id}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all cursor-pointer group",
+                            isItemSelected(folder.id, 'folder') && "ring-2 ring-primary bg-primary/5"
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete('folder', folder.id); }}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                ))}
-
-                {/* Documents */}
-                {filteredDocuments.map((doc) => (
-                  <div key={doc.id} className={cn(
-                    "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group",
-                    isItemSelected(doc.id, 'document') && "ring-2 ring-primary bg-primary/5"
-                  )}>
-                    <div className="flex items-center gap-3">
-                      {selectionMode && (
-                        <Checkbox 
-                          checked={isItemSelected(doc.id, 'document')}
-                          onCheckedChange={() => toggleItemSelection(doc.id, 'document')}
-                        />
-                      )}
-                      {getFileIcon(doc.file_type)}
-                      <div>
-                        <p className="font-medium">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(doc.file_size)} • {doc.uploader_name || 'Unknown'} • {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {!selectionMode && (
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => { setSelectedItem({ type: 'document', item: doc }); setPreviewDialogOpen(true); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(doc.file_url, '_blank')}>
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        
-                        {canManage && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'document', item: doc }); setAccessDialogOpen(true); }}>
-                                <Shield className="h-4 w-4 mr-2" />
-                                Manage Access
-                              </DropdownMenuItem>
-                              {allDepartments.length > 0 && (
-                                <DropdownMenuItem onClick={() => openMoveDialog('document', doc.id, doc.name)}>
-                                  <MoveRight className="h-4 w-4 mr-2" />
-                                  Move to Department
+                          onClick={() => !selectionMode && setCurrentFolderId(folder.id)}
+                        >
+                          {selectionMode && (
+                            <Checkbox 
+                              checked={isItemSelected(folder.id, 'folder')}
+                              onCheckedChange={() => toggleItemSelection(folder.id, 'folder')}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                          <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                            <Folder className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{folder.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(folder.created_at), 'MMM d, yyyy')}
+                            </p>
+                          </div>
+                          {canManage && !selectionMode && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedItem({ type: 'folder', item: folder }); setAccessDialogOpen(true); }}>
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  Manage Access
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('document', doc.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Links */}
-                {filteredLinks.map((link) => (
-                  <div key={link.id} className={cn(
-                    "flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group",
-                    isItemSelected(link.id, 'link') && "ring-2 ring-primary bg-primary/5"
-                  )}>
-                    <div className="flex items-center gap-3">
-                      {selectionMode && (
-                        <Checkbox 
-                          checked={isItemSelected(link.id, 'link')}
-                          onCheckedChange={() => toggleItemSelection(link.id, 'link')}
-                        />
-                      )}
-                      <LinkIcon className="h-8 w-8 text-blue-500" />
-                      <div>
-                        <p className="font-medium">{link.title}</p>
-                        <p className="text-xs text-muted-foreground truncate max-w-[300px]">{link.url}</p>
-                        {link.description && <p className="text-xs text-muted-foreground mt-1">{link.description}</p>}
-                      </div>
-                    </div>
-                    
-                    {!selectionMode && (
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => window.open(link.url, '_blank')}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
-                        {canManage && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'link', item: link }); setAccessDialogOpen(true); }}>
-                                <Shield className="h-4 w-4 mr-2" />
-                                Manage Access
-                              </DropdownMenuItem>
-                              {allDepartments.length > 0 && (
-                                <DropdownMenuItem onClick={() => openMoveDialog('link', link.id, link.title)}>
-                                  <MoveRight className="h-4 w-4 mr-2" />
-                                  Move to Department
+                                {allDepartments.length > 0 && (
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMoveDialog('folder', folder.id, folder.name); }}>
+                                    <MoveRight className="h-4 w-4 mr-2" />
+                                    Move to Department
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete('folder', folder.id); }}>
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('link', link.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* Files Section */}
+                {filteredDocuments.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                        <File className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-foreground">Files</h3>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        {filteredDocuments.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {filteredDocuments.map((doc) => (
+                        <div key={doc.id} className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
+                          isItemSelected(doc.id, 'document') && "ring-2 ring-primary bg-primary/5"
+                        )}>
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {selectionMode && (
+                              <Checkbox 
+                                checked={isItemSelected(doc.id, 'document')}
+                                onCheckedChange={() => toggleItemSelection(doc.id, 'document')}
+                              />
+                            )}
+                            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                              {getFileIcon(doc.file_type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{doc.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(doc.file_size)} • {doc.uploader_name || 'Unknown'} • {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {!selectionMode && (
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100" onClick={() => { setSelectedItem({ type: 'document', item: doc }); setPreviewDialogOpen(true); }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100" onClick={() => window.open(doc.file_url, '_blank')}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              
+                              {canManage && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'document', item: doc }); setAccessDialogOpen(true); }}>
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Manage Access
+                                    </DropdownMenuItem>
+                                    {allDepartments.length > 0 && (
+                                      <DropdownMenuItem onClick={() => openMoveDialog('document', doc.id, doc.name)}>
+                                        <MoveRight className="h-4 w-4 mr-2" />
+                                        Move to Department
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('document', doc.id)}>
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Links Section */}
+                {filteredLinks.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="p-1.5 rounded-md bg-green-100 dark:bg-green-900/30">
+                        <LinkIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-foreground">Links</h3>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        {filteredLinks.length}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {filteredLinks.map((link) => (
+                        <div key={link.id} className={cn(
+                          "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
+                          isItemSelected(link.id, 'link') && "ring-2 ring-primary bg-primary/5"
+                        )}>
+                          {selectionMode && (
+                            <Checkbox 
+                              checked={isItemSelected(link.id, 'link')}
+                              onCheckedChange={() => toggleItemSelection(link.id, 'link')}
+                            />
+                          )}
+                          <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                            <LinkIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{link.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                            {link.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{link.description}</p>}
+                          </div>
+                          
+                          {!selectionMode && (
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100" onClick={() => window.open(link.url, '_blank')}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {canManage && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'link', item: link }); setAccessDialogOpen(true); }}>
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Manage Access
+                                    </DropdownMenuItem>
+                                    {allDepartments.length > 0 && (
+                                      <DropdownMenuItem onClick={() => openMoveDialog('link', link.id, link.title)}>
+                                        <MoveRight className="h-4 w-4 mr-2" />
+                                        Move to Department
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('link', link.id)}>
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           )}
