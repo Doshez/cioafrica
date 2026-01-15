@@ -264,7 +264,13 @@ export function TasksByElementView({
                           </div>
                           <Slider
                             value={[progress]}
-                            onValueChange={(value) => onProgressUpdate(task.id, value[0])}
+                            onValueChange={(value) => {
+                              const next = value[0];
+                              // Guard against Radix firing change events with the current value
+                              // (prevents accidental update loops)
+                              if (next === progress) return;
+                              onProgressUpdate(task.id, next);
+                            }}
                             max={100}
                             step={1}
                             className="w-full"
