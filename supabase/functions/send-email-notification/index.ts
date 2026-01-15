@@ -340,7 +340,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     } else if (type === 'document_access_granted') {
       const accessData = data as DocumentAccessData;
-      const ctaLink = `${baseUrl}/projects/${accessData.project_id}/documents`;
+      const ctaLink = baseUrl;
       
       const itemTypeLabel = accessData.item_type === 'document' ? 'File' : 
                             accessData.item_type === 'folder' ? 'Folder' : 'Link';
