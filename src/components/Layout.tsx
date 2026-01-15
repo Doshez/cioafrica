@@ -44,7 +44,6 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { user, loading, signOut } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
-  const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -127,10 +126,7 @@ export default function Layout({ children }: LayoutProps) {
         open={themeDialogOpen} 
         onOpenChange={setThemeDialogOpen}
       />
-      <div className={cn(
-        "min-h-screen gradient-subtle transition-all duration-300",
-        theme === 'modern' && "modern-theme"
-      )}>
+      <div className="min-h-screen gradient-subtle transition-colors duration-300">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 lg:px-8">

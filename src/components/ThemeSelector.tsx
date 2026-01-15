@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme, Theme } from '@/contexts/ThemeContext';
-import { Sun, Moon, Feather, Layers } from 'lucide-react';
+import { Sun, Moon, Feather } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,14 +19,12 @@ const themeIcons: Record<Theme, React.ReactNode> = {
   light: <Sun className="w-6 h-6" />,
   dark: <Moon className="w-6 h-6" />,
   soft: <Feather className="w-6 h-6" />,
-  modern: <Layers className="w-6 h-6" />,
 };
 
 const themePreviewColors: Record<Theme, { bg: string; card: string; accent: string }> = {
   light: { bg: 'bg-slate-50', card: 'bg-white', accent: 'bg-blue-500' },
   dark: { bg: 'bg-slate-900', card: 'bg-slate-800', accent: 'bg-blue-500' },
   soft: { bg: 'bg-stone-100', card: 'bg-stone-50', accent: 'bg-emerald-500' },
-  modern: { bg: 'bg-slate-950', card: 'bg-slate-900', accent: 'bg-violet-500' },
 };
 
 export const ThemeSelector: React.FC<ThemeSelectorProps> = ({ open, onOpenChange }) => {
