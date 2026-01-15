@@ -652,19 +652,31 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     });
   };
 
+  const isFileDragEvent = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types || []).includes('Files');
+
   const handleDragOver = (e: React.DragEvent) => {
+    // Only show the upload dropzone when dragging external files (not when moving items)
+    if (!isFileDragEvent(e) || draggedItem) return;
     e.preventDefault();
-    setIsDragging(true);
+    if (!isDragging) setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
+    // Only hide the upload dropzone when leaving the dropzone entirely
+    if (!isFileDragEvent(e) || draggedItem) return;
     e.preventDefault();
-    setIsDragging(false);
+
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      if (isDragging) setIsDragging(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
+    if (!isFileDragEvent(e) || draggedItem) return;
     e.preventDefault();
-    setIsDragging(false);
+    if (isDragging) setIsDragging(false);
     handleFileUpload(e.dataTransfer.files);
   };
 
