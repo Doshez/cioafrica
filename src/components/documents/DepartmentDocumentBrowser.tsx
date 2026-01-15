@@ -42,6 +42,8 @@ import {
   CheckSquare,
   X,
   Trash2 as Trash2Icon,
+  FolderInput,
+  Home,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -50,6 +52,7 @@ import { DocumentAccessDialog } from './DocumentAccessDialog';
 import { DocumentPreviewDialog } from './DocumentPreviewDialog';
 import { MoveToDepartmentDialog } from './MoveToDepartmentDialog';
 import { BulkMoveToDepartmentDialog } from './BulkMoveToDepartmentDialog';
+import { MoveToFolderDialog } from './MoveToFolderDialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,14 +119,22 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Move dialog state
+  // Move to department dialog state
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; departmentId: string | null } | null>(null);
+
+  // Move to folder dialog state
+  const [moveFolderDialogOpen, setMoveFolderDialogOpen] = useState(false);
+  const [moveFolderItem, setMoveFolderItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; currentFolderId: string | null } | null>(null);
 
   // Bulk selection state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
+
+  // Drag and drop state for moving items to folders
+  const [draggedItem, setDraggedItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string } | null>(null);
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
 
   // Query key for caching
   const queryKey = ['department-documents', departmentId, currentFolderId];
@@ -453,6 +464,92 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     setMoveDialogOpen(true);
   };
 
+  // Open move to folder dialog
+  const openMoveFolderDialog = (type: 'folder' | 'document' | 'link', id: string, name: string) => {
+    setMoveFolderItem({ type, id, name, currentFolderId });
+    setMoveFolderDialogOpen(true);
+  };
+
+  // Handle moving item to folder
+  const handleMoveToFolder = async (targetFolderId: string | null) => {
+    if (!moveFolderItem) return;
+    
+    const table = moveFolderItem.type === 'folder' ? 'document_folders' : moveFolderItem.type === 'document' ? 'documents' : 'document_links';
+    const updateData = moveFolderItem.type === 'folder' 
+      ? { parent_folder_id: targetFolderId }
+      : { folder_id: targetFolderId };
+    
+    const { error } = await supabase.from(table).update(updateData).eq('id', moveFolderItem.id);
+    
+    if (error) {
+      toast({ title: 'Failed to move item', variant: 'destructive' });
+      return;
+    }
+    
+    toast({ title: `Moved "${moveFolderItem.name}" ${targetFolderId ? 'to folder' : 'to department root'}` });
+    invalidateData();
+    setMoveFolderItem(null);
+  };
+
+  // Drag handlers for moving items to folders
+  const handleItemDragStart = (e: React.DragEvent, type: 'folder' | 'document' | 'link', id: string, name: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify({ type, id, name }));
+    setDraggedItem({ type, id, name });
+  };
+
+  const handleItemDragEnd = () => {
+    setDraggedItem(null);
+    setDropTargetFolderId(null);
+  };
+
+  const handleFolderDragOver = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Don't allow dropping a folder onto itself
+    if (draggedItem?.type === 'folder' && draggedItem.id === folderId) return;
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetFolderId(folderId);
+  };
+
+  const handleFolderDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropTargetFolderId(null);
+  };
+
+  const handleFolderDrop = async (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTargetFolderId(null);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const { type, id, name } = data;
+      
+      // Don't drop folder onto itself
+      if (type === 'folder' && id === targetFolderId) return;
+      
+      const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
+      const updateData = type === 'folder' 
+        ? { parent_folder_id: targetFolderId }
+        : { folder_id: targetFolderId };
+      
+      const { error } = await supabase.from(table).update(updateData).eq('id', id);
+      
+      if (error) {
+        toast({ title: 'Failed to move item', variant: 'destructive' });
+        return;
+      }
+      
+      toast({ title: `Moved "${name}" to folder` });
+      invalidateData();
+    } catch (err) {
+      console.error('Drop error:', err);
+    } finally {
+      setDraggedItem(null);
+    }
+  };
+
   // Selection handlers
   const toggleItemSelection = (itemId: string, itemType: string) => {
     const key = `${itemType}:${itemId}`;
@@ -778,11 +875,19 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                       {filteredFolders.map((folder) => (
                         <div
                           key={folder.id}
+                          draggable={canManage && !selectionMode}
+                          onDragStart={(e) => handleItemDragStart(e, 'folder', folder.id, folder.name)}
+                          onDragEnd={handleItemDragEnd}
+                          onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                          onDragLeave={handleFolderDragLeave}
+                          onDrop={(e) => handleFolderDrop(e, folder.id)}
                           className={cn(
                             "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all cursor-pointer group",
-                            isItemSelected(folder.id, 'folder') && "ring-2 ring-primary bg-primary/5"
+                            isItemSelected(folder.id, 'folder') && "ring-2 ring-primary bg-primary/5",
+                            dropTargetFolderId === folder.id && "ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20",
+                            draggedItem?.id === folder.id && "opacity-50"
                           )}
-                          onClick={() => !selectionMode && setCurrentFolderId(folder.id)}
+                          onClick={() => !selectionMode && !draggedItem && setCurrentFolderId(folder.id)}
                         >
                           {selectionMode && (
                             <Checkbox 
@@ -808,6 +913,10 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMoveFolderDialog('folder', folder.id, folder.name); }}>
+                                  <FolderInput className="h-4 w-4 mr-2" />
+                                  Move to Folder
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedItem({ type: 'folder', item: folder }); setAccessDialogOpen(true); }}>
                                   <Shield className="h-4 w-4 mr-2" />
                                   Manage Access
@@ -846,10 +955,17 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                     </div>
                     <div className="space-y-2">
                       {filteredDocuments.map((doc) => (
-                        <div key={doc.id} className={cn(
-                          "flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
-                          isItemSelected(doc.id, 'document') && "ring-2 ring-primary bg-primary/5"
-                        )}>
+                        <div 
+                          key={doc.id} 
+                          draggable={canManage && !selectionMode}
+                          onDragStart={(e) => handleItemDragStart(e, 'document', doc.id, doc.name)}
+                          onDragEnd={handleItemDragEnd}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
+                            isItemSelected(doc.id, 'document') && "ring-2 ring-primary bg-primary/5",
+                            draggedItem?.id === doc.id && "opacity-50"
+                          )}
+                        >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             {selectionMode && (
                               <Checkbox 
@@ -885,6 +1001,10 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openMoveFolderDialog('document', doc.id, doc.name)}>
+                                      <FolderInput className="h-4 w-4 mr-2" />
+                                      Move to Folder
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'document', item: doc }); setAccessDialogOpen(true); }}>
                                       <Shield className="h-4 w-4 mr-2" />
                                       Manage Access
@@ -925,10 +1045,17 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {filteredLinks.map((link) => (
-                        <div key={link.id} className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
-                          isItemSelected(link.id, 'link') && "ring-2 ring-primary bg-primary/5"
-                        )}>
+                        <div 
+                          key={link.id} 
+                          draggable={canManage && !selectionMode}
+                          onDragStart={(e) => handleItemDragStart(e, 'link', link.id, link.title)}
+                          onDragEnd={handleItemDragEnd}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-all group",
+                            isItemSelected(link.id, 'link') && "ring-2 ring-primary bg-primary/5",
+                            draggedItem?.id === link.id && "opacity-50"
+                          )}
+                        >
                           {selectionMode && (
                             <Checkbox 
                               checked={isItemSelected(link.id, 'link')}
@@ -958,6 +1085,10 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openMoveFolderDialog('link', link.id, link.title)}>
+                                      <FolderInput className="h-4 w-4 mr-2" />
+                                      Move to Folder
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setSelectedItem({ type: 'link', item: link }); setAccessDialogOpen(true); }}>
                                       <Shield className="h-4 w-4 mr-2" />
                                       Manage Access
@@ -1044,6 +1175,20 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           selectedItems={getSelectedItemsForBulkMove()}
           departments={allDepartments}
           onMove={handleBulkMove}
+        />
+      )}
+
+      {moveFolderItem && (
+        <MoveToFolderDialog
+          open={moveFolderDialogOpen}
+          onOpenChange={(open) => { setMoveFolderDialogOpen(open); if (!open) setMoveFolderItem(null); }}
+          itemType={moveFolderItem.type}
+          itemId={moveFolderItem.id}
+          itemName={moveFolderItem.name}
+          currentFolderId={currentFolderId}
+          projectId={projectId}
+          departmentId={departmentId}
+          onMove={handleMoveToFolder}
         />
       )}
     </Card>
