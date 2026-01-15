@@ -12,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Folder,
@@ -36,12 +37,14 @@ import {
   ArrowLeft,
   Lock,
   Info,
+  MoveRight,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
 import { DocumentPreviewDialog } from './DocumentPreviewDialog';
+import { MoveToDepartmentDialog } from './MoveToDepartmentDialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,13 +76,19 @@ interface DocumentLink {
   created_at: string;
 }
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 interface DepartmentDocumentBrowserProps {
   projectId: string;
   departmentId: string;
   departmentName: string;
+  allDepartments?: Department[];
 }
 
-export function DepartmentDocumentBrowser({ projectId, departmentId, departmentName }: DepartmentDocumentBrowserProps) {
+export function DepartmentDocumentBrowser({ projectId, departmentId, departmentName, allDepartments = [] }: DepartmentDocumentBrowserProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,6 +110,10 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Move dialog state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveItem, setMoveItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; departmentId: string | null } | null>(null);
 
   // Query key for caching
   const queryKey = ['department-documents', departmentId, currentFolderId];
@@ -394,6 +407,29 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     }
   };
 
+  // Handle moving items between departments
+  const handleMoveToDepartment = async (targetDepartmentId: string | null) => {
+    if (!moveItem) return;
+    const table = moveItem.type === 'folder' ? 'document_folders' : moveItem.type === 'document' ? 'documents' : 'document_links';
+    const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', moveItem.id);
+    if (error) {
+      toast({ title: 'Failed to move item', variant: 'destructive' });
+      return;
+    }
+    const targetName = targetDepartmentId ? allDepartments.find(d => d.id === targetDepartmentId)?.name || 'department' : 'General';
+    toast({ title: `Moved "${moveItem.name}" to ${targetName}` });
+    queryClient.invalidateQueries({ queryKey: ['department-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+    setMoveItem(null);
+  };
+
+  const openMoveDialog = (type: 'folder' | 'document' | 'link', id: string, name: string) => {
+    setMoveItem({ type, id, name, departmentId });
+    setMoveDialogOpen(true);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -601,6 +637,13 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                             <Shield className="h-4 w-4 mr-2" />
                             Manage Access
                           </DropdownMenuItem>
+                          {allDepartments.length > 0 && (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMoveDialog('folder', folder.id, folder.name); }}>
+                              <MoveRight className="h-4 w-4 mr-2" />
+                              Move to Department
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete('folder', folder.id); }}>
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
@@ -644,6 +687,13 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                               <Shield className="h-4 w-4 mr-2" />
                               Manage Access
                             </DropdownMenuItem>
+                            {allDepartments.length > 0 && (
+                              <DropdownMenuItem onClick={() => openMoveDialog('document', doc.id, doc.name)}>
+                                <MoveRight className="h-4 w-4 mr-2" />
+                                Move to Department
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('document', doc.id)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -684,6 +734,13 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
                               <Shield className="h-4 w-4 mr-2" />
                               Manage Access
                             </DropdownMenuItem>
+                            {allDepartments.length > 0 && (
+                              <DropdownMenuItem onClick={() => openMoveDialog('link', link.id, link.title)}>
+                                <MoveRight className="h-4 w-4 mr-2" />
+                                Move to Department
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDelete('link', link.id)}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -734,6 +791,18 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           open={previewDialogOpen}
           onOpenChange={setPreviewDialogOpen}
           document={selectedItem.item}
+        />
+      )}
+
+      {moveItem && allDepartments.length > 0 && (
+        <MoveToDepartmentDialog
+          open={moveDialogOpen}
+          onOpenChange={(open) => { setMoveDialogOpen(open); if (!open) setMoveItem(null); }}
+          itemType={moveItem.type}
+          itemName={moveItem.name}
+          currentDepartmentId={departmentId}
+          departments={allDepartments}
+          onMove={handleMoveToDepartment}
         />
       )}
     </Card>

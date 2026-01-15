@@ -14,7 +14,7 @@ import {
   Folder, Link2, Search, Building2, ExternalLink, MoreVertical, 
   Trash2, Download, Eye, ChevronRight, ArrowLeft, FolderPlus, 
   Upload, LinkIcon, GripVertical, LayoutGrid, List, CheckSquare,
-  X, Cloud, Users, Share2
+  X, Cloud, Users, Share2, MoveRight
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -22,6 +22,7 @@ import { CreateLinkDialog } from './CreateLinkDialog';
 import { DocumentPreviewDialog } from './DocumentPreviewDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
 import { DuplicateItemDialog, DuplicateItem } from './DuplicateItemDialog';
+import { MoveToDepartmentDialog } from './MoveToDepartmentDialog';
 import { CloudProviderIcon, CloudProviderBadge } from './CloudProviderIcon';
 import { FileTypeIcon } from './FileTypeIcon';
 import { formatFileSize, extractDomain } from '@/lib/cloudProviders';
@@ -56,6 +57,10 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateItem, setDuplicateItem] = useState<DuplicateItem | null>(null);
   const pendingFileRef = useRef<{ file: File; departmentId?: string } | null>(null);
+  
+  // Move to department state
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveItem, setMoveItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; departmentId: string | null } | null>(null);
   
   // Drag and drop state
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
@@ -415,6 +420,43 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     pendingFileRef.current = null;
   };
 
+  // Handle moving items between departments
+  const handleMoveToDepartment = async (targetDepartmentId: string | null) => {
+    if (!moveItem) return;
+
+    const table = moveItem.type === 'folder' ? 'document_folders' : moveItem.type === 'document' ? 'documents' : 'document_links';
+    
+    const { error } = await supabase
+      .from(table)
+      .update({ department_id: targetDepartmentId })
+      .eq('id', moveItem.id);
+
+    if (error) {
+      console.error('Error moving item:', error);
+      toast({ title: 'Failed to move item', variant: 'destructive' });
+      return;
+    }
+
+    const targetName = targetDepartmentId 
+      ? departments.find(d => d.id === targetDepartmentId)?.name || 'department'
+      : 'General';
+    
+    toast({ title: `Moved "${moveItem.name}" to ${targetName}` });
+    
+    // Invalidate all document queries to refresh both views
+    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+    queryClient.invalidateQueries({ queryKey: ['department-documents'] });
+    
+    setMoveItem(null);
+  };
+
+  const openMoveDialog = (type: 'folder' | 'document' | 'link', id: string, name: string, departmentId: string | null) => {
+    setMoveItem({ type, id, name, departmentId });
+    setMoveDialogOpen(true);
+  };
+
   // Drag and Drop handlers
   const handleDragStart = (e: DragEvent<HTMLDivElement>, docId: string, docName: string) => {
     e.dataTransfer.setData('text/plain', docId);
@@ -517,6 +559,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
               <DropdownMenuItem onClick={e => { e.stopPropagation(); setAccessDialogItem({ type: 'folder', id: f.id, name: f.name }); }}>
                 <Users className="h-4 w-4 mr-2" />Manage Access
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={e => { e.stopPropagation(); openMoveDialog('folder', f.id, f.name, f.department_id); }}>
+                <MoveRight className="h-4 w-4 mr-2" />Move to Department
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={e => { e.stopPropagation(); handleDelete('folder', f.id); }} className="text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" />Delete
@@ -579,6 +624,10 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
                   <DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'document', id: d.id, name: d.name })}>
                     <Users className="h-4 w-4 mr-2" />Manage Access
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openMoveDialog('document', d.id, d.name, d.department_id)}>
+                    <MoveRight className="h-4 w-4 mr-2" />Move to Department
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleDelete('document', d.id)} className="text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />Delete
                   </DropdownMenuItem>
@@ -638,6 +687,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
                   <DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'link', id: l.id, name: l.title })}>
                     <Users className="h-4 w-4 mr-2" />Manage Access
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openMoveDialog('link', l.id, l.title, l.department_id)}>
+                    <MoveRight className="h-4 w-4 mr-2" />Move to Department
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleDelete('link', l.id)} className="text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />Delete
@@ -687,6 +739,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={e => { e.stopPropagation(); setAccessDialogItem({ type: 'folder', id: f.id, name: f.name }); }}>
               <Users className="h-4 w-4 mr-2" />Manage Access
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={e => { e.stopPropagation(); openMoveDialog('folder', f.id, f.name, f.department_id); }}>
+              <MoveRight className="h-4 w-4 mr-2" />Move to Department
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={e => { e.stopPropagation(); handleDelete('folder', f.id); }} className="text-destructive">
@@ -743,6 +798,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
                 <DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'document', id: d.id, name: d.name })}>
                   <Users className="h-4 w-4 mr-2" />Manage Access
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openMoveDialog('document', d.id, d.name, d.department_id)}>
+                  <MoveRight className="h-4 w-4 mr-2" />Move to Department
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleDelete('document', d.id)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />Delete
@@ -792,6 +850,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setAccessDialogItem({ type: 'link', id: l.id, name: l.title })}>
                   <Users className="h-4 w-4 mr-2" />Manage Access
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openMoveDialog('link', l.id, l.title, l.department_id)}>
+                  <MoveRight className="h-4 w-4 mr-2" />Move to Department
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleDelete('link', l.id)} className="text-destructive">
@@ -1055,6 +1116,20 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
         onRename={handleDuplicateRename}
         onCancel={handleDuplicateCancel}
       />
+      {moveItem && (
+        <MoveToDepartmentDialog
+          open={moveDialogOpen}
+          onOpenChange={(open) => {
+            setMoveDialogOpen(open);
+            if (!open) setMoveItem(null);
+          }}
+          itemType={moveItem.type}
+          itemName={moveItem.name}
+          currentDepartmentId={moveItem.departmentId}
+          departments={departments}
+          onMove={handleMoveToDepartment}
+        />
+      )}
     </div>
   );
 }
