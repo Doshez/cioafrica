@@ -401,10 +401,94 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Create in-app notifications
+    const notifications: { user_id: string; title: string; message: string; type: string }[] = [];
+
+    if (type === 'chat_message') {
+      const chatData = data as ChatMessageData;
+      let recipientIds: string[] = [];
+      
+      if (chatData.room_type === 'public') {
+        const { data: members } = await supabase
+          .from('project_members')
+          .select('user_id')
+          .eq('project_id', chatData.project_id);
+        recipientIds = members?.map(m => m.user_id) || [];
+      } else {
+        recipientIds = chatData.recipient_ids || [];
+      }
+      
+      recipientIds = [...new Set(recipientIds.filter(Boolean))];
+      
+      for (const userId of recipientIds) {
+        notifications.push({
+          user_id: userId,
+          title: chatData.room_type === 'public' 
+            ? `New message in ${chatData.project_name}`
+            : `Private message from ${chatData.sender_name}`,
+          message: `${chatData.sender_name}: ${truncateMessage(chatData.message_preview, 1)}`,
+          type: 'chat_message',
+        });
+      }
+    } else if (type === 'task_overdue') {
+      const taskData = data as TaskOverdueData;
+      const recipientIds = [...new Set([taskData.assigned_user_id, ...taskData.project_manager_ids].filter(Boolean))];
+      
+      for (const userId of recipientIds) {
+        notifications.push({
+          user_id: userId,
+          title: `⏰ Task Overdue`,
+          message: `"${taskData.task_name}" in ${taskData.department_name} is overdue`,
+          type: 'task_overdue',
+        });
+      }
+    } else if (type === 'task_completed') {
+      const taskData = data as TaskCompletedData;
+      const recipientIds = [...taskData.project_manager_ids];
+      if (taskData.task_creator_id && !recipientIds.includes(taskData.task_creator_id)) {
+        recipientIds.push(taskData.task_creator_id);
+      }
+      
+      for (const userId of [...new Set(recipientIds.filter(Boolean))]) {
+        notifications.push({
+          user_id: userId,
+          title: `✅ Task Completed`,
+          message: `"${taskData.task_name}" was completed by ${taskData.completed_by_name}`,
+          type: 'task_completed',
+        });
+      }
+    } else if (type === 'document_access_granted') {
+      const accessData = data as DocumentAccessData;
+      const itemTypeLabel = accessData.item_type === 'document' ? 'File' : 
+                            accessData.item_type === 'folder' ? 'Folder' : 'Link';
+      const permissionLabel = accessData.permission === 'view_only' ? 'View Only' :
+                              accessData.permission === 'download' ? 'Download' : 'Edit';
+      
+      notifications.push({
+        user_id: accessData.recipient_user_id,
+        title: `📁 ${itemTypeLabel} Access Granted`,
+        message: `${accessData.granted_by_name} granted you ${permissionLabel} access to "${accessData.item_name}"`,
+        type: 'document_access',
+      });
+    }
+
+    // Insert notifications into database
+    if (notifications.length > 0) {
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+      
+      if (notifError) {
+        console.error('Error inserting notifications:', notifError);
+      } else {
+        console.log(`Created ${notifications.length} in-app notifications`);
+      }
+    }
+
     console.log(`Sent ${sentCount}/${emails.length} emails`);
 
     return new Response(
-      JSON.stringify({ success: true, sent: sentCount, total: emails.length }),
+      JSON.stringify({ success: true, sent: sentCount, total: emails.length, notifications: notifications.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
