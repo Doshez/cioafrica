@@ -23,6 +23,7 @@ import { DocumentPreviewDialog } from './DocumentPreviewDialog';
 import { DocumentAccessDialog } from './DocumentAccessDialog';
 import { DuplicateItemDialog, DuplicateItem } from './DuplicateItemDialog';
 import { MoveToDepartmentDialog } from './MoveToDepartmentDialog';
+import { BulkMoveToDepartmentDialog } from './BulkMoveToDepartmentDialog';
 import { CloudProviderIcon, CloudProviderBadge } from './CloudProviderIcon';
 import { FileTypeIcon } from './FileTypeIcon';
 import { formatFileSize, extractDomain } from '@/lib/cloudProviders';
@@ -61,6 +62,9 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   // Move to department state
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<{ type: 'folder' | 'document' | 'link'; id: string; name: string; departmentId: string | null } | null>(null);
+  
+  // Bulk move state
+  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
   
   // Drag and drop state
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
@@ -255,7 +259,36 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     invalidateQueries();
   };
 
-  // Check for duplicate folder
+  // Bulk move handler
+  const handleBulkMove = async (targetDepartmentId: string | null) => {
+    if (selectedItems.size === 0) return;
+
+    let moved = 0;
+    for (const item of selectedItems) {
+      const [type, id] = item.split(':');
+      const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
+      const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', id);
+      if (!error) moved++;
+    }
+
+    const targetName = targetDepartmentId 
+      ? departments.find(d => d.id === targetDepartmentId)?.name || 'department'
+      : 'General';
+    toast({ title: `Moved ${moved} items to ${targetName}` });
+    clearSelection();
+    invalidateQueries();
+    queryClient.invalidateQueries({ queryKey: ['department-documents'] });
+  };
+
+  // Get selected items for bulk move dialog
+  const getSelectedItemsForBulkMove = () => {
+    return Array.from(selectedItems).map(item => {
+      const [type, id] = item.split(':');
+      return { type: type as 'folder' | 'document' | 'link', id };
+    });
+  };
+
+
   const checkDuplicateFolder = async (name: string, departmentId?: string): Promise<{ exists: boolean; existing?: any }> => {
     const query = currentFolderId
       ? supabase.from('document_folders').select('*').eq('project_id', projectId).eq('parent_folder_id', currentFolderId).ilike('name', name)
@@ -962,9 +995,14 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
               <X className="h-4 w-4 mr-1" />Clear
             </Button>
             {canManage && (
-              <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-                <Trash2 className="h-4 w-4 mr-2" />Delete Selected
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={() => setBulkMoveDialogOpen(true)}>
+                  <MoveRight className="h-4 w-4 mr-2" />Move to Department
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Trash2 className="h-4 w-4 mr-2" />Delete Selected
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -1130,6 +1168,13 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           onMove={handleMoveToDepartment}
         />
       )}
+      <BulkMoveToDepartmentDialog
+        open={bulkMoveDialogOpen}
+        onOpenChange={setBulkMoveDialogOpen}
+        selectedItems={getSelectedItemsForBulkMove()}
+        departments={departments}
+        onMove={handleBulkMove}
+      />
     </div>
   );
 }
