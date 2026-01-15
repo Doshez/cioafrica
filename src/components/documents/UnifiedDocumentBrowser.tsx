@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, DragEvent, useRef } from 'react';
+import { useState, useMemo, useCallback, DragEvent, useRef, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -130,7 +130,58 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
     queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
     queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+    queryClient.invalidateQueries({ queryKey: ['department-documents'] });
   }, [queryClient]);
+
+  // Real-time subscription for document_access changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('document-access-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_access',
+        },
+        () => {
+          // Invalidate all document queries when access changes
+          invalidateQueries();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'documents',
+        },
+        () => invalidateQueries()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_links',
+        },
+        () => invalidateQueries()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_folders',
+        },
+        () => invalidateQueries()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [invalidateQueries]);
 
   // Selection handlers
   const toggleItemSelection = (itemId: string, itemType: string) => {

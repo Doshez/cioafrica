@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useDepartmentLead } from '@/hooks/useDepartmentLead';
@@ -228,7 +228,60 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
   // Invalidate query on mutations
   const invalidateData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['department-documents', departmentId] });
+    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
   }, [queryClient, departmentId]);
+
+  // Real-time subscription for document_access changes
+  useEffect(() => {
+    const channel = supabase
+      .channel(`department-docs-sync-${departmentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_access',
+        },
+        () => {
+          // Invalidate queries when access changes
+          invalidateData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'documents',
+        },
+        () => invalidateData()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_links',
+        },
+        () => invalidateData()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_folders',
+        },
+        () => invalidateData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [departmentId, invalidateData]);
 
   // Only allow uploads inside folders (not at root level) for non-managers
   const canUploadHere = canManage || currentFolderId !== null;
