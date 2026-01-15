@@ -84,6 +84,36 @@ export default function MyTasks() {
 
   const fetchMyTasks = async () => {
     try {
+      // First get task IDs assigned to this user via task_assignments
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('task_assignments')
+        .select('task_id')
+        .eq('user_id', user?.id);
+
+      if (assignmentError) throw assignmentError;
+
+      const assignedTaskIds = (assignmentData || []).map(a => a.task_id);
+
+      // Also get tasks where user is the legacy assignee_user_id
+      const { data: legacyTasks, error: legacyError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assignee_user_id', user?.id);
+
+      if (legacyError) throw legacyError;
+
+      const legacyTaskIds = (legacyTasks || []).map(t => t.id);
+
+      // Combine both sets of task IDs
+      const allTaskIds = [...new Set([...assignedTaskIds, ...legacyTaskIds])];
+
+      if (allTaskIds.length === 0) {
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch the actual tasks
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -105,7 +135,7 @@ export default function MyTasks() {
             title
           )
         `)
-        .eq('assignee_user_id', user?.id)
+        .in('id', allTaskIds)
         .order('due_date', { ascending: true, nullsFirst: false });
 
       if (error) throw error;

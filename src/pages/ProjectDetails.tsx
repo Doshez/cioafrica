@@ -76,6 +76,7 @@ interface Task {
   due_date: string;
   assignee_department_id: string;
   assignee_user_id?: string;
+  assigned_user_ids?: string[]; // from task_assignments
 }
 
 export default function ProjectDetails() {
@@ -155,7 +156,33 @@ export default function ProjectDetails() {
         .order('created_at', { ascending: false });
 
       if (tasksError) throw tasksError;
-      setTasks(tasksData || []);
+
+      // Fetch task assignments to know which users are assigned to which tasks
+      const taskIds = (tasksData || []).map(t => t.id);
+      let taskAssignmentsMap: Record<string, string[]> = {};
+      
+      if (taskIds.length > 0) {
+        const { data: assignmentsData } = await supabase
+          .from('task_assignments')
+          .select('task_id, user_id')
+          .in('task_id', taskIds);
+        
+        // Group user_ids by task_id
+        (assignmentsData || []).forEach(a => {
+          if (!taskAssignmentsMap[a.task_id]) {
+            taskAssignmentsMap[a.task_id] = [];
+          }
+          taskAssignmentsMap[a.task_id].push(a.user_id);
+        });
+      }
+
+      // Add assigned_user_ids to each task
+      const tasksWithAssignments = (tasksData || []).map(task => ({
+        ...task,
+        assigned_user_ids: taskAssignmentsMap[task.id] || []
+      }));
+
+      setTasks(tasksWithAssignments);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -201,14 +228,14 @@ export default function ProjectDetails() {
     if (isAdmin || isProjectManager) return true;
     return tasks.some(task => 
       task.assignee_department_id === departmentId && 
-      task.assignee_user_id === user?.id
+      (task.assignee_user_id === user?.id || task.assigned_user_ids?.includes(user?.id || ''))
     );
   };
 
   const getUserTaskCount = (departmentId: string) => {
     return tasks.filter(task => 
       task.assignee_department_id === departmentId && 
-      task.assignee_user_id === user?.id
+      (task.assignee_user_id === user?.id || task.assigned_user_ids?.includes(user?.id || ''))
     ).length;
   };
 

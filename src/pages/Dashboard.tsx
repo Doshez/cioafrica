@@ -96,23 +96,47 @@ export default function Dashboard() {
 
       if (projectsError) throw projectsError;
 
-      // Fetch user's tasks
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select(`
-          id, 
-          status, 
-          due_date, 
-          project_id, 
-          title,
-          projects (
-            name
-          )
-        `)
-        .eq('assignee_user_id', user?.id)
-        .order('created_at', { ascending: false });
+      // First get task IDs assigned to this user via task_assignments
+      const { data: assignmentData } = await supabase
+        .from('task_assignments')
+        .select('task_id')
+        .eq('user_id', user?.id);
 
-      if (tasksError) throw tasksError;
+      const assignedTaskIds = (assignmentData || []).map(a => a.task_id);
+
+      // Also get tasks where user is the legacy assignee_user_id
+      const { data: legacyTaskIds } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assignee_user_id', user?.id);
+
+      // Combine both sets of task IDs
+      const allTaskIds = [...new Set([
+        ...assignedTaskIds, 
+        ...(legacyTaskIds || []).map(t => t.id)
+      ])];
+
+      // Fetch the actual tasks
+      let tasks: any[] = [];
+      if (allTaskIds.length > 0) {
+        const { data: tasksData, error: tasksError } = await supabase
+          .from('tasks')
+          .select(`
+            id, 
+            status, 
+            due_date, 
+            project_id, 
+            title,
+            projects (
+              name
+            )
+          `)
+          .in('id', allTaskIds)
+          .order('created_at', { ascending: false });
+
+        if (tasksError) throw tasksError;
+        tasks = tasksData || [];
+      }
 
       // Calculate stats
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
