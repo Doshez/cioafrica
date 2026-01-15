@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark' | 'soft' | 'modern';
+export type Theme = 'light' | 'dark' | 'soft';
 
 interface ThemeContextType {
   theme: Theme;
@@ -28,11 +28,6 @@ export const themes: { value: Theme; label: string; description: string }[] = [
     label: 'Soft', 
     description: 'Minimal and gentle with muted tones' 
   },
-  { 
-    value: 'modern', 
-    label: '3D Modern', 
-    description: 'Subtle depth and elegant interactions' 
-  },
 ];
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -55,13 +50,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const root = document.documentElement;
     
     // Remove all theme classes
-    root.classList.remove('light', 'dark', 'soft', 'modern');
+    root.classList.remove('light', 'dark', 'soft');
     
     // Add the current theme class
     root.classList.add(theme);
     
-    // For dark-based themes, also add dark class for component compatibility
-    if (theme === 'dark' || theme === 'modern') {
+    // For dark theme, also add dark class for component compatibility
+    if (theme === 'dark') {
       root.classList.add('dark');
     }
   }, [theme]);
