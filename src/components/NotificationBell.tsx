@@ -20,6 +20,7 @@ export function NotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -71,6 +72,7 @@ export function NotificationBell() {
       .eq('id', id);
     
     fetchNotifications();
+    setOpen(false);
   };
 
   const markAllAsRead = async () => {
@@ -86,7 +88,7 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
