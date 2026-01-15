@@ -11,13 +11,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Create service role client for database operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Verify JWT token and get user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
@@ -49,6 +47,18 @@ Deno.serve(async (req) => {
       .single();
 
     if (projectError) throw projectError;
+
+    // Check if a project with the same name already exists for this user
+    const { data: existingProject } = await supabaseAdmin
+      .from('projects')
+      .select('id')
+      .eq('name', newProjectName)
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (existingProject) {
+      throw new Error(`A project with the name "${newProjectName}" already exists`);
+    }
 
     // Create the new project
     const { data: newProject, error: newProjectError } = await supabaseAdmin
@@ -82,6 +92,20 @@ Deno.serve(async (req) => {
 
     if (departments && departments.length > 0) {
       for (const dept of departments) {
+        // Check if department with same name already exists in new project
+        const { data: existingDept } = await supabaseAdmin
+          .from('departments')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('name', dept.name)
+          .maybeSingle();
+
+        if (existingDept) {
+          deptIdMap.set(dept.id, existingDept.id);
+          console.log(`Department already exists, skipping: ${dept.name}`);
+          continue;
+        }
+
         const { data: newDept, error: newDeptError } = await supabaseAdmin
           .from('departments')
           .insert({
@@ -99,35 +123,53 @@ Deno.serve(async (req) => {
     }
 
     // ===== DUPLICATE DEPARTMENT LEADS =====
-    const { data: departmentLeads, error: deptLeadsError } = await supabaseAdmin
-      .from('department_leads')
-      .select('*')
-      .in('department_id', Array.from(deptIdMap.keys()));
+    let duplicatedLeads = 0;
+    if (deptIdMap.size > 0) {
+      const { data: departmentLeads, error: deptLeadsError } = await supabaseAdmin
+        .from('department_leads')
+        .select('*')
+        .in('department_id', Array.from(deptIdMap.keys()));
 
-    if (deptLeadsError) {
-      console.error('Error fetching department leads:', deptLeadsError);
-    } else if (departmentLeads && departmentLeads.length > 0) {
-      for (const lead of departmentLeads) {
-        const newDeptId = deptIdMap.get(lead.department_id);
-        if (newDeptId) {
-          const { error: newLeadError } = await supabaseAdmin
-            .from('department_leads')
-            .insert({
-              department_id: newDeptId,
-              user_id: lead.user_id,
-              assigned_by: user.id,
-            });
+      if (deptLeadsError) {
+        console.error('Error fetching department leads:', deptLeadsError);
+      } else if (departmentLeads && departmentLeads.length > 0) {
+        for (const lead of departmentLeads) {
+          const newDeptId = deptIdMap.get(lead.department_id);
+          if (newDeptId) {
+            // Check if this lead already exists
+            const { data: existingLead } = await supabaseAdmin
+              .from('department_leads')
+              .select('id')
+              .eq('department_id', newDeptId)
+              .eq('user_id', lead.user_id)
+              .maybeSingle();
 
-          if (newLeadError) {
-            console.error('Error duplicating department lead:', newLeadError);
-          } else {
-            console.log(`Duplicated department lead for user: ${lead.user_id}`);
+            if (existingLead) {
+              console.log(`Department lead already exists, skipping: ${lead.user_id}`);
+              continue;
+            }
+
+            const { error: newLeadError } = await supabaseAdmin
+              .from('department_leads')
+              .insert({
+                department_id: newDeptId,
+                user_id: lead.user_id,
+                assigned_by: user.id,
+              });
+
+            if (newLeadError) {
+              console.error('Error duplicating department lead:', newLeadError);
+            } else {
+              duplicatedLeads++;
+              console.log(`Duplicated department lead for user: ${lead.user_id}`);
+            }
           }
         }
       }
     }
 
     // ===== DUPLICATE PROJECT MEMBERS =====
+    let duplicatedMembers = 0;
     const { data: projectMembers, error: membersError } = await supabaseAdmin
       .from('project_members')
       .select('*')
@@ -137,6 +179,19 @@ Deno.serve(async (req) => {
       console.error('Error fetching project members:', membersError);
     } else if (projectMembers && projectMembers.length > 0) {
       for (const member of projectMembers) {
+        // Check if member already exists in new project
+        const { data: existingMember } = await supabaseAdmin
+          .from('project_members')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('user_id', member.user_id)
+          .maybeSingle();
+
+        if (existingMember) {
+          console.log(`Project member already exists, skipping: ${member.user_id}`);
+          continue;
+        }
+
         const { error: newMemberError } = await supabaseAdmin
           .from('project_members')
           .insert({
@@ -148,6 +203,7 @@ Deno.serve(async (req) => {
         if (newMemberError) {
           console.error('Error duplicating project member:', newMemberError);
         } else {
+          duplicatedMembers++;
           console.log(`Duplicated project member: ${member.user_id} with role: ${member.role}`);
         }
       }
@@ -165,6 +221,20 @@ Deno.serve(async (req) => {
 
     if (elements && elements.length > 0) {
       for (const element of elements) {
+        // Check if element with same title already exists
+        const { data: existingElement } = await supabaseAdmin
+          .from('elements')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('title', element.title)
+          .maybeSingle();
+
+        if (existingElement) {
+          elementIdMap.set(element.id, existingElement.id);
+          console.log(`Element already exists, skipping: ${element.title}`);
+          continue;
+        }
+
         const { data: newElement, error: newElementError } = await supabaseAdmin
           .from('elements')
           .insert({
@@ -195,9 +265,22 @@ Deno.serve(async (req) => {
 
     const taskIdMap = new Map<string, string>();
 
-    // First pass: duplicate tasks without parent references
     if (tasks && tasks.length > 0) {
       for (const task of tasks) {
+        // Check if task with same title already exists
+        const { data: existingTask } = await supabaseAdmin
+          .from('tasks')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('title', task.title)
+          .maybeSingle();
+
+        if (existingTask) {
+          taskIdMap.set(task.id, existingTask.id);
+          console.log(`Task already exists, skipping: ${task.title}`);
+          continue;
+        }
+
         const { data: newTask, error: newTaskError } = await supabaseAdmin
           .from('tasks')
           .insert({
@@ -223,9 +306,9 @@ Deno.serve(async (req) => {
         if (newTaskError) throw newTaskError;
         taskIdMap.set(task.id, newTask.id);
       }
-      console.log(`Duplicated ${tasks.length} tasks`);
+      console.log(`Processed ${tasks.length} tasks`);
 
-      // Second pass: update parent task references
+      // Update parent task references for newly created tasks
       for (const task of tasks) {
         if (task.parent_task_id) {
           const newTaskId = taskIdMap.get(task.id);
@@ -245,6 +328,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== DUPLICATE TASK DEPENDENCIES =====
+    let duplicatedDeps = 0;
     if (taskIdMap.size > 0) {
       const { data: taskDependencies, error: depsError } = await supabaseAdmin
         .from('task_dependencies')
@@ -258,6 +342,19 @@ Deno.serve(async (req) => {
           const newTaskId = taskIdMap.get(dep.task_id);
           const newDependsOnId = taskIdMap.get(dep.depends_on_task_id);
           if (newTaskId && newDependsOnId) {
+            // Check if dependency already exists
+            const { data: existingDep } = await supabaseAdmin
+              .from('task_dependencies')
+              .select('id')
+              .eq('task_id', newTaskId)
+              .eq('depends_on_task_id', newDependsOnId)
+              .maybeSingle();
+
+            if (existingDep) {
+              console.log(`Task dependency already exists, skipping`);
+              continue;
+            }
+
             const { error: newDepError } = await supabaseAdmin
               .from('task_dependencies')
               .insert({
@@ -267,10 +364,12 @@ Deno.serve(async (req) => {
 
             if (newDepError) {
               console.error('Error duplicating task dependency:', newDepError);
+            } else {
+              duplicatedDeps++;
             }
           }
         }
-        console.log(`Duplicated ${taskDependencies.length} task dependencies`);
+        console.log(`Duplicated ${duplicatedDeps} task dependencies`);
       }
     }
 
@@ -285,10 +384,24 @@ Deno.serve(async (req) => {
     }
 
     const folderIdMap = new Map<string, string>();
+    let duplicatedFolders = 0;
 
-    // First pass: create folders without parent references
     if (folders && folders.length > 0) {
       for (const folder of folders) {
+        // Check if folder with same name already exists in the new project
+        const { data: existingFolder } = await supabaseAdmin
+          .from('document_folders')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('name', folder.name)
+          .maybeSingle();
+
+        if (existingFolder) {
+          folderIdMap.set(folder.id, existingFolder.id);
+          console.log(`Folder already exists, skipping: ${folder.name}`);
+          continue;
+        }
+
         const { data: newFolder, error: newFolderError } = await supabaseAdmin
           .from('document_folders')
           .insert({
@@ -304,11 +417,12 @@ Deno.serve(async (req) => {
           console.error('Error duplicating folder:', newFolderError);
         } else {
           folderIdMap.set(folder.id, newFolder.id);
+          duplicatedFolders++;
           console.log(`Duplicated folder: ${folder.name}`);
         }
       }
 
-      // Second pass: update parent folder references
+      // Update parent folder references
       for (const folder of folders) {
         if (folder.parent_folder_id) {
           const newFolderId = folderIdMap.get(folder.id);
@@ -328,6 +442,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== DUPLICATE DOCUMENT LINKS =====
+    let duplicatedLinks = 0;
     const { data: documentLinks, error: linksError } = await supabaseAdmin
       .from('document_links')
       .select('*')
@@ -337,6 +452,19 @@ Deno.serve(async (req) => {
       console.error('Error fetching document links:', linksError);
     } else if (documentLinks && documentLinks.length > 0) {
       for (const link of documentLinks) {
+        // Check if link with same URL already exists in the new project
+        const { data: existingLink } = await supabaseAdmin
+          .from('document_links')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('url', link.url)
+          .maybeSingle();
+
+        if (existingLink) {
+          console.log(`Document link already exists, skipping: ${link.title}`);
+          continue;
+        }
+
         const { error: newLinkError } = await supabaseAdmin
           .from('document_links')
           .insert({
@@ -351,12 +479,15 @@ Deno.serve(async (req) => {
 
         if (newLinkError) {
           console.error('Error duplicating document link:', newLinkError);
+        } else {
+          duplicatedLinks++;
         }
       }
-      console.log(`Duplicated ${documentLinks.length} document links`);
+      console.log(`Duplicated ${duplicatedLinks} document links`);
     }
 
     // ===== DUPLICATE CHAT SETTINGS =====
+    let duplicatedSettings = 0;
     const { data: chatSettings, error: chatSettingsError } = await supabaseAdmin
       .from('chat_settings')
       .select('*')
@@ -366,25 +497,38 @@ Deno.serve(async (req) => {
     if (chatSettingsError) {
       console.error('Error fetching chat settings:', chatSettingsError);
     } else if (chatSettings) {
-      const { error: newSettingsError } = await supabaseAdmin
+      // Check if settings already exist for new project
+      const { data: existingSettings } = await supabaseAdmin
         .from('chat_settings')
-        .insert({
-          project_id: newProject.id,
-          public_chat_enabled: chatSettings.public_chat_enabled,
-          max_file_size_mb: chatSettings.max_file_size_mb,
-          message_retention_days: chatSettings.message_retention_days,
-          notifications_enabled: chatSettings.notifications_enabled,
-          allowed_file_types: chatSettings.allowed_file_types,
-        });
+        .select('id')
+        .eq('project_id', newProject.id)
+        .maybeSingle();
 
-      if (newSettingsError) {
-        console.error('Error duplicating chat settings:', newSettingsError);
+      if (!existingSettings) {
+        const { error: newSettingsError } = await supabaseAdmin
+          .from('chat_settings')
+          .insert({
+            project_id: newProject.id,
+            public_chat_enabled: chatSettings.public_chat_enabled,
+            max_file_size_mb: chatSettings.max_file_size_mb,
+            message_retention_days: chatSettings.message_retention_days,
+            notifications_enabled: chatSettings.notifications_enabled,
+            allowed_file_types: chatSettings.allowed_file_types,
+          });
+
+        if (newSettingsError) {
+          console.error('Error duplicating chat settings:', newSettingsError);
+        } else {
+          duplicatedSettings = 1;
+          console.log('Duplicated chat settings');
+        }
       } else {
-        console.log('Duplicated chat settings');
+        console.log('Chat settings already exist, skipping');
       }
     }
 
-    // ===== DUPLICATE CHAT ROOMS (structure only, not messages) =====
+    // ===== DUPLICATE CHAT ROOMS =====
+    let duplicatedRooms = 0;
     const { data: chatRooms, error: chatRoomsError } = await supabaseAdmin
       .from('chat_rooms')
       .select('*')
@@ -394,6 +538,19 @@ Deno.serve(async (req) => {
       console.error('Error fetching chat rooms:', chatRoomsError);
     } else if (chatRooms && chatRooms.length > 0) {
       for (const room of chatRooms) {
+        // Check if room with same name already exists
+        const { data: existingRoom } = await supabaseAdmin
+          .from('chat_rooms')
+          .select('id')
+          .eq('project_id', newProject.id)
+          .eq('name', room.name)
+          .maybeSingle();
+
+        if (existingRoom) {
+          console.log(`Chat room already exists, skipping: ${room.name}`);
+          continue;
+        }
+
         const { data: newRoom, error: newRoomError } = await supabaseAdmin
           .from('chat_rooms')
           .insert({
@@ -415,29 +572,30 @@ Deno.serve(async (req) => {
               room_id: newRoom.id,
               user_id: user.id,
             });
+          duplicatedRooms++;
           console.log(`Duplicated chat room: ${room.name}`);
         }
       }
     }
 
     const summary = {
-      departments: departments?.length || 0,
-      departmentLeads: departmentLeads?.length || 0,
-      projectMembers: projectMembers?.length || 0,
-      elements: elements?.length || 0,
-      tasks: tasks?.length || 0,
-      taskDependencies: taskIdMap.size > 0 ? 'included' : 0,
-      folders: folders?.length || 0,
-      documentLinks: documentLinks?.length || 0,
-      chatSettings: chatSettings ? 1 : 0,
-      chatRooms: chatRooms?.length || 0,
+      departments: deptIdMap.size,
+      departmentLeads: duplicatedLeads,
+      projectMembers: duplicatedMembers,
+      elements: elementIdMap.size,
+      tasks: taskIdMap.size,
+      taskDependencies: duplicatedDeps,
+      folders: duplicatedFolders,
+      documentLinks: duplicatedLinks,
+      chatSettings: duplicatedSettings,
+      chatRooms: duplicatedRooms,
     };
 
     return new Response(
       JSON.stringify({
         success: true,
         newProjectId: newProject.id,
-        message: `Project duplicated successfully`,
+        message: `Project duplicated successfully (duplicates skipped)`,
         summary,
       }),
       {
