@@ -280,8 +280,12 @@ export default function DepartmentGantt() {
   });
 
   const handleStatusUpdate = async (taskId: string, newStatus: string) => {
+    const currentTask = tasks.find(t => t.id === taskId);
+    // Guard: don't update if status is already the same
+    if (!currentTask || currentTask.status === newStatus) return;
+
     // Sync percentage with status
-    let newPercentage = tasks.find(t => t.id === taskId)?.progress_percentage || 0;
+    let newPercentage = currentTask.progress_percentage || 0;
     
     if (newStatus === 'todo') {
       newPercentage = 0;
@@ -342,6 +346,10 @@ export default function DepartmentGantt() {
   };
 
   const handleProgressUpdate = async (taskId: string, progress: number) => {
+    const currentTask = tasks.find(t => t.id === taskId);
+    // Guard: don't update if progress is already the same
+    if (!currentTask || currentTask.progress_percentage === progress) return;
+
     // Determine new status based on progress
     let newStatus = 'todo';
     let completedAt = null;

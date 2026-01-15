@@ -41,7 +41,7 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
       const converted: GanttTask[] = tasks
         .filter(task => task.start_date && task.due_date)
         .map(task => {
-          const progress = task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0;
+          const progress = task.progress_percentage ?? (task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0);
           
           return {
             id: task.id,
@@ -59,7 +59,17 @@ export function DepartmentGanttView({ departmentId, departmentName, tasks, onTas
           };
         });
       
-      setGanttTasks(converted);
+      // Only update state if ganttTasks actually changed
+      setGanttTasks(prev => {
+        if (prev.length !== converted.length) return converted;
+        const hasChange = converted.some((t, i) => 
+          t.id !== prev[i]?.id || 
+          t.progress !== prev[i]?.progress ||
+          t.start.getTime() !== prev[i]?.start.getTime() ||
+          t.end.getTime() !== prev[i]?.end.getTime()
+        );
+        return hasChange ? converted : prev;
+      });
     };
 
     convertToGanttTasks();
