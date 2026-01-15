@@ -127,16 +127,17 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   );
 
   const invalidateQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
-    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
-    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
-    queryClient.invalidateQueries({ queryKey: ['department-documents'] });
-  }, [queryClient]);
+    // Only invalidate unified queries - don't touch department-specific queries
+    queryClient.invalidateQueries({ queryKey: ['unified-folders', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['unified-documents', projectId] });
+    queryClient.invalidateQueries({ queryKey: ['unified-links', projectId] });
+  }, [queryClient, projectId]);
 
-  // Real-time subscription for document_access changes
+  // Real-time subscription for document changes - use unique channel per project
   useEffect(() => {
+    const channelName = `unified-docs-sync-${projectId}`;
     const channel = supabase
-      .channel('document-access-sync')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -144,8 +145,8 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           schema: 'public',
           table: 'document_access',
         },
-        () => {
-          // Invalidate all document queries when access changes
+        (payload) => {
+          console.log('document_access change:', payload);
           invalidateQueries();
         }
       )
@@ -155,8 +156,12 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           event: '*',
           schema: 'public',
           table: 'documents',
+          filter: `project_id=eq.${projectId}`,
         },
-        () => invalidateQueries()
+        (payload) => {
+          console.log('documents change:', payload);
+          invalidateQueries();
+        }
       )
       .on(
         'postgres_changes',
@@ -164,8 +169,12 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           event: '*',
           schema: 'public',
           table: 'document_links',
+          filter: `project_id=eq.${projectId}`,
         },
-        () => invalidateQueries()
+        (payload) => {
+          console.log('document_links change:', payload);
+          invalidateQueries();
+        }
       )
       .on(
         'postgres_changes',
@@ -173,15 +182,19 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
           event: '*',
           schema: 'public',
           table: 'document_folders',
+          filter: `project_id=eq.${projectId}`,
         },
-        () => invalidateQueries()
+        (payload) => {
+          console.log('document_folders change:', payload);
+          invalidateQueries();
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [invalidateQueries]);
+  }, [projectId, invalidateQueries]);
 
   // Selection handlers
   const toggleItemSelection = (itemId: string, itemType: string) => {

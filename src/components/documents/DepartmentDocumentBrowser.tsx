@@ -225,18 +225,17 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     staleTime: 5 * 60 * 1000,
   });
 
-  // Invalidate query on mutations
+  // Invalidate query on mutations - only invalidate this department's queries
   const invalidateData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['department-documents', departmentId] });
-    queryClient.invalidateQueries({ queryKey: ['unified-folders'] });
-    queryClient.invalidateQueries({ queryKey: ['unified-documents'] });
-    queryClient.invalidateQueries({ queryKey: ['unified-links'] });
+    queryClient.invalidateQueries({ queryKey: ['breadcrumbs', departmentId] });
   }, [queryClient, departmentId]);
 
-  // Real-time subscription for document_access changes
+  // Real-time subscription for document changes - unique channel per department
   useEffect(() => {
+    const channelName = `dept-docs-${projectId}-${departmentId}`;
     const channel = supabase
-      .channel(`department-docs-sync-${departmentId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -245,7 +244,6 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           table: 'document_access',
         },
         () => {
-          // Invalidate queries when access changes
           invalidateData();
         }
       )
@@ -255,6 +253,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           event: '*',
           schema: 'public',
           table: 'documents',
+          filter: `department_id=eq.${departmentId}`,
         },
         () => invalidateData()
       )
@@ -264,6 +263,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           event: '*',
           schema: 'public',
           table: 'document_links',
+          filter: `department_id=eq.${departmentId}`,
         },
         () => invalidateData()
       )
@@ -273,6 +273,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
           event: '*',
           schema: 'public',
           table: 'document_folders',
+          filter: `department_id=eq.${departmentId}`,
         },
         () => invalidateData()
       )
@@ -281,7 +282,7 @@ export function DepartmentDocumentBrowser({ projectId, departmentId, departmentN
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [departmentId, invalidateData]);
+  }, [projectId, departmentId, invalidateData]);
 
   // Only allow uploads inside folders (not at root level) for non-managers
   const canUploadHere = canManage || currentFolderId !== null;
