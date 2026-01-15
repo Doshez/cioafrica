@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import AdminRoute from "./components/AdminRoute";
@@ -35,34 +36,36 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => (
   <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<Layout><Dashboard /></Layout>} />
-              <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-              <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
-              <Route path="/projects" element={<Layout><Projects /></Layout>} />
-              <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
-              <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
-              <Route path="/projects/:projectId/analytics" element={<Layout><ProjectAnalytics /></Layout>} />
-              <Route path="/projects/:projectId/documents" element={<Layout><ProjectDocuments /></Layout>} />
-              <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
-              <Route path="/admin" element={<Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout>} />
-              <Route path="/admin/users" element={<Layout><AdminRoute><UserManagement /></AdminRoute></Layout>} />
-              <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
-              <Route path="/gantt-demo" element={<Layout><GanttDemo /></Layout>} />
-              <Route path="/gantt-docs" element={<Layout><GanttDocumentation /></Layout>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/" element={<Layout><Dashboard /></Layout>} />
+                <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+                <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
+                <Route path="/projects" element={<Layout><Projects /></Layout>} />
+                <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
+                <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
+                <Route path="/projects/:projectId/analytics" element={<Layout><ProjectAnalytics /></Layout>} />
+                <Route path="/projects/:projectId/documents" element={<Layout><ProjectDocuments /></Layout>} />
+                <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
+                <Route path="/admin" element={<Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout>} />
+                <Route path="/admin/users" element={<Layout><AdminRoute><UserManagement /></AdminRoute></Layout>} />
+                <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
+                <Route path="/gantt-demo" element={<Layout><GanttDemo /></Layout>} />
+                <Route path="/gantt-docs" element={<Layout><GanttDocumentation /></Layout>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   </ErrorBoundary>
 );
 

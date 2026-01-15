@@ -7,7 +7,9 @@ All colors MUST be HSL.
 */
 
 @layer base {
-  :root {
+  /* ========== LIGHT THEME (Default) ========== */
+  :root,
+  .light {
     --background: 240 20% 99%;
     --foreground: 222 47% 11%;
 
@@ -62,8 +64,17 @@ All colors MUST be HSL.
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-glow: 0 0 40px hsl(217 91% 70% / 0.3);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Theme-specific tokens */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    --card-hover-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --card-border-width: 1px;
+    --card-transform: none;
+    --button-transform: none;
+    --interactive-scale: 1;
   }
 
+  /* ========== DARK THEME ========== */
   .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
@@ -113,6 +124,144 @@ All colors MUST be HSL.
     --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
     --gradient-subtle: linear-gradient(180deg, hsl(222 47% 11%), hsl(217 33% 17%));
     --shadow-glow: 0 0 40px hsl(217 91% 70% / 0.2);
+
+    /* Theme-specific tokens */
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
+    --card-hover-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+    --card-border-width: 1px;
+    --card-transform: none;
+    --button-transform: none;
+    --interactive-scale: 1;
+  }
+
+  /* ========== SOFT/MINIMAL THEME ========== */
+  .soft {
+    --background: 40 30% 98%;
+    --foreground: 30 10% 20%;
+
+    --card: 40 25% 97%;
+    --card-foreground: 30 10% 20%;
+
+    --popover: 40 25% 97%;
+    --popover-foreground: 30 10% 20%;
+
+    --primary: 158 64% 40%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 158 64% 50%;
+
+    --secondary: 30 10% 30%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 40 20% 94%;
+    --muted-foreground: 30 10% 45%;
+
+    --accent: 158 50% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 142 60% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 70% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 158 64% 40%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 40 25% 97%;
+    --sidebar-foreground: 30 10% 20%;
+    --sidebar-primary: 158 64% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 20% 94%;
+    --sidebar-accent-foreground: 30 10% 20%;
+    --sidebar-border: 40 15% 88%;
+    --sidebar-ring: 158 64% 40%;
+
+    /* Custom design tokens for soft mode */
+    --gradient-primary: linear-gradient(135deg, hsl(158 64% 40%), hsl(158 50% 55%));
+    --gradient-subtle: linear-gradient(180deg, hsl(40 30% 98%), hsl(40 20% 94%));
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+    --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 6px 12px -3px rgb(0 0 0 / 0.06);
+    --shadow-glow: 0 0 30px hsl(158 64% 50% / 0.15);
+
+    /* Theme-specific tokens - Soft has minimal shadows */
+    --card-shadow: 0 0 0 1px hsl(40 15% 88%);
+    --card-hover-shadow: 0 0 0 1px hsl(158 64% 40% / 0.3);
+    --card-border-width: 0px;
+    --card-transform: none;
+    --button-transform: none;
+    --interactive-scale: 1;
+  }
+
+  /* ========== 3D/MODERN THEME ========== */
+  .modern {
+    --background: 240 15% 6%;
+    --foreground: 0 0% 95%;
+
+    --card: 240 12% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 240 12% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 262 83% 68%;
+
+    --secondary: 240 10% 18%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 5% 55%;
+
+    --accent: 200 100% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 10% 20%;
+    --input: 240 10% 15%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 240 12% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 10% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 240 10% 18%;
+    --sidebar-ring: 262 83% 58%;
+
+    /* Custom design tokens for modern mode */
+    --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(200 100% 50%));
+    --gradient-subtle: linear-gradient(180deg, hsl(240 15% 6%), hsl(240 12% 10%));
+    --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.4), 0 4px 8px -4px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 20px 40px -8px rgb(0 0 0 / 0.5), 0 8px 16px -8px rgb(0 0 0 / 0.4);
+    --shadow-glow: 0 0 60px hsl(262 83% 68% / 0.25);
+
+    /* Theme-specific tokens - Modern has 3D effects */
+    --card-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.4), 0 0 0 1px hsl(240 10% 20%);
+    --card-hover-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 0 20px hsl(262 83% 58% / 0.15);
+    --card-border-width: 1px;
+    --card-transform: translateY(-2px);
+    --button-transform: translateY(-1px);
+    --interactive-scale: 1.02;
   }
 }
 
@@ -194,6 +343,53 @@ All colors MUST be HSL.
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* 3D Modern Theme Enhancements */
+  .modern-theme .card,
+  .modern [data-slot="card"],
+  .modern .rounded-lg.border {
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-color: hsl(var(--border));
+  }
+
+  .modern-theme .card:hover,
+  .modern [data-slot="card"]:hover,
+  .modern .rounded-lg.border:hover {
+    box-shadow: var(--card-hover-shadow);
+    transform: var(--card-transform);
+  }
+
+  .modern button:not(:disabled):hover,
+  .modern [role="button"]:not(:disabled):hover {
+    transform: var(--button-transform);
+  }
+
+  .modern button:not(:disabled):active,
+  .modern [role="button"]:not(:disabled):active {
+    transform: translateY(0);
+  }
+
+  /* Modern theme glow effects on focus */
+  .modern button:focus-visible,
+  .modern input:focus-visible,
+  .modern textarea:focus-visible {
+    box-shadow: 0 0 0 2px hsl(var(--background)), 
+                0 0 0 4px hsl(var(--ring)),
+                0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  /* Soft theme subtle transitions */
+  .soft button,
+  .soft input,
+  .soft textarea,
+  .soft .card {
+    transition: all 0.25s ease-out;
+  }
+
+  .soft .card:hover {
+    box-shadow: var(--card-hover-shadow);
   }
 }
 
