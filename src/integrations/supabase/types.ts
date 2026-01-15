@@ -1386,6 +1386,10 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_tasks_in_project: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
