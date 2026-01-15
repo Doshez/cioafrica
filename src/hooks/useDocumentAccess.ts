@@ -93,7 +93,13 @@ export function useDocumentAccess(
     };
   }, [itemId, fetchAccess]);
 
-  const grantAccess = async (userId: string, permission: 'view_only' | 'download' | 'edit') => {
+  const grantAccess = async (
+    userId: string, 
+    permission: 'view_only' | 'download' | 'edit',
+    itemName?: string,
+    projectId?: string,
+    projectName?: string
+  ) => {
     if (!itemId || !user) return;
 
     try {
@@ -116,6 +122,36 @@ export function useDocumentAccess(
         action: 'access_granted',
         details: { target_user_id: userId, permission },
       });
+
+      // Send email notification if we have the required info
+      if (itemName && projectId && projectName) {
+        // Get granter's name
+        const { data: granterProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        try {
+          await supabase.functions.invoke('send-email-notification', {
+            body: {
+              type: 'document_access_granted',
+              data: {
+                item_type: itemType,
+                item_name: itemName,
+                permission,
+                project_id: projectId,
+                project_name: projectName,
+                granted_by_name: granterProfile?.full_name || 'A team member',
+                recipient_user_id: userId,
+              },
+            },
+          });
+        } catch (emailError) {
+          console.error('Error sending access notification email:', emailError);
+          // Don't fail the whole operation if email fails
+        }
+      }
 
       toast({ title: 'Access granted successfully' });
       fetchAccess();

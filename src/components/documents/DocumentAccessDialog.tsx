@@ -63,6 +63,7 @@ export function DocumentAccessDialog({
   const [selectedPermission, setSelectedPermission] = useState<'view_only' | 'download' | 'edit'>('view_only');
   const [addingAccess, setAddingAccess] = useState(false);
   const [loadingRoleAccess, setLoadingRoleAccess] = useState(true);
+  const [projectName, setProjectName] = useState<string>('');
 
   useEffect(() => {
     const fetchProjectMembers = async () => {
@@ -169,9 +170,13 @@ export function DocumentAccessDialog({
         // Fetch project owner
         const { data: project } = await supabase
           .from('projects')
-          .select('owner_id')
+          .select('owner_id, name')
           .eq('id', projectId)
           .single();
+
+        if (project?.name) {
+          setProjectName(project.name);
+        }
 
         if (project?.owner_id && !addedUserIds.has(project.owner_id)) {
           const { data: ownerProfile } = await supabase
@@ -303,7 +308,7 @@ export function DocumentAccessDialog({
     try {
       // Grant access to all selected users
       for (const userId of selectedUserIds) {
-        await grantAccess(userId, selectedPermission);
+        await grantAccess(userId, selectedPermission, itemName, projectId, projectName);
       }
       setSelectedUserIds([]);
       setSelectedPermission('view_only');
