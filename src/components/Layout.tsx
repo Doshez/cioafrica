@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
@@ -15,7 +16,8 @@ import {
   UserCog,
   KeyRound,
   User,
-  MessageSquare
+  MessageSquare,
+  Palette
 } from 'lucide-react';
 import cioLogo from '@/assets/cio-africa-logo.png';
 import { cn } from '@/lib/utils';
@@ -25,6 +27,7 @@ import ChangePasswordDialog from '@/components/ChangePasswordDialog';
 import { GlobalMessagingCenter } from '@/components/GlobalMessagingCenter';
 import { useGlobalUnreadMessages } from '@/hooks/useGlobalUnreadMessages';
 import { Badge } from '@/components/ui/badge';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,11 +44,13 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { user, loading, signOut } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [messagingOpen, setMessagingOpen] = useState(false);
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
   const { totalUnreadCount } = useGlobalUnreadMessages();
 
   useEffect(() => {
@@ -118,7 +123,14 @@ export default function Layout({ children }: LayoutProps) {
         open={messagingOpen}
         onOpenChange={setMessagingOpen}
       />
-      <div className="min-h-screen gradient-subtle">
+      <ThemeSelector 
+        open={themeDialogOpen} 
+        onOpenChange={setThemeDialogOpen}
+      />
+      <div className={cn(
+        "min-h-screen gradient-subtle transition-all duration-300",
+        theme === 'modern' && "modern-theme"
+      )}>
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -190,6 +202,10 @@ export default function Layout({ children }: LayoutProps) {
                 <DropdownMenuItem onClick={() => setShowPasswordChange(true)} className="text-sm">
                   <KeyRound className="mr-2 h-4 w-4" />
                   Change Password
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setThemeDialogOpen(true)} className="text-sm">
+                  <Palette className="mr-2 h-4 w-4" />
+                  Change Theme
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="text-sm">
