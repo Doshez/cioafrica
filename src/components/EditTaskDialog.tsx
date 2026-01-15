@@ -115,7 +115,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
 
   const fetchTaskAssignments = async () => {
     if (!task?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('task_assignments')
@@ -123,7 +123,18 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
         .eq('task_id', task.id);
 
       if (error) throw error;
-      setSelectedUserIds(data?.map(a => a.user_id) || []);
+
+      const nextIds = (data || []).map((a) => a.user_id).filter(Boolean) as string[];
+
+      // Guard against unnecessary state updates (prevents render loops)
+      setSelectedUserIds((prev) => {
+        const prevSorted = [...prev].sort();
+        const nextSorted = [...nextIds].sort();
+        const same =
+          prevSorted.length === nextSorted.length &&
+          prevSorted.every((v, i) => v === nextSorted[i]);
+        return same ? prev : nextIds;
+      });
     } catch (error) {
       console.error('Error fetching task assignments:', error);
     }
@@ -261,25 +272,27 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
               <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
               <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
                 {users.map((user) => (
-                  <div 
-                    key={user.id} 
+                  <div
+                    key={user.id}
                     className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
                     onClick={() => {
-                      if (selectedUserIds.includes(user.id)) {
-                        setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
-                      } else {
-                        setSelectedUserIds([...selectedUserIds, user.id]);
-                      }
+                      setSelectedUserIds((prev) =>
+                        prev.includes(user.id)
+                          ? prev.filter((id) => id !== user.id)
+                          : [...prev, user.id]
+                      );
                     }}
                   >
                     <Checkbox
                       checked={selectedUserIds.includes(user.id)}
+                      onClick={(e) => e.stopPropagation()}
                       onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedUserIds([...selectedUserIds, user.id]);
-                        } else {
-                          setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
-                        }
+                        const isChecked = checked === true;
+                        setSelectedUserIds((prev) => {
+                          const has = prev.includes(user.id);
+                          if (isChecked) return has ? prev : [...prev, user.id];
+                          return has ? prev.filter((id) => id !== user.id) : prev;
+                        });
                       }}
                     />
                     <span className="text-sm flex-1">{user.full_name || user.email}</span>
