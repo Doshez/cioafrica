@@ -267,7 +267,19 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
     for (const item of selectedItems) {
       const [type, id] = item.split(':');
       const table = type === 'folder' ? 'document_folders' : type === 'document' ? 'documents' : 'document_links';
-      const { error } = await supabase.from(table).update({ department_id: targetDepartmentId }).eq('id', id);
+      
+      // When moving to a different department, also clear folder_id to move to root
+      const updateData: { department_id: string | null; folder_id?: null; parent_folder_id?: null } = { 
+        department_id: targetDepartmentId 
+      };
+      
+      if (type === 'folder') {
+        updateData.parent_folder_id = null;
+      } else {
+        updateData.folder_id = null;
+      }
+      
+      const { error } = await supabase.from(table).update(updateData).eq('id', id);
       if (!error) moved++;
     }
 
@@ -456,12 +468,26 @@ export function UnifiedDocumentBrowser({ projectId, departments, canManage }: Un
   // Handle moving items between departments
   const handleMoveToDepartment = async (targetDepartmentId: string | null) => {
     if (!moveItem) return;
-
+    
     const table = moveItem.type === 'folder' ? 'document_folders' : moveItem.type === 'document' ? 'documents' : 'document_links';
+    
+    // When moving to a different department, also clear folder_id to move to root
+    const updateData: { department_id: string | null; folder_id?: null; parent_folder_id?: null } = { 
+      department_id: targetDepartmentId 
+    };
+    
+    // Only clear folder when changing departments
+    if (targetDepartmentId !== moveItem.departmentId) {
+      if (moveItem.type === 'folder') {
+        updateData.parent_folder_id = null;
+      } else {
+        updateData.folder_id = null;
+      }
+    }
     
     const { error } = await supabase
       .from(table)
-      .update({ department_id: targetDepartmentId })
+      .update(updateData)
       .eq('id', moveItem.id);
 
     if (error) {
