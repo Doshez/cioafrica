@@ -373,20 +373,20 @@ export default function ProjectDetails() {
                 </Badge>
               )}
             </Button>
+            {isAdmin && (
+              <Button 
+                onClick={() => navigate(`/projects/${projectId}/reports`)}
+                className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
+                size="default"
+                variant="outline"
+              >
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden xs:inline">Reports</span>
+                <span className="xs:hidden">Reports</span>
+              </Button>
+            )}
             {(isAdmin || isProjectManager) && (
-              <>
-                <Button 
-                  onClick={() => navigate(`/projects/${projectId}/reports`)}
-                  className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
-                  size="default"
-                  variant="outline"
-                >
-                  <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="hidden xs:inline">Reports</span>
-                  <span className="xs:hidden">Reports</span>
-                </Button>
-                <ChatSettingsDialog projectId={projectId!} />
-              </>
+              <ChatSettingsDialog projectId={projectId!} />
             )}
           </div>
         </CardContent>

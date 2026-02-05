@@ -5,12 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
+import { SearchableUserSelect } from '@/components/SearchableUserSelect';
 interface CreateTaskDialogProps {
   projectId?: string;
   departmentId?: string;
@@ -360,40 +359,12 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
 
           <div className="space-y-2">
             <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
-            <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
-              {profiles.map((profile) => (
-                <div
-                  key={profile.id}
-                  className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                  onClick={() => {
-                    setSelectedUserIds((prev) =>
-                      prev.includes(profile.id)
-                        ? prev.filter((id) => id !== profile.id)
-                        : [...prev, profile.id]
-                    );
-                  }}
-                >
-                  <Checkbox
-                    checked={selectedUserIds.includes(profile.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onCheckedChange={(checked) => {
-                      const isChecked = checked === true;
-                      setSelectedUserIds((prev) => {
-                        const has = prev.includes(profile.id);
-                        if (isChecked) return has ? prev : [...prev, profile.id];
-                        return has ? prev.filter((id) => id !== profile.id) : prev;
-                      });
-                    }}
-                  />
-                  <span className="text-sm flex-1">{profile.full_name || profile.email}</span>
-                </div>
-              ))}
-            </div>
-            {selectedUserIds.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {selectedUserIds.length} user(s) selected
-              </p>
-            )}
+            <SearchableUserSelect
+              users={profiles}
+              selectedUserIds={selectedUserIds}
+              onSelectionChange={setSelectedUserIds}
+              placeholder="Search by name or email..."
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
