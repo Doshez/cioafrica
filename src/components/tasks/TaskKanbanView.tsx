@@ -66,29 +66,31 @@ export function TaskKanbanView({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {COLUMNS.map(column => (
-        <div
-          key={column.id}
-          className={`rounded-lg border-2 transition-colors ${
-            dragOverColumn === column.id 
-              ? 'border-primary bg-primary/5' 
-              : 'border-transparent bg-muted/30'
-          }`}
-          onDragOver={(e) => handleDragOver(e, column.id)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, column.id)}
-        >
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div className={`w-3 h-3 rounded-full ${column.color}`} />
-              <h3 className="font-semibold">{column.label}</h3>
-              <Badge variant="outline" className="ml-auto">
-                {getTasksByStatus(column.id).length}
-              </Badge>
+    <div className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 overflow-hidden">
+        {COLUMNS.map(column => (
+          <div
+            key={column.id}
+            className={`flex flex-col rounded-lg border-2 transition-colors overflow-hidden ${
+              dragOverColumn === column.id 
+                ? 'border-primary bg-primary/5' 
+                : 'border-transparent bg-muted/30'
+            }`}
+            onDragOver={(e) => handleDragOver(e, column.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, column.id)}
+          >
+            <div className="p-4 border-b bg-background/50">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${column.color}`} />
+                <h3 className="font-semibold">{column.label}</h3>
+                <Badge variant="outline" className="ml-auto">
+                  {getTasksByStatus(column.id).length}
+                </Badge>
+              </div>
             </div>
 
-            <div className="space-y-3 min-h-[200px]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {getTasksByStatus(column.id).map(task => {
                 const taskOverdue = isOverdue(task.due_date, task.status);
                 const progress = task.progress_percentage ?? (task.status === 'done' ? 100 : task.status === 'in_progress' ? 50 : 0);
@@ -178,10 +180,15 @@ export function TaskKanbanView({
                   </Card>
                 );
               })}
+              {getTasksByStatus(column.id).length === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-8">
+                  No tasks
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
