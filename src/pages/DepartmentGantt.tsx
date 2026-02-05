@@ -274,6 +274,18 @@ export default function DepartmentGantt() {
     }
   };
 
+  // Compute local analytics from actual tasks (always in sync)
+  const computedAnalytics = {
+    department_id: departmentId || '',
+    total_tasks: tasks.length,
+    completed_tasks: tasks.filter(t => t.status === 'done').length,
+    in_progress_tasks: tasks.filter(t => t.status === 'in_progress').length,
+    todo_tasks: tasks.filter(t => t.status === 'todo' || !t.status).length,
+    completion_percentage: tasks.length > 0 
+      ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) 
+      : 0,
+  };
+
   // Filter tasks based on user role, assignment, and user filters
   const filteredTasks = tasks.filter(task => {
     // First apply role-based visibility filter
@@ -623,7 +635,7 @@ export default function DepartmentGantt() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
-              <p className="text-3xl font-bold">{analytics?.total_tasks || 0}</p>
+              <p className="text-3xl font-bold">{computedAnalytics.total_tasks}</p>
             </div>
           </CardContent>
         </Card>
@@ -632,7 +644,7 @@ export default function DepartmentGantt() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">To Do</p>
-              <p className="text-3xl font-bold text-gray-600">{analytics?.todo_tasks || 0}</p>
+              <p className="text-3xl font-bold text-muted-foreground">{computedAnalytics.todo_tasks}</p>
             </div>
           </CardContent>
         </Card>
@@ -641,7 +653,7 @@ export default function DepartmentGantt() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-              <p className="text-3xl font-bold text-blue-600">{analytics?.in_progress_tasks || 0}</p>
+              <p className="text-3xl font-bold text-primary">{computedAnalytics.in_progress_tasks}</p>
             </div>
           </CardContent>
         </Card>
@@ -650,10 +662,10 @@ export default function DepartmentGantt() {
           <CardContent className="pt-6">
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">Completed</p>
-              <p className="text-3xl font-bold text-green-600">{analytics?.completed_tasks || 0}</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-500">{computedAnalytics.completed_tasks}</p>
               <div className="space-y-1">
-                <Progress value={Number(analytics?.completion_percentage || 0)} className="h-2" />
-                <p className="text-xs text-muted-foreground">{Number(analytics?.completion_percentage || 0).toFixed(0)}% Complete</p>
+                <Progress value={computedAnalytics.completion_percentage} className="h-2" />
+                <p className="text-xs text-muted-foreground">{computedAnalytics.completion_percentage}% Complete</p>
               </div>
             </div>
           </CardContent>
