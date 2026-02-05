@@ -24,6 +24,7 @@ import GanttDocumentation from "./pages/GanttDocumentation";
 import ProjectGanttChartPage from "./pages/ProjectGanttChartPage";
 import ProjectAnalytics from "./pages/ProjectAnalytics";
 import ProjectDocuments from "./pages/ProjectDocuments";
+import ProjectReportSettings from "./pages/ProjectReportSettings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ const App: React.FC = () => (
                 <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
                 <Route path="/projects/:projectId/analytics" element={<Layout><ProjectAnalytics /></Layout>} />
                 <Route path="/projects/:projectId/documents" element={<Layout><ProjectDocuments /></Layout>} />
+                <Route path="/projects/:projectId/reports" element={<ProjectReportSettings />} />
                 <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
                 <Route path="/admin" element={<Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout>} />
                 <Route path="/admin/users" element={<Layout><AdminRoute><UserManagement /></AdminRoute></Layout>} />

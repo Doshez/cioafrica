@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.check-overdue-tasks]
 verify_jwt = false
+
+[functions.send-project-report]
+verify_jwt = false
+
+[functions.process-scheduled-reports]
+verify_jwt = false

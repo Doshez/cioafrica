@@ -31,7 +31,8 @@ import {
   BarChart3,
   Search,
   LayoutGrid,
-  Table
+  Table,
+  FileText
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
@@ -373,7 +374,19 @@ export default function ProjectDetails() {
               )}
             </Button>
             {(isAdmin || isProjectManager) && (
-              <ChatSettingsDialog projectId={projectId!} />
+              <>
+                <Button 
+                  onClick={() => navigate(`/projects/${projectId}/reports`)}
+                  className="gap-1.5 sm:gap-2 text-xs sm:text-sm"
+                  size="default"
+                  variant="outline"
+                >
+                  <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="hidden xs:inline">Reports</span>
+                  <span className="xs:hidden">Reports</span>
+                </Button>
+                <ChatSettingsDialog projectId={projectId!} />
+              </>
             )}
           </div>
         </CardContent>
