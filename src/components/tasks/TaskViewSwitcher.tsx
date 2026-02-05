@@ -58,19 +58,6 @@ export function TaskViewSwitcher({
             </Button>
           ))}
         </div>
-
-        {/* My Tasks Toggle */}
-        {currentUserId && (
-          <Toggle
-            pressed={filters.myTasks}
-            onPressedChange={(pressed) => updateFilter('myTasks', pressed)}
-            aria-label="Show my tasks only"
-            className="gap-2"
-          >
-            <User className="h-4 w-4" />
-            <span className="hidden sm:inline">My Tasks</span>
-          </Toggle>
-        )}
       </div>
 
       {/* Filters Row */}

@@ -307,7 +307,7 @@ export function TaskTableView({
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
+                      <span className="text-xs text-muted-foreground">Unassigned</span>
                     )}
                   </TableCell>
                   <TableCell>
