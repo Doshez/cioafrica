@@ -16,7 +16,8 @@ export function TaskKanbanView({
   tasks, 
   onStatusUpdate, 
   onEditTask,
-  canEdit = true 
+  canEdit = true,
+  showProject = false
 }: TaskViewProps) {
   const [draggedTask, setDraggedTask] = useState<TaskWithProfile | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -139,6 +140,11 @@ export function TaskKanbanView({
                           {task.element_name && (
                             <Badge variant="outline" className="text-xs">
                               {task.element_name}
+                            </Badge>
+                          )}
+                          {showProject && task.projects && (
+                            <Badge variant="outline" className="text-xs">
+                              {task.projects.name}
                             </Badge>
                           )}
                         </div>

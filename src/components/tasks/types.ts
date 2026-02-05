@@ -21,6 +21,17 @@ export interface TaskWithProfile {
   element_id?: string;
   element_name?: string;
   project_id?: string;
+  profiles?: {
+    full_name: string | null;
+    email: string;
+  } | null;
+  projects?: {
+    name: string;
+  } | null;
+  elements?: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 export interface Element {
@@ -41,6 +52,7 @@ export interface TaskViewProps {
   onDeleteTask?: (taskId: string) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  showProject?: boolean;
 }
 
 export interface TaskFilters {
@@ -49,4 +61,5 @@ export interface TaskFilters {
   priority: string;
   assignee: string;
   myTasks: boolean;
+  project?: string;
 }

@@ -20,7 +20,8 @@ export function TaskTableView({
   onEditTask,
   onDeleteTask,
   canEdit = true,
-  canDelete = false
+  canDelete = false,
+  showProject = false
 }: TaskViewProps) {
   const [sortField, setSortField] = useState<SortField>('due_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -194,6 +195,9 @@ export function TaskTableView({
                       <span className="font-medium">{task.title}</span>
                       {task.element_name && (
                         <span className="text-xs text-muted-foreground">{task.element_name}</span>
+                      )}
+                      {showProject && task.projects && (
+                        <span className="text-xs text-muted-foreground">{task.projects.name}</span>
                       )}
                     </div>
                   </TableCell>

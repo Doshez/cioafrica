@@ -5,12 +5,19 @@ import { Toggle } from '@/components/ui/toggle';
 import { Search, Filter, List, Columns, Table, Calendar, User } from 'lucide-react';
 import type { ViewType, TaskFilters } from './types';
 
+interface Project {
+  id: string;
+  name: string;
+}
+
 interface TaskViewSwitcherProps {
   viewType: ViewType;
   onViewChange: (view: ViewType) => void;
   filters: TaskFilters;
   onFiltersChange: (filters: TaskFilters) => void;
   currentUserId?: string;
+  projects?: Project[];
+  showProjectFilter?: boolean;
 }
 
 export function TaskViewSwitcher({ 
@@ -18,7 +25,9 @@ export function TaskViewSwitcher({
   onViewChange, 
   filters, 
   onFiltersChange,
-  currentUserId 
+  currentUserId,
+  projects = [],
+  showProjectFilter = false
 }: TaskViewSwitcherProps) {
   const updateFilter = (key: keyof TaskFilters, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -77,6 +86,22 @@ export function TaskViewSwitcher({
           />
         </div>
 
+        {/* Project Filter */}
+        {showProjectFilter && projects.length > 0 && (
+          <Select value={filters.project || 'all'} onValueChange={(v) => updateFilter('project', v)}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects.map(project => (
+                <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Status Filter */}
         <Select value={filters.status} onValueChange={(v) => updateFilter('status', v)}>
           <SelectTrigger className="w-[140px]">
@@ -85,6 +110,7 @@ export function TaskViewSwitcher({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
             <SelectItem value="todo">To Do</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="done">Done</SelectItem>
@@ -106,7 +132,7 @@ export function TaskViewSwitcher({
         </Select>
 
         {/* Clear Filters */}
-        {(filters.search || filters.status !== 'all' || filters.priority !== 'all' || filters.myTasks) && (
+        {(filters.search || filters.status !== 'all' || filters.priority !== 'all' || filters.myTasks || (filters.project && filters.project !== 'all')) && (
           <Button
             variant="ghost"
             size="sm"
@@ -116,6 +142,7 @@ export function TaskViewSwitcher({
               priority: 'all',
               assignee: 'all',
               myTasks: false,
+              project: 'all',
             })}
           >
             Clear filters
