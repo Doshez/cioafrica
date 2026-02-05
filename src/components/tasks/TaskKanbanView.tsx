@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Edit, User, GripVertical } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { Clock, Edit, User, GripVertical } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import type { TaskViewProps, TaskWithProfile } from './types';
 
 const COLUMNS = [
@@ -14,7 +14,8 @@ const COLUMNS = [
 
 export function TaskKanbanView({ 
   tasks, 
-  onStatusUpdate, 
+  onStatusUpdate,
+  onProgressUpdate,
   onEditTask,
   canEdit = true,
   showProject = false
@@ -47,8 +48,25 @@ export function TaskKanbanView({
     
     if (draggedTask && draggedTask.status !== newStatus) {
       onStatusUpdate(draggedTask.id, newStatus);
+      // Auto-adjust progress when moving between columns
+      if (newStatus === 'done') {
+        onProgressUpdate(draggedTask.id, 100);
+      } else if (newStatus === 'in_progress' && draggedTask.status === 'done') {
+        onProgressUpdate(draggedTask.id, 99);
+      }
     }
     setDraggedTask(null);
+  };
+
+  const handleProgressChange = (taskId: string, currentStatus: string, newProgress: number) => {
+    onProgressUpdate(taskId, newProgress);
+    
+    // Auto-update status based on progress
+    if (newProgress === 100 && currentStatus !== 'done') {
+      onStatusUpdate(taskId, 'done');
+    } else if (newProgress < 100 && currentStatus === 'done') {
+      onStatusUpdate(taskId, 'in_progress');
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -151,13 +169,28 @@ export function TaskKanbanView({
                           )}
                         </div>
 
-                        {/* Progress bar */}
-                        <div className="space-y-1">
+                        {/* Interactive Progress slider */}
+                        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Progress</span>
-                            <span>{progress}%</span>
+                            <span className="font-medium">{progress}%</span>
                           </div>
-                          <Progress value={progress} className="h-1.5" />
+                          {canEdit ? (
+                            <Slider
+                              value={[progress]}
+                              onValueChange={(value) => handleProgressChange(task.id, task.status, value[0])}
+                              max={100}
+                              step={10}
+                              className="h-2 cursor-pointer"
+                            />
+                          ) : (
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary transition-all" 
+                                style={{ width: `${progress}%` }} 
+                              />
+                            </div>
+                          )}
                         </div>
 
                         {/* Dates and assignees */}
