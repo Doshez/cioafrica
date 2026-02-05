@@ -18,6 +18,7 @@ import { DepartmentDocumentBrowser } from '@/components/documents/DepartmentDocu
 import { DepartmentLeadDialog } from '@/components/DepartmentLeadDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useDepartmentLead } from '@/hooks/useDepartmentLead';
+import { useViewPreference } from '@/hooks/useViewPreference';
 import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical, Folder } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,8 +38,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  TaskViewSwitcher,
+  TaskKanbanView,
+  TaskTableView,
+  TaskCalendarView,
+  TaskDetailDrawer,
+  type ViewType,
+  type TaskFilters,
+  type TaskWithProfile as TaskType,
+} from '@/components/tasks';
 
 interface Department {
   id: string;
@@ -102,6 +111,7 @@ export default function DepartmentGantt() {
   const { toast } = useToast();
   const { isAdmin, isProjectManager } = useUserRole();
   const { isCurrentUserLead } = useDepartmentLead(departmentId);
+  const { viewType, setViewType } = useViewPreference(departmentId);
 
   const [department, setDepartment] = useState<Department | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -109,10 +119,15 @@ export default function DepartmentGantt() {
   const [elements, setElements] = useState<Element[]>([]);
   const [analytics, setAnalytics] = useState<DepartmentAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterPriority, setFilterPriority] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<TaskFilters>({
+    search: '',
+    status: 'all',
+    priority: 'all',
+    assignee: 'all',
+    myTasks: false,
+  });
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [drawerTask, setDrawerTask] = useState<TaskType | null>(null);
   const [editingElement, setEditingElement] = useState<{ id: string; title: string; description?: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [hasAssignedTasks, setHasAssignedTasks] = useState(false);
@@ -259,7 +274,7 @@ export default function DepartmentGantt() {
     }
   };
 
-  // Filter tasks based on user role and assignment
+  // Filter tasks based on user role, assignment, and user filters
   const filteredTasks = tasks.filter(task => {
     // First apply role-based visibility filter
     // Admins and project managers can see all tasks
@@ -272,10 +287,19 @@ export default function DepartmentGantt() {
       }
     }
     
+    // Apply "My Tasks" filter
+    if (filters.myTasks && currentUserId) {
+      const isAssignedViaAssignments = task.assigned_users?.some(u => u.id === currentUserId);
+      const isAssignedLegacy = task.assignee_user_id === currentUserId;
+      if (!isAssignedViaAssignments && !isAssignedLegacy) {
+        return false;
+      }
+    }
+    
     // Then apply user-selected filters
-    if (filterStatus !== 'all' && task.status !== filterStatus) return false;
-    if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
-    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (filters.status !== 'all' && task.status !== filters.status) return false;
+    if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
+    if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
     return true;
   });
 
@@ -404,6 +428,42 @@ export default function DepartmentGantt() {
         .single();
       
       if (analyticsData) setAnalytics(analyticsData);
+    } catch (error: any) {
+      // Revert optimistic update on error
+      fetchData();
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDateUpdate = async (taskId: string, field: 'start_date' | 'due_date', date: string) => {
+    const currentTask = tasks.find(t => t.id === taskId);
+    if (!currentTask || currentTask[field] === date) return;
+
+    // Optimistically update local state
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? { ...task, [field]: date } 
+          : task
+      )
+    );
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ [field]: date || null })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Date updated successfully',
+      });
     } catch (error: any) {
       // Revert optimistic update on error
       fetchData();
@@ -610,10 +670,10 @@ export default function DepartmentGantt() {
         </Card>
       )}
 
-      <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager || isCurrentUserLead ? "list" : "gantt"} className="w-full">
+      <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager || isCurrentUserLead ? "tasks" : "gantt"} className="w-full">
         <TabsList className="grid w-full max-w-lg grid-cols-3">
-          <TabsTrigger value="list" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager && !isCurrentUserLead}>
-            List View
+          <TabsTrigger value="tasks" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager && !isCurrentUserLead}>
+            Tasks
           </TabsTrigger>
           <TabsTrigger value="gantt">Gantt Chart</TabsTrigger>
           <TabsTrigger value="documents">
@@ -622,71 +682,22 @@ export default function DepartmentGantt() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="space-y-4">
-          {/* Filters */}
+        <TabsContent value="tasks" className="space-y-4">
+          {/* View Switcher and Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex-1 min-w-[200px] relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search tasks..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="todo">To Do</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by priority" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="all">All Priority</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <TaskViewSwitcher
+                viewType={viewType}
+                onViewChange={setViewType}
+                filters={filters}
+                onFiltersChange={setFilters}
+                currentUserId={currentUserId || undefined}
+              />
             </CardContent>
           </Card>
 
-          {/* Tasks by Element Columns */}
-          {elements.length > 0 || filteredTasks.length > 0 ? (
-            <TasksByElementView
-              tasks={filteredTasks}
-              elements={elements}
-              onStatusUpdate={handleStatusUpdate}
-              onProgressUpdate={handleProgressUpdate}
-              onEditTask={(task) => setEditingTask({
-                ...task,
-                project_id: projectId,
-                assignee_department_id: departmentId
-              })}
-              onEditElement={(id, name) => {
-                const element = elements.find(e => e.id === id);
-                if (element) {
-                  setEditingElement({ id, title: name, description: element.description });
-                }
-              }}
-              onDeleteElement={handleDeleteElement}
-              onDeleteTask={handleDeleteTask}
-              canDelete={isAdmin || isProjectManager}
-            />
-          ) : (
+          {/* Render the selected view */}
+          {filteredTasks.length === 0 && elements.length === 0 ? (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center text-muted-foreground">
@@ -696,6 +707,64 @@ export default function DepartmentGantt() {
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <>
+              {viewType === 'list' && (
+                <TasksByElementView
+                  tasks={filteredTasks}
+                  elements={elements}
+                  onStatusUpdate={handleStatusUpdate}
+                  onProgressUpdate={handleProgressUpdate}
+                  onEditTask={(task) => setDrawerTask(task as TaskType)}
+                  onEditElement={(id, name) => {
+                    const element = elements.find(e => e.id === id);
+                    if (element) {
+                      setEditingElement({ id, title: name, description: element.description });
+                    }
+                  }}
+                  onDeleteElement={handleDeleteElement}
+                  onDeleteTask={handleDeleteTask}
+                  canDelete={isAdmin || isProjectManager}
+                />
+              )}
+
+              {viewType === 'kanban' && (
+                <TaskKanbanView
+                  tasks={filteredTasks}
+                  elements={elements}
+                  onStatusUpdate={handleStatusUpdate}
+                  onProgressUpdate={handleProgressUpdate}
+                  onEditTask={(task) => setDrawerTask(task as TaskType)}
+                  canEdit={isAdmin || isProjectManager || isCurrentUserLead || hasAssignedTasks}
+                />
+              )}
+
+              {viewType === 'table' && (
+                <TaskTableView
+                  tasks={filteredTasks}
+                  elements={elements}
+                  onStatusUpdate={handleStatusUpdate}
+                  onProgressUpdate={handleProgressUpdate}
+                  onDateUpdate={handleDateUpdate}
+                  onEditTask={(task) => setDrawerTask(task as TaskType)}
+                  onDeleteTask={handleDeleteTask}
+                  canEdit={isAdmin || isProjectManager || isCurrentUserLead || hasAssignedTasks}
+                  canDelete={isAdmin || isProjectManager}
+                />
+              )}
+
+              {viewType === 'calendar' && (
+                <TaskCalendarView
+                  tasks={filteredTasks}
+                  elements={elements}
+                  onStatusUpdate={handleStatusUpdate}
+                  onProgressUpdate={handleProgressUpdate}
+                  onDateUpdate={handleDateUpdate}
+                  onEditTask={(task) => setDrawerTask(task as TaskType)}
+                  canEdit={isAdmin || isProjectManager || isCurrentUserLead || hasAssignedTasks}
+                />
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -716,6 +785,15 @@ export default function DepartmentGantt() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Task Detail Drawer */}
+      <TaskDetailDrawer
+        task={drawerTask}
+        open={!!drawerTask}
+        onOpenChange={(open) => !open && setDrawerTask(null)}
+        onTaskUpdated={fetchTasksAndAnalytics}
+        canEdit={isAdmin || isProjectManager || isCurrentUserLead || (drawerTask?.assigned_users?.some(u => u.id === currentUserId) ?? false)}
+      />
 
       <EditTaskDialog
         open={!!editingTask}
