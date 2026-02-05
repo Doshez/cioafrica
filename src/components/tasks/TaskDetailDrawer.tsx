@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,10 +7,27 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Percent, Save, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar, Clock, User, Percent, Save, X, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { TaskWithProfile } from './types';
+
+interface UserProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
 
 interface TaskDetailDrawerProps {
   task: TaskWithProfile | null;
@@ -18,7 +35,9 @@ interface TaskDetailDrawerProps {
   onOpenChange: (open: boolean) => void;
   onTaskUpdated?: () => void;
   onUpdate?: (updates: Partial<TaskWithProfile>) => void;
+  onDelete?: (taskId: string) => void;
   canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 export function TaskDetailDrawer({ 
@@ -27,10 +46,17 @@ export function TaskDetailDrawer({
   onOpenChange, 
   onTaskUpdated,
   onUpdate,
-  canEdit = true 
+  onDelete,
+  canEdit = true,
+  canDelete = true
 }: TaskDetailDrawerProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const loadedTaskIdRef = useRef<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,6 +82,59 @@ export function TaskDetailDrawer({
       });
     }
   }, [task]);
+
+  // Fetch users and task assignments when drawer opens
+  useEffect(() => {
+    if (!open || !task?.id) {
+      return;
+    }
+    
+    if (loadedTaskIdRef.current === task.id) {
+      return;
+    }
+    
+    loadedTaskIdRef.current = task.id;
+    
+    const loadData = async () => {
+      setDataLoading(true);
+      try {
+        const [usersResult, assignmentsResult] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email').order('full_name'),
+          supabase.from('task_assignments').select('user_id').eq('task_id', task.id)
+        ]);
+
+        if (usersResult.error) throw usersResult.error;
+        if (assignmentsResult.error) throw assignmentsResult.error;
+
+        setUsers(usersResult.data || []);
+        const assignedIds = (assignmentsResult.data || []).map(a => a.user_id).filter(Boolean) as string[];
+        setSelectedUserIds(assignedIds);
+      } catch (error) {
+        console.error('Error loading task data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadData();
+  }, [open, task?.id]);
+
+  // Reset loaded task ref when drawer closes
+  useEffect(() => {
+    if (!open) {
+      loadedTaskIdRef.current = null;
+    }
+  }, [open]);
+
+  const handleUserToggle = useCallback((userId: string, checked: boolean) => {
+    setSelectedUserIds(prev => {
+      if (checked) {
+        return prev.includes(userId) ? prev : [...prev, userId];
+      } else {
+        return prev.filter(id => id !== userId);
+      }
+    });
+  }, []);
 
   const handleSave = async () => {
     if (!task) return;
@@ -91,7 +170,28 @@ export function TaskDetailDrawer({
 
       if (error) throw error;
 
-      toast({ title: 'Success', description: 'Task updated successfully' });
+      // Update task assignments
+      const { error: deleteError } = await supabase
+        .from('task_assignments')
+        .delete()
+        .eq('task_id', task.id);
+
+      if (deleteError) throw deleteError;
+
+      if (selectedUserIds.length > 0) {
+        const assignments = selectedUserIds.map(userId => ({
+          task_id: task.id,
+          user_id: userId,
+        }));
+        
+        const { error: assignError } = await supabase
+          .from('task_assignments')
+          .insert(assignments);
+
+        if (assignError) throw assignError;
+      }
+
+      toast({ title: 'Success', description: `Task updated with ${selectedUserIds.length} assigned user(s)` });
       
       // Call the appropriate callback
       if (onUpdate) {
@@ -138,9 +238,38 @@ export function TaskDetailDrawer({
     setFormData(prev => ({ ...prev, status, progress_percentage: progress }));
   };
 
+  const handleDelete = async () => {
+    if (!task) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Success', description: 'Task deleted successfully' });
+      if (onDelete) {
+        onDelete(task.id);
+      }
+      if (onTaskUpdated) {
+        onTaskUpdated();
+      }
+      setShowDeleteDialog(false);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const isOverdue = task?.due_date && task.status !== 'done' && new Date(task.due_date) < new Date();
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
@@ -276,22 +405,42 @@ export function TaskDetailDrawer({
             />
           </div>
 
-          {/* Assigned Users */}
-          {task?.assigned_users && task.assigned_users.length > 0 && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Assigned To
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {task.assigned_users.map(user => (
-                  <Badge key={user.id} variant="secondary">
-                    {user.name}
-                  </Badge>
+          {/* Assigned Users - Editable */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Assign To (Multiple Users)
+            </Label>
+            {dataLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading users...</span>
+              </div>
+            ) : (
+              <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    className={`flex items-center gap-3 p-2 rounded ${canEdit ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                    onClick={() => canEdit && handleUserToggle(user.id, !selectedUserIds.includes(user.id))}
+                  >
+                    <Checkbox
+                      checked={selectedUserIds.includes(user.id)}
+                      onCheckedChange={(checked) => handleUserToggle(user.id, checked === true)}
+                      onClick={(e) => e.stopPropagation()}
+                      disabled={!canEdit}
+                    />
+                    <span className="text-sm flex-1">{user.full_name || user.email}</span>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            {selectedUserIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedUserIds.length} user(s) selected
+              </p>
+            )}
+          </div>
 
           {/* Element */}
           {task?.element_name && (
@@ -303,19 +452,54 @@ export function TaskDetailDrawer({
 
           {/* Actions */}
           {canEdit && (
-            <div className="flex gap-2 pt-4">
-              <Button onClick={handleSave} disabled={saving} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
+            <div className="flex justify-between pt-4">
+              {canDelete && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={saving}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
             </div>
           )}
         </div>
       </SheetContent>
     </Sheet>
+
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Task</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this task? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={saving}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
