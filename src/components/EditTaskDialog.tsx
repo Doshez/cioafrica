@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2 } from 'lucide-react';
+import { SearchableUserSelect } from '@/components/SearchableUserSelect';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -139,15 +139,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     }
   }, [open]);
 
-  const handleUserToggle = useCallback((userId: string, checked: boolean) => {
-    setSelectedUserIds(prev => {
-      if (checked) {
-        return prev.includes(userId) ? prev : [...prev, userId];
-      } else {
-        return prev.filter(id => id !== userId);
-      }
-    });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,27 +286,12 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
 
               <div className="space-y-2">
                 <Label htmlFor="assignees">Assign To (Multiple Users)</Label>
-                <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
-                  {users.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                      onClick={() => handleUserToggle(user.id, !selectedUserIds.includes(user.id))}
-                    >
-                      <Checkbox
-                        checked={selectedUserIds.includes(user.id)}
-                        onCheckedChange={(checked) => handleUserToggle(user.id, checked === true)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <span className="text-sm flex-1">{user.full_name || user.email}</span>
-                    </div>
-                  ))}
-                </div>
-                {selectedUserIds.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedUserIds.length} user(s) selected
-                  </p>
-                )}
+                <SearchableUserSelect
+                  users={users}
+                  selectedUserIds={selectedUserIds}
+                  onSelectionChange={setSelectedUserIds}
+                  placeholder="Search by name or email..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
