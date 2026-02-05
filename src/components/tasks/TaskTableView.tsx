@@ -108,8 +108,9 @@ export function TaskTableView({
   };
 
   return (
-    <div className="rounded-md border overflow-x-auto">
-      <Table>
+    <div className="flex flex-col h-[calc(100vh-280px)] min-h-[400px] rounded-md border">
+      <div className="flex-1 overflow-auto">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">
@@ -339,6 +340,7 @@ export function TaskTableView({
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }
