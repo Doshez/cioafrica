@@ -16,7 +16,8 @@ interface TaskDetailDrawerProps {
   task: TaskWithProfile | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTaskUpdated: () => void;
+  onTaskUpdated?: () => void;
+  onUpdate?: (updates: Partial<TaskWithProfile>) => void;
   canEdit?: boolean;
 }
 
@@ -25,6 +26,7 @@ export function TaskDetailDrawer({
   open, 
   onOpenChange, 
   onTaskUpdated,
+  onUpdate,
   canEdit = true 
 }: TaskDetailDrawerProps) {
   const { toast } = useToast();
@@ -90,7 +92,23 @@ export function TaskDetailDrawer({
       if (error) throw error;
 
       toast({ title: 'Success', description: 'Task updated successfully' });
-      onTaskUpdated();
+      
+      // Call the appropriate callback
+      if (onUpdate) {
+        onUpdate({
+          title: formData.title,
+          description: formData.description || undefined,
+          status,
+          priority: formData.priority,
+          progress_percentage: progress,
+          start_date: formData.start_date || '',
+          due_date: formData.due_date || '',
+          estimate_hours: formData.estimate_hours ? parseFloat(formData.estimate_hours) : undefined,
+        });
+      }
+      if (onTaskUpdated) {
+        onTaskUpdated();
+      }
       onOpenChange(false);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
