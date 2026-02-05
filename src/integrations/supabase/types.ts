@@ -918,6 +918,114 @@ export type Database = {
           },
         ]
       }
+      project_report_recipients: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          name: string | null
+          project_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          project_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_report_recipients_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_report_recipients_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_report_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          frequency: string
+          id: string
+          include_department_summary: boolean
+          include_smart_insights: boolean
+          include_user_activity: boolean
+          last_sent_at: string | null
+          project_id: string
+          send_time: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_department_summary?: boolean
+          include_smart_insights?: boolean
+          include_user_activity?: boolean
+          last_sent_at?: string | null
+          project_id: string
+          send_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          include_department_summary?: boolean
+          include_smart_insights?: boolean
+          include_user_activity?: boolean
+          last_sent_at?: string | null
+          project_id?: string
+          send_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_report_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_report_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string | null
