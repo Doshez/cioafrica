@@ -34,8 +34,8 @@ const corsHeaders = {
 };
 
 interface EmailNotificationRequest {
-  type: 'chat_message' | 'task_overdue' | 'task_completed' | 'document_access_granted';
-  data: ChatMessageData | TaskOverdueData | TaskCompletedData | DocumentAccessData;
+  type: 'chat_message' | 'task_overdue' | 'task_completed' | 'document_access_granted' | 'external_user_activity';
+  data: ChatMessageData | TaskOverdueData | TaskCompletedData | DocumentAccessData | ExternalUserActivityData;
 }
 
 interface DocumentAccessData {
@@ -46,6 +46,20 @@ interface DocumentAccessData {
   project_name: string;
   granted_by_name: string;
   recipient_user_id: string;
+}
+
+interface ExternalUserActivityData {
+  external_user_id: string;
+  external_user_name: string;
+  external_user_email: string;
+  department_id: string;
+  department_name: string;
+  project_id: string;
+  project_name: string;
+  action: 'document_upload' | 'document_download' | 'document_view' | 'document_edit' | 'link_access' | 'link_created';
+  item_type: 'document' | 'link' | 'folder';
+  item_name: string;
+  item_id?: string;
 }
 
 interface ChatMessageData {
@@ -387,6 +401,127 @@ const handler = async (req: Request): Promise<Response> => {
 
         emails.push({ to: profile.email, subject, html });
       }
+    } else if (type === 'external_user_activity') {
+      const activityData = data as ExternalUserActivityData;
+      const ctaLink = `${baseUrl}/projects/${activityData.project_id}/department/${activityData.department_id}`;
+      
+      // Get action label for display
+      const actionLabels: Record<string, string> = {
+        'document_upload': '📤 Uploaded a document',
+        'document_download': '📥 Downloaded a document',
+        'document_view': '👁️ Viewed a document',
+        'document_edit': '✏️ Edited a document',
+        'link_access': '🔗 Accessed a shared link',
+        'link_created': '🔗 Created/shared a link',
+      };
+      
+      const actionLabel = actionLabels[activityData.action] || activityData.action;
+      const itemTypeLabel = activityData.item_type === 'document' ? 'Document' : 
+                            activityData.item_type === 'link' ? 'Link' : 'Folder';
+      
+      // Determine risk level for subject line
+      const isHighRisk = ['document_upload', 'document_edit', 'link_created'].includes(activityData.action);
+      const riskEmoji = isHighRisk ? '⚠️ ' : '';
+      
+      const subject = `${riskEmoji}External User Activity: ${activityData.external_user_name} - ${activityData.department_name}`;
+      
+      // Get department leads
+      const { data: departmentLeads, error: leadsError } = await supabase
+        .from('department_leads')
+        .select('user_id')
+        .eq('department_id', activityData.department_id);
+      
+      if (leadsError) {
+        console.error('Error fetching department leads:', leadsError);
+      }
+      
+      const leadUserIds = departmentLeads?.map(l => l.user_id) || [];
+      
+      if (leadUserIds.length === 0) {
+        console.log('No department leads found for notification');
+      } else {
+        // Get lead profiles with emails
+        const { data: leadProfiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .in('id', leadUserIds);
+        
+        if (profileError) {
+          console.error('Error fetching lead profiles:', profileError);
+        }
+        
+        const timestamp = new Date().toISOString();
+        const formattedTime = new Date(timestamp).toLocaleString('en-US', {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        for (const profile of leadProfiles || []) {
+          if (!profile.email) continue;
+          
+          const body = `
+            <p style="margin: 0 0 16px; color: #334155; font-size: 14px;">
+              An external user has performed an action on documents in your department:
+            </p>
+            
+            <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; width: 140px;"><strong>External User</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${activityData.external_user_name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;"><strong>Email</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${activityData.external_user_email}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;"><strong>Department</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${activityData.department_name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;"><strong>${itemTypeLabel}</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${activityData.item_name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;"><strong>Action</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${actionLabel}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b;"><strong>Date & Time</strong></td>
+                  <td style="padding: 8px 0; color: #1e293b;">${formattedTime}</td>
+                </tr>
+              </table>
+            </div>
+            
+            ${isHighRisk ? `
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0;">
+              <p style="margin: 0; color: #92400e; font-size: 13px;">
+                <strong>⚠️ High-Risk Action:</strong> This action may require your attention. Please review the activity log.
+              </p>
+            </div>
+            ` : ''}
+            
+            <p style="margin: 16px 0 0; color: #64748b; font-size: 13px;">
+              All external user activities are logged for audit purposes. Click below to view the full activity log.
+            </p>
+          `;
+          
+          const html = generateEmailHtml(
+            `📋 External User Activity Alert`,
+            body,
+            'View Activity Log',
+            ctaLink,
+            `This notification is from ${activityData.project_name} on CIO Africa Project Planner`
+          );
+          
+          emails.push({ to: profile.email, subject, html });
+        }
+      }
     }
 
     // Send all emails
@@ -470,6 +605,36 @@ const handler = async (req: Request): Promise<Response> => {
         message: `${accessData.granted_by_name} granted you ${permissionLabel} access to "${accessData.item_name}"`,
         type: 'document_access',
       });
+    } else if (type === 'external_user_activity') {
+      const activityData = data as ExternalUserActivityData;
+      
+      // Get action label for display
+      const actionLabels: Record<string, string> = {
+        'document_upload': 'uploaded',
+        'document_download': 'downloaded',
+        'document_view': 'viewed',
+        'document_edit': 'edited',
+        'link_access': 'accessed link',
+        'link_created': 'created link',
+      };
+      const actionLabel = actionLabels[activityData.action] || activityData.action;
+      const itemTypeLabel = activityData.item_type === 'document' ? 'document' : 
+                            activityData.item_type === 'link' ? 'link' : 'folder';
+      
+      // Get department leads for in-app notifications
+      const { data: departmentLeads } = await supabase
+        .from('department_leads')
+        .select('user_id')
+        .eq('department_id', activityData.department_id);
+      
+      for (const lead of departmentLeads || []) {
+        notifications.push({
+          user_id: lead.user_id,
+          title: `📋 External User Activity`,
+          message: `${activityData.external_user_name} ${actionLabel} ${itemTypeLabel} "${activityData.item_name}"`,
+          type: 'external_user_activity',
+        });
+      }
     }
 
     // Insert notifications into database

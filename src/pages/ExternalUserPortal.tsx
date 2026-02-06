@@ -35,6 +35,10 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { FileTypeIcon } from '@/components/documents/FileTypeIcon';
 import { CreateLinkDialog } from '@/components/documents/CreateLinkDialog';
+import { 
+  sendExternalUserActivityNotification, 
+  ExternalUserAction 
+} from '@/hooks/useExternalUserNotifications';
 
 interface ExternalUserData {
   id: string;
@@ -244,8 +248,8 @@ export default function ExternalUserPortal() {
     setFolderPath([...folderPath, { id: folder.id, name: folder.name }]);
     await fetchDocuments(externalUser.department_id, externalUser.project_id, folder.id);
     
-    // Log activity
-    await logActivity('folder_access', undefined, folder.id);
+    // Log activity with notification
+    await logActivity('folder_access', undefined, folder.id, folder.name, 'folder');
   };
 
   const handleBreadcrumbClick = async (index: number) => {
@@ -260,8 +264,8 @@ export default function ExternalUserPortal() {
   };
 
   const handleDocumentView = async (doc: DocumentItem) => {
-    // Log activity
-    await logActivity('view', doc.id);
+    // Log activity with notification
+    await logActivity('document_view', doc.id, undefined, doc.name, 'document');
     window.open(doc.file_url, '_blank');
   };
 
@@ -275,8 +279,8 @@ export default function ExternalUserPortal() {
       return;
     }
     
-    // Log activity
-    await logActivity('download', doc.id);
+    // Log activity with notification
+    await logActivity('document_download', doc.id, undefined, doc.name, 'document');
     
     // Trigger download
     const link = document.createElement('a');
@@ -289,12 +293,18 @@ export default function ExternalUserPortal() {
   };
 
   const handleLinkClick = async (linkItem: LinkItem) => {
-    // Log activity
-    await logActivity('view');
+    // Log activity with notification
+    await logActivity('link_access', undefined, undefined, linkItem.title, 'link');
     window.open(linkItem.url, '_blank');
   };
 
-  const logActivity = async (action: string, documentId?: string, folderId?: string) => {
+  const logActivity = async (
+    action: string, 
+    documentId?: string, 
+    folderId?: string,
+    itemName?: string,
+    itemType?: 'document' | 'link' | 'folder'
+  ) => {
     if (!externalUser) return;
     
     try {
@@ -311,6 +321,24 @@ export default function ExternalUserPortal() {
         .from('external_users')
         .update({ last_activity_at: new Date().toISOString() })
         .eq('id', externalUser.id);
+      
+      // Send notification to department leads for trackable actions
+      if (itemName && itemType) {
+        const notificationAction = action as ExternalUserAction;
+        await sendExternalUserActivityNotification({
+          external_user_id: externalUser.id,
+          external_user_name: externalUser.full_name || externalUser.email,
+          external_user_email: externalUser.email,
+          department_id: externalUser.department_id,
+          department_name: externalUser.departments?.name || 'Unknown Department',
+          project_id: externalUser.project_id,
+          project_name: externalUser.projects?.name || 'Unknown Project',
+          action: notificationAction,
+          item_type: itemType,
+          item_name: itemName,
+          item_id: documentId || folderId,
+        });
+      }
     } catch (error) {
       console.error('Error logging activity:', error);
     }
@@ -438,8 +466,8 @@ export default function ExternalUserPortal() {
       
       if (docError) throw docError;
       
-      // Log activity
-      await logActivity('upload');
+      // Log activity with notification
+      await logActivity('document_upload', undefined, currentFolderId || undefined, file.name, 'document');
       
       // Refresh documents
       await fetchDocuments(externalUser.department_id, externalUser.project_id, currentFolderId);
@@ -490,8 +518,8 @@ export default function ExternalUserPortal() {
       
       if (linkError) throw linkError;
       
-      // Log activity
-      await logActivity('link_created');
+      // Log activity with notification
+      await logActivity('link_created', undefined, currentFolderId || undefined, title, 'link');
       
       // Refresh links
       await fetchDocuments(externalUser.department_id, externalUser.project_id, currentFolderId);
