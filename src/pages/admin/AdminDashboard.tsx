@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,42 +8,48 @@ import { Users, FolderKanban, CheckSquare, TrendingUp, UserPlus, BarChart3, Shie
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 
-interface Stats {
-  totalUsers: number;
-  totalProjects: number;
-  totalTasks: number;
-  activeTasks: number;
+interface RawData {
+  users: number;
+  projects: number;
+  tasks: { id: string; status: string | null }[];
 }
 
 export default function AdminDashboard() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    totalProjects: 0,
-    totalTasks: 0,
-    activeTasks: 0,
+  const [rawData, setRawData] = useState<RawData>({
+    users: 0,
+    projects: 0,
+    tasks: [],
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  // Compute analytics from raw data for real-time accuracy
+  const stats = useMemo(() => {
+    const tasks = rawData.tasks;
+    return {
+      totalUsers: rawData.users,
+      totalProjects: rawData.projects,
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => t.status === 'in_progress').length,
+      completedTasks: tasks.filter(t => t.status === 'done').length,
+      todoTasks: tasks.filter(t => t.status === 'todo' || !t.status).length,
+    };
+  }, [rawData]);
 
-  const fetchStats = async () => {
+  const fetchData = async () => {
     try {
-      const [usersRes, projectsRes, tasksRes, activeTasksRes] = await Promise.all([
+      setLoading(true);
+      const [usersRes, projectsRes, tasksRes] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('projects').select('id', { count: 'exact', head: true }),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'in-progress'),
+        supabase.from('tasks').select('id, status'),
       ]);
 
-      setStats({
-        totalUsers: usersRes.count || 0,
-        totalProjects: projectsRes.count || 0,
-        totalTasks: tasksRes.count || 0,
-        activeTasks: activeTasksRes.count || 0,
+      setRawData({
+        users: usersRes.count || 0,
+        projects: projectsRes.count || 0,
+        tasks: tasksRes.data || [],
       });
     } catch (error: any) {
       toast({
@@ -55,6 +61,34 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Real-time subscription for tasks
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-dashboard-tasks')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          // Refetch tasks on any change
+          supabase.from('tasks').select('id, status').then(({ data }) => {
+            if (data) {
+              setRawData(prev => ({ ...prev, tasks: data }));
+            }
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const statCards = [
     {
@@ -93,8 +127,8 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <CreateProjectDialog onProjectCreated={fetchStats} />
-          <CreateTaskDialog onTaskCreated={fetchStats} showTrigger={false} />
+          <CreateProjectDialog onProjectCreated={fetchData} />
+          <CreateTaskDialog onTaskCreated={fetchData} showTrigger={false} />
         </div>
       </div>
 
@@ -142,7 +176,7 @@ export default function AdminDashboard() {
             </Button>
 
             <div>
-              <CreateProjectDialog onProjectCreated={fetchStats} />
+              <CreateProjectDialog onProjectCreated={fetchData} />
               <p className="text-xs text-muted-foreground mt-2">
                 Start a new project with departments and tasks
               </p>
