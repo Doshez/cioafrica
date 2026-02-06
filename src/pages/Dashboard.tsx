@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { isTaskDoneStatus } from '@/lib/taskStatus';
 
 interface DashboardStats {
   activeProjects: number;
@@ -67,19 +68,29 @@ export default function Dashboard() {
         .select('id, name, description, status')
         .order('created_at', { ascending: false });
 
-      // If user is not admin or project manager, filter by assigned projects
+      // If user is not admin or project manager, filter to projects they own or are a member of
       if (!isAdmin && !isProjectManager) {
-        // Get user's assigned projects
-        const { data: assignedProjects } = await supabase
-          .from('project_members')
-          .select('project_id')
-          .eq('user_id', user?.id);
+        const [memberProjectsRes, ownedProjectsRes] = await Promise.all([
+          supabase
+            .from('project_members')
+            .select('project_id')
+            .eq('user_id', user?.id),
+          supabase
+            .from('projects')
+            .select('id')
+            .eq('owner_id', user?.id),
+        ]);
 
-        if (assignedProjects && assignedProjects.length > 0) {
-          const projectIds = assignedProjects.map(p => p.project_id);
-          projectsQuery = projectsQuery.in('id', projectIds);
+        if (memberProjectsRes.error) throw memberProjectsRes.error;
+        if (ownedProjectsRes.error) throw ownedProjectsRes.error;
+
+        const memberIds = (memberProjectsRes.data || []).map(p => p.project_id);
+        const ownedIds = (ownedProjectsRes.data || []).map(p => p.id);
+        const visibleProjectIds = [...new Set([...memberIds, ...ownedIds])];
+
+        if (visibleProjectIds.length > 0) {
+          projectsQuery = projectsQuery.in('id', visibleProjectIds);
         } else {
-          // User has no assigned projects, return empty
           setStats({
             activeProjects: 0,
             completedTasks: 0,
@@ -87,91 +98,193 @@ export default function Dashboard() {
             totalTasks: 0,
           });
           setRecentProjects([]);
+          setOverdueTasks([]);
           setLoading(false);
           return;
         }
       }
 
       const { data: projects, error: projectsError } = await projectsQuery;
-
       if (projectsError) throw projectsError;
 
-      // First get task IDs assigned to this user via task_assignments
-      const { data: assignmentData } = await supabase
-        .from('task_assignments')
-        .select('task_id')
-        .eq('user_id', user?.id);
+      const projectIds = (projects || []).map(p => p.id);
+      const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
 
-      const assignedTaskIds = (assignmentData || []).map(a => a.task_id);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      // Also get tasks where user is the legacy assignee_user_id
-      const { data: legacyTaskIds } = await supabase
-        .from('tasks')
-        .select('id')
-        .eq('assignee_user_id', user?.id);
+      // Admin/PM: show real project-wide numbers (not just tasks assigned to you)
+      if (isAdmin || isProjectManager) {
+        if (projectIds.length === 0) {
+          setStats({ activeProjects, completedTasks: 0, overdueTasks: 0, totalTasks: 0 });
+          setRecentProjects([]);
+          setOverdueTasks([]);
+          return;
+        }
 
-      // Combine both sets of task IDs
-      const allTaskIds = [...new Set([
-        ...assignedTaskIds, 
-        ...(legacyTaskIds || []).map(t => t.id)
-      ])];
+        const recent = (projects || []).slice(0, 3);
+        const recentProjectIds = recent.map(p => p.id);
 
-      // Fetch the actual tasks
-      let tasks: any[] = [];
-      if (allTaskIds.length > 0) {
-        const { data: tasksData, error: tasksError } = await supabase
+        const [totalRes, completedRes, overdueRes, progressTasksRes] = await Promise.all([
+          supabase
+            .from('tasks')
+            .select('id', { count: 'exact', head: true })
+            .in('project_id', projectIds),
+
+          supabase
+            .from('tasks')
+            .select('id', { count: 'exact', head: true })
+            .in('project_id', projectIds)
+            .in('status', ['done', 'completed', 'complete', 'Done', 'Completed', 'DONE', 'COMPLETED']),
+
+          supabase
+            .from('tasks')
+            .select(
+              `
+              id,
+              title,
+              due_date,
+              project_id,
+              projects (
+                name
+              )
+            `,
+              { count: 'exact' }
+            )
+            .in('project_id', projectIds)
+            .not('due_date', 'is', null)
+            .lt('due_date', today.toISOString())
+            // include tasks where status is null OR not in done/completed
+            .or('status.is.null,status.not.in.(done,completed,complete)')
+            .order('due_date', { ascending: true })
+            .limit(50),
+
+          recentProjectIds.length > 0
+            ? supabase.from('tasks').select('id, status, project_id').in('project_id', recentProjectIds)
+            : (Promise.resolve({ data: [] as any[] }) as any),
+        ]);
+
+        if (totalRes.error) throw totalRes.error;
+        if (completedRes.error) throw completedRes.error;
+        if (overdueRes.error) throw overdueRes.error;
+        if (progressTasksRes.error) throw progressTasksRes.error;
+
+        const totalTasks = totalRes.count || 0;
+        const completedTasks = completedRes.count || 0;
+        const overdueTasksCount = overdueRes.count || 0;
+
+        const overdueTasksList = overdueRes.data || [];
+        setOverdueTasks(
+          overdueTasksList.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            due_date: t.due_date,
+            project_name: (t.projects as any)?.name || 'Unknown Project',
+          }))
+        );
+
+        const progressTasks = (progressTasksRes.data || []) as any[];
+        const projectsWithProgress = recent.map(project => {
+          const projectTasks = progressTasks.filter(t => t.project_id === project.id);
+          const completedProjectTasks = projectTasks.filter(t => isTaskDoneStatus(t.status));
+          const progress = projectTasks.length > 0
+            ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
+            : 0;
+
+          return {
+            ...project,
+            progress,
+            tasks: {
+              total: projectTasks.length,
+              completed: completedProjectTasks.length,
+            },
+          };
+        });
+
+        setStats({
+          activeProjects,
+          completedTasks,
+          overdueTasks: overdueTasksCount,
+          totalTasks,
+        });
+
+        setRecentProjects(projectsWithProgress);
+        return;
+      }
+
+      // Non-admin / non-PM: also compute from all tasks in accessible projects
+      if (projectIds.length === 0) {
+        setStats({ activeProjects, completedTasks: 0, overdueTasks: 0, totalTasks: 0 });
+        setRecentProjects([]);
+        setOverdueTasks([]);
+        return;
+      }
+
+      const recent = (projects || []).slice(0, 3);
+      const recentProjectIds = recent.map(p => p.id);
+
+      const [totalRes, completedRes, overdueRes, progressTasksRes] = await Promise.all([
+        supabase
           .from('tasks')
-          .select(`
-            id, 
-            status, 
-            due_date, 
-            project_id, 
+          .select('id', { count: 'exact', head: true })
+          .in('project_id', projectIds),
+
+        supabase
+          .from('tasks')
+          .select('id', { count: 'exact', head: true })
+          .in('project_id', projectIds)
+          .in('status', ['done', 'completed', 'complete', 'Done', 'Completed', 'DONE', 'COMPLETED']),
+
+        supabase
+          .from('tasks')
+          .select(
+            `
+            id,
             title,
+            due_date,
+            project_id,
             projects (
               name
             )
-          `)
-          .in('id', allTaskIds)
-          .order('created_at', { ascending: false });
+          `,
+            { count: 'exact' }
+          )
+          .in('project_id', projectIds)
+          .not('due_date', 'is', null)
+          .lt('due_date', today.toISOString())
+          .or('status.is.null,status.not.in.(done,completed,complete)')
+          .order('due_date', { ascending: true })
+          .limit(50),
 
-        if (tasksError) throw tasksError;
-        tasks = tasksData || [];
-      }
+        recentProjectIds.length > 0
+          ? supabase.from('tasks').select('id, status, project_id').in('project_id', recentProjectIds)
+          : (Promise.resolve({ data: [] as any[] }) as any),
+      ]);
 
-      // Calculate stats
-      const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
-      const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
-      const totalTasks = tasks?.length || 0;
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const overdueTasksList = tasks?.filter(t => {
-        if (!t.due_date || t.status === 'done') return false;
-        return new Date(t.due_date) < today;
-      }) || [];
-      
-      const overdueTasksCount = overdueTasksList.length;
-      
-      // Store overdue tasks with project names
-      setOverdueTasks(overdueTasksList.map(t => ({
-        id: t.id,
-        title: t.title,
-        due_date: t.due_date,
-        project_name: (t.projects as any)?.name || 'Unknown Project'
-      })));
+      if (totalRes.error) throw totalRes.error;
+      if (completedRes.error) throw completedRes.error;
+      if (overdueRes.error) throw overdueRes.error;
+      if (progressTasksRes.error) throw progressTasksRes.error;
 
-      setStats({
-        activeProjects,
-        completedTasks,
-        overdueTasks: overdueTasksCount,
-        totalTasks,
-      });
+      const totalTasks = totalRes.count || 0;
+      const completedTasks = completedRes.count || 0;
+      const overdueTasksCount = overdueRes.count || 0;
 
-      // Calculate project progress
-      const projectsWithProgress = projects?.slice(0, 3).map(project => {
-        const projectTasks = tasks?.filter(t => t.project_id === project.id) || [];
-        const completedProjectTasks = projectTasks.filter(t => t.status === 'done');
-        const progress = projectTasks.length > 0 
+      const overdueTasksList = overdueRes.data || [];
+      setOverdueTasks(
+        overdueTasksList.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          due_date: t.due_date,
+          project_name: (t.projects as any)?.name || 'Unknown Project',
+        }))
+      );
+
+      const progressTasks = (progressTasksRes.data || []) as any[];
+      const projectsWithProgress = recent.map(project => {
+        const projectTasks = progressTasks.filter(t => t.project_id === project.id);
+        const completedProjectTasks = projectTasks.filter(t => isTaskDoneStatus(t.status));
+        const progress = projectTasks.length > 0
           ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
           : 0;
 
@@ -183,7 +296,14 @@ export default function Dashboard() {
             completed: completedProjectTasks.length,
           },
         };
-      }) || [];
+      });
+
+      setStats({
+        activeProjects,
+        completedTasks,
+        overdueTasks: overdueTasksCount,
+        totalTasks,
+      });
 
       setRecentProjects(projectsWithProgress);
     } catch (error: any) {
@@ -233,7 +353,7 @@ export default function Dashboard() {
     {
       title: 'Total Tasks',
       value: stats.totalTasks.toString(),
-      change: 'Assigned to you',
+      change: 'In your projects',
       icon: Clock,
       color: 'text-accent',
       bgColor: 'bg-accent/10',
