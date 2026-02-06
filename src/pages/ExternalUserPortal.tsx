@@ -103,10 +103,15 @@ export default function ExternalUserPortal() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useState<HTMLInputElement | null>(null);
 
-  // Redirect to login if not authenticated
+  // Track if password was just changed in this session to prevent loops
+  const [passwordJustChanged, setPasswordJustChanged] = useState(() => {
+    return sessionStorage.getItem('external_password_changed') === 'true';
+  });
+
+  // Redirect to external login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/auth?redirect=external');
+      navigate('/external-login');
     }
   }, [authLoading, user, navigate]);
 
@@ -155,8 +160,8 @@ export default function ExternalUserPortal() {
 
       setExternalUser(externalData as ExternalUserData);
       
-      // Check if password change is required
-      if (externalData.must_change_password) {
+      // Check if password change is required - but only if not just changed in this session
+      if (externalData.must_change_password && !passwordJustChanged) {
         setShowPasswordDialog(true);
       }
 
@@ -346,8 +351,17 @@ export default function ExternalUserPortal() {
         .update({ must_change_password: false })
         .eq('id', user?.id);
       
+      // Refresh the session to get updated data
+      await supabase.auth.refreshSession();
+      
+      // Mark password as changed in session storage to prevent prompt loops
+      sessionStorage.setItem('external_password_changed', 'true');
+      setPasswordJustChanged(true);
+      
       setShowPasswordDialog(false);
       setExternalUser(prev => prev ? { ...prev, must_change_password: false } : null);
+      setNewPassword('');
+      setConfirmPassword('');
       
       toast({
         title: 'Success',
@@ -514,7 +528,12 @@ export default function ExternalUserPortal() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-xl font-bold">Document Portal</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold">Document Portal</h1>
+                <Badge variant="outline" className="text-xs">
+                  External User
+                </Badge>
+              </div>
               <p className="text-sm text-muted-foreground">
                 {externalUser.full_name || externalUser.email}
               </p>

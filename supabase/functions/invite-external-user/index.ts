@@ -184,7 +184,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     
     // Send invitation email
-    const signInUrl = 'https://projects.cioafrica.co/external';
+    // Use the dedicated external login portal
+    const signInUrl = 'https://projects.cioafrica.co/external-login';
     const accessLevelLabel = {
       'view_only': 'View Only',
       'upload_edit': 'Upload & Edit',

@@ -9,6 +9,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import AdminRoute from "./components/AdminRoute";
+import ExternalUserRoute from "./components/ExternalUserRoute";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -18,6 +19,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
+import ExternalAuth from "./pages/ExternalAuth";
 import NotFound from "./pages/NotFound";
 import GanttDemo from "./pages/GanttDemo";
 import GanttDocumentation from "./pages/GanttDocumentation";
@@ -46,23 +48,31 @@ const App: React.FC = () => (
           <BrowserRouter>
             <AuthProvider>
               <Routes>
+                {/* Public auth routes */}
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/external-login" element={<ExternalAuth />} />
+                
+                {/* External user portal - dedicated route */}
                 <Route path="/external" element={<ExternalUserPortal />} />
-                <Route path="/" element={<Layout><Dashboard /></Layout>} />
-                <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-                <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
-                <Route path="/projects" element={<Layout><Projects /></Layout>} />
-                <Route path="/projects/:projectId" element={<Layout><ProjectDetails /></Layout>} />
-                <Route path="/projects/:projectId/gantt" element={<Layout><ProjectGanttChartPage /></Layout>} />
-                <Route path="/projects/:projectId/analytics" element={<Layout><ProjectAnalytics /></Layout>} />
-                <Route path="/projects/:projectId/documents" element={<Layout><ProjectDocuments /></Layout>} />
-                <Route path="/projects/:projectId/reports" element={<ProjectReportSettings />} />
-                <Route path="/projects/:projectId/department/:departmentId" element={<Layout><DepartmentGantt /></Layout>} />
-                <Route path="/admin" element={<Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout>} />
-                <Route path="/admin/users" element={<Layout><AdminRoute><UserManagement /></AdminRoute></Layout>} />
-                <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
-                <Route path="/gantt-demo" element={<Layout><GanttDemo /></Layout>} />
-                <Route path="/gantt-docs" element={<Layout><GanttDocumentation /></Layout>} />
+                
+                {/* Internal routes - protected from external users */}
+                <Route path="/" element={<ExternalUserRoute><Layout><Dashboard /></Layout></ExternalUserRoute>} />
+                <Route path="/dashboard" element={<ExternalUserRoute><Layout><Dashboard /></Layout></ExternalUserRoute>} />
+                <Route path="/my-tasks" element={<ExternalUserRoute><Layout><MyTasks /></Layout></ExternalUserRoute>} />
+                <Route path="/projects" element={<ExternalUserRoute><Layout><Projects /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/:projectId" element={<ExternalUserRoute><Layout><ProjectDetails /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/:projectId/gantt" element={<ExternalUserRoute><Layout><ProjectGanttChartPage /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/:projectId/analytics" element={<ExternalUserRoute><Layout><ProjectAnalytics /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/:projectId/documents" element={<ExternalUserRoute><Layout><ProjectDocuments /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/:projectId/reports" element={<ExternalUserRoute><ProjectReportSettings /></ExternalUserRoute>} />
+                <Route path="/projects/:projectId/department/:departmentId" element={<ExternalUserRoute><Layout><DepartmentGantt /></Layout></ExternalUserRoute>} />
+                <Route path="/admin" element={<ExternalUserRoute><Layout><AdminRoute><AdminDashboard /></AdminRoute></Layout></ExternalUserRoute>} />
+                <Route path="/admin/users" element={<ExternalUserRoute><Layout><AdminRoute><UserManagement /></AdminRoute></Layout></ExternalUserRoute>} />
+                <Route path="/analytics" element={<ExternalUserRoute><Layout><Analytics /></Layout></ExternalUserRoute>} />
+                <Route path="/gantt-demo" element={<ExternalUserRoute><Layout><GanttDemo /></Layout></ExternalUserRoute>} />
+                <Route path="/gantt-docs" element={<ExternalUserRoute><Layout><GanttDocumentation /></Layout></ExternalUserRoute>} />
+                
+                {/* 404 */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
