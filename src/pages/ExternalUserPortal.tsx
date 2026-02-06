@@ -29,7 +29,8 @@ import {
   Clock,
   Building2,
   Briefcase,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { FileTypeIcon } from '@/components/documents/FileTypeIcon';
@@ -97,6 +98,10 @@ export default function ExternalUserPortal() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  
+  // File upload state
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useState<HTMLInputElement | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -365,6 +370,80 @@ export default function ExternalUserPortal() {
     navigate('/auth');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!externalUser || !e.target.files || e.target.files.length === 0) return;
+    
+    const canUpload = externalUser.access_level === 'upload_edit' || externalUser.access_level === 'edit_download';
+    if (!canUpload) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to upload files.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setUploading(true);
+    const file = e.target.files[0];
+    
+    try {
+      // Create a unique file path
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `documents/${externalUser.project_id}/${externalUser.department_id}/${fileName}`;
+      
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+      
+      // Create document record
+      const { error: docError } = await supabase
+        .from('documents')
+        .insert({
+          name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          file_size: file.size,
+          project_id: externalUser.project_id,
+          department_id: externalUser.department_id,
+          folder_id: currentFolderId,
+          uploaded_by: user?.id
+        });
+      
+      if (docError) throw docError;
+      
+      // Log activity
+      await logActivity('upload');
+      
+      // Refresh documents
+      await fetchDocuments(externalUser.department_id, externalUser.project_id, currentFolderId);
+      
+      toast({
+        title: 'Success',
+        description: 'File uploaded successfully.'
+      });
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: 'Upload Failed',
+        description: error.message || 'Failed to upload file. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return '';
     const units = ['B', 'KB', 'MB', 'GB'];
@@ -426,6 +505,7 @@ export default function ExternalUserPortal() {
   const config = accessLevelConfig[externalUser.access_level];
   const AccessIcon = config.icon;
   const canDownload = externalUser.access_level !== 'view_only';
+  const canUpload = externalUser.access_level === 'upload_edit' || externalUser.access_level === 'edit_download';
 
   return (
     <div className="min-h-screen bg-background">
@@ -492,9 +572,35 @@ export default function ExternalUserPortal() {
                 }`}
               >
                 {item.name}
-              </button>
+          </button>
             </div>
           ))}
+          
+          {/* Upload Button */}
+          {canUpload && (
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => document.getElementById('file-upload')?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                {uploading ? 'Uploading...' : 'Upload File'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Documents Grid */}
@@ -570,8 +676,8 @@ export default function ExternalUserPortal() {
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <LinkIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <LinkIcon className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium truncate">{link.title}</h4>
