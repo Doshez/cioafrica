@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { isTaskDoneStatus, isTaskInProgressStatus, isTaskTodoStatus } from '@/lib/taskStatus';
 import {
   TaskViewSwitcher,
   TaskKanbanView,
@@ -275,14 +276,15 @@ export default function DepartmentGantt() {
   };
 
   // Compute local analytics from actual tasks (always in sync)
+  const completedCount = tasks.filter(t => isTaskDoneStatus(t.status)).length;
   const computedAnalytics = {
     department_id: departmentId || '',
     total_tasks: tasks.length,
-    completed_tasks: tasks.filter(t => t.status === 'done').length,
-    in_progress_tasks: tasks.filter(t => t.status === 'in_progress').length,
-    todo_tasks: tasks.filter(t => t.status === 'todo' || !t.status).length,
-    completion_percentage: tasks.length > 0 
-      ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) 
+    completed_tasks: completedCount,
+    in_progress_tasks: tasks.filter(t => isTaskInProgressStatus(t.status)).length,
+    todo_tasks: tasks.filter(t => isTaskTodoStatus(t.status)).length,
+    completion_percentage: tasks.length > 0
+      ? Math.round((completedCount / tasks.length) * 100)
       : 0,
   };
 
