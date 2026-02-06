@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { FileTypeIcon } from '@/components/documents/FileTypeIcon';
+import { CreateLinkDialog } from '@/components/documents/CreateLinkDialog';
 
 interface ExternalUserData {
   id: string;
@@ -102,6 +103,9 @@ export default function ExternalUserPortal() {
   // File upload state
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useState<HTMLInputElement | null>(null);
+
+  // Link creation dialog
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
 
   // Track if password was just changed in this session to prevent loops
   const [passwordJustChanged, setPasswordJustChanged] = useState(() => {
@@ -458,6 +462,54 @@ export default function ExternalUserPortal() {
     }
   };
 
+  const handleCreateLink = async (title: string, url: string, description?: string) => {
+    if (!externalUser) return;
+    
+    const canCreateLink = externalUser.access_level === 'upload_edit' || externalUser.access_level === 'edit_download';
+    if (!canCreateLink) {
+      toast({
+        title: 'Permission Denied',
+        description: 'You do not have permission to create links.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    try {
+      // Create link record
+      const { error: linkError } = await supabase
+        .from('document_links')
+        .insert({
+          title,
+          url,
+          description: description || null,
+          project_id: externalUser.project_id,
+          department_id: externalUser.department_id,
+          folder_id: currentFolderId
+        });
+      
+      if (linkError) throw linkError;
+      
+      // Log activity
+      await logActivity('link_created');
+      
+      // Refresh links
+      await fetchDocuments(externalUser.department_id, externalUser.project_id, currentFolderId);
+      
+      toast({
+        title: 'Success',
+        description: 'Link added successfully.'
+      });
+    } catch (error: any) {
+      console.error('Error creating link:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create link.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return '';
     const units = ['B', 'KB', 'MB', 'GB'];
@@ -594,32 +646,40 @@ export default function ExternalUserPortal() {
           </button>
             </div>
           ))}
-          
-          {/* Upload Button */}
-          {canUpload && (
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                id="file-upload"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={uploading}
-              />
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => document.getElementById('file-upload')?.click()}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 h-4 w-4" />
-                )}
-                {uploading ? 'Uploading...' : 'Upload File'}
-              </Button>
-            </div>
-          )}
+           
+           {/* Upload and Link Buttons */}
+           {canUpload && (
+             <div className="flex items-center gap-2">
+               <input
+                 type="file"
+                 id="file-upload"
+                 className="hidden"
+                 onChange={handleFileUpload}
+                 disabled={uploading}
+               />
+               <Button
+                 variant="default"
+                 size="sm"
+                 onClick={() => document.getElementById('file-upload')?.click()}
+                 disabled={uploading}
+               >
+                 {uploading ? (
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                 ) : (
+                   <Plus className="mr-2 h-4 w-4" />
+                 )}
+                 {uploading ? 'Uploading...' : 'Upload File'}
+               </Button>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => setShowLinkDialog(true)}
+               >
+                 <LinkIcon className="mr-2 h-4 w-4" />
+                 Add Link
+               </Button>
+             </div>
+           )}
         </div>
 
         {/* Documents Grid */}
@@ -769,6 +829,17 @@ export default function ExternalUserPortal() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Create Link Dialog */}
+      <CreateLinkDialog
+        open={showLinkDialog}
+        onOpenChange={setShowLinkDialog}
+        onCreateLink={handleCreateLink}
+        departments={externalUser ? [{ id: externalUser.department_id, name: externalUser.departments?.name || '' }] : []}
+        defaultDepartmentId={externalUser?.department_id}
+        showDepartmentSelect={false}
+        existingLinks={links}
+      />
     </div>
   );
 }
