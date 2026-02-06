@@ -230,7 +230,7 @@ export function useExternalUsers(departmentId: string | undefined) {
       // Delete the auth user
       if (externalUser?.user_id) {
         await supabase.functions.invoke('delete-user', {
-          body: { userId: externalUser.user_id }
+          body: { user_id: externalUser.user_id }
         });
       }
 
