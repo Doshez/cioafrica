@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog';
 import ForgotPasswordDialog from '@/components/ForgotPasswordDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import cioDxLogo from '@/assets/cio-dx-logo.png';
 
 export default function Auth() {
@@ -20,12 +21,9 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [externalUserError, setExternalUserError] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
-
-  // Check for redirect parameter (for external users)
-  const searchParams = new URLSearchParams(window.location.search);
-  const redirectTo = searchParams.get('redirect');
 
   useEffect(() => {
     const checkUserAndRedirect = async () => {
@@ -38,8 +36,11 @@ export default function Auth() {
           .eq('is_active', true)
           .maybeSingle();
 
-        if (externalUser || redirectTo === 'external') {
-          navigate('/external');
+        if (externalUser) {
+          // External users should use the dedicated portal
+          await supabase.auth.signOut();
+          setExternalUserError(true);
+          toast.error('External users must use the dedicated document portal login.');
         } else {
           navigate('/');
         }
@@ -47,16 +48,16 @@ export default function Auth() {
     };
     
     checkUserAndRedirect();
-  }, [user, navigate, redirectTo]);
+  }, [user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setExternalUserError(false);
     
     const { error } = await signIn(email, password);
     
     if (error) {
-      // Handle specific error cases
       if (error.message.includes('Invalid login credentials')) {
         toast.error('Invalid email or password. Please check and try again.');
       } else {
@@ -66,14 +67,31 @@ export default function Auth() {
       return;
     }
 
-    // Check if user needs to change password
-    const { data: { user } } = await supabase.auth.getUser();
+    // Check if user is an external user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
     
-    if (user) {
+    if (authUser) {
+      const { data: externalUser } = await supabase
+        .from('external_users')
+        .select('id')
+        .eq('user_id', authUser.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (externalUser) {
+        // External user trying to use main login - sign out and show error
+        await supabase.auth.signOut();
+        setExternalUserError(true);
+        toast.error('External users must use the dedicated document portal login.');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user needs to change password
       const { data: profile } = await supabase
         .from('profiles')
         .select('must_change_password, temporary_password_expires_at')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
 
       // Check if temporary password has expired
@@ -82,7 +100,6 @@ export default function Auth() {
         const now = new Date();
         
         if (now > expiryDate) {
-          // Temporary password expired - sign out and show error
           await supabase.auth.signOut();
           toast.error('This temporary password has expired. Ask your admin for a new one.', {
             duration: 5000
@@ -108,29 +125,7 @@ export default function Auth() {
   const handlePasswordChangeSuccess = async () => {
     setShowPasswordChange(false);
     toast.success('Password changed successfully! Redirecting...');
-    
-    // Check if user is external and redirect appropriately
-    if (redirectTo === 'external') {
-      navigate('/external');
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: externalUser } = await supabase
-          .from('external_users')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .maybeSingle();
-        
-        if (externalUser) {
-          navigate('/external');
-        } else {
-          navigate('/dashboard');
-        }
-      } else {
-        navigate('/dashboard');
-      }
-    }
+    navigate('/dashboard');
   };
 
   return (
@@ -149,12 +144,25 @@ export default function Auth() {
         <div className="text-center mb-8">
           <img src={cioDxLogo} alt="CIO Africa DX5" className="mx-auto mb-3 h-16" />
           <h1 className="text-3xl font-bold">Project Planner</h1>
+          <p className="text-sm text-muted-foreground mt-1">Internal Employee Portal</p>
         </div>
+
+        {externalUserError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              External users cannot access this portal.{' '}
+              <a href="/external-login" className="font-medium underline">
+                Go to External Document Portal
+              </a>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="shadow-lg border-border/50">
           <CardHeader className="text-center">
             <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardDescription>Sign in to your employee account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignIn} className="space-y-4">
@@ -205,6 +213,15 @@ export default function Auth() {
             </div>
           </CardContent>
         </Card>
+        
+        <div className="mt-4 text-center">
+          <p className="text-xs text-muted-foreground">
+            External stakeholder?{' '}
+            <a href="/external-login" className="text-primary hover:underline font-medium">
+              Access Document Portal
+            </a>
+          </p>
+        </div>
       </div>
     </div>
     </>
