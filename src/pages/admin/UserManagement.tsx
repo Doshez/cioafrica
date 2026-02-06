@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList, KeyRound, ExternalLink, Building2, FileText, AlertTriangle, UserX, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList, KeyRound, ExternalLink, Building2, FileText, AlertTriangle, UserX, CheckCircle2, Clock, XCircle, Mail } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -86,6 +86,10 @@ export default function UserManagement() {
   const [externalUserImpact, setExternalUserImpact] = useState<ExternalUserImpact | null>(null);
   const [loadingImpact, setLoadingImpact] = useState(false);
   const [deletingExternal, setDeletingExternal] = useState(false);
+  
+  // External user password reset state
+  const [resetPasswordUser, setResetPasswordUser] = useState<ExternalUser | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
   
   // Tab state
   const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
@@ -411,6 +415,35 @@ export default function UserManagement() {
       fetchExternalUsers();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const resetExternalUserPassword = async () => {
+    if (!resetPasswordUser) return;
+    
+    setResettingPassword(true);
+    try {
+      const { error } = await supabase.functions.invoke('reset-external-user-password', {
+        body: { externalUserId: resetPasswordUser.id }
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Password Reset Sent", 
+        description: `A new password has been emailed to ${resetPasswordUser.email}. The password will not expire.` 
+      });
+      
+      setResetPasswordUser(null);
+      fetchExternalUsers();
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to reset password", 
+        variant: "destructive" 
+      });
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -857,6 +890,9 @@ export default function UserManagement() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => setResetPasswordUser(user)} title="Reset Password">
+                              <Mail className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => toggleExternalUserStatus(user)}
                               className={user.is_active ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}>
                               {user.is_active ? <UserX className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -943,6 +979,41 @@ export default function UserManagement() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deletingExternal && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Delete & Revoke Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset External User Password Dialog */}
+      <AlertDialog open={!!resetPasswordUser} onOpenChange={() => setResetPasswordUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Reset Password
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Send a new password to <strong>{resetPasswordUser?.full_name || resetPasswordUser?.email}</strong>?
+                </p>
+                <div className="bg-muted p-3 rounded-md text-sm">
+                  <p className="font-medium mb-1">What happens:</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>• A new secure password will be generated</li>
+                    <li>• Password will be emailed to {resetPasswordUser?.email}</li>
+                    <li>• User must change password on first login</li>
+                    <li>• <strong className="text-foreground">Password will not expire</strong></li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resettingPassword}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={resetExternalUserPassword} disabled={resettingPassword}>
+              {resettingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Send Password Reset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
