@@ -675,7 +675,7 @@ export default function DepartmentGantt() {
         </Card>
       </div>
 
-      {!hasAssignedTasks && !isAdmin && !isProjectManager && (
+      {!hasAssignedTasks && !isAdmin && !isProjectManager && !isCurrentUserLead && (
         <Card className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
           <CardContent className="pt-6">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
