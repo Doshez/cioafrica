@@ -25,6 +25,7 @@ import ProjectGanttChartPage from "./pages/ProjectGanttChartPage";
 import ProjectAnalytics from "./pages/ProjectAnalytics";
 import ProjectDocuments from "./pages/ProjectDocuments";
 import ProjectReportSettings from "./pages/ProjectReportSettings";
+import ExternalUserPortal from "./pages/ExternalUserPortal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ const App: React.FC = () => (
             <AuthProvider>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/external" element={<ExternalUserPortal />} />
                 <Route path="/" element={<Layout><Dashboard /></Layout>} />
                 <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
                 <Route path="/my-tasks" element={<Layout><MyTasks /></Layout>} />
