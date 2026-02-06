@@ -29,7 +29,8 @@ import {
   UserX, 
   UserCheck,
   History,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ExternalUser, ExternalAccessLevel } from '@/hooks/useExternalUsers';
@@ -40,6 +41,7 @@ interface ExternalUserCardProps {
   onEdit: (user: ExternalUser) => void;
   onRevoke: (userId: string) => void;
   onReactivate: (userId: string) => void;
+  onDelete: (userId: string) => void;
   onViewActivity: (userId: string) => void;
 }
 
@@ -54,9 +56,11 @@ export function ExternalUserCard({
   onEdit,
   onRevoke,
   onReactivate,
+  onDelete,
   onViewActivity
 }: ExternalUserCardProps) {
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const config = accessLevelConfig[user.access_level];
   const isExpired = user.access_expires_at && new Date(user.access_expires_at) < new Date();
@@ -151,7 +155,7 @@ export function ExternalUserCard({
                   <History className="mr-2 h-4 w-4" />
                   View Activity
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
                 {user.is_active ? (
                   <DropdownMenuItem
                     onClick={() => setShowRevokeDialog(true)}
@@ -166,6 +170,13 @@ export function ExternalUserCard({
                     Reactivate Access
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Permanently
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -192,6 +203,31 @@ export function ExternalUserCard({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Revoke Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete External User Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {user.full_name || user.email} and all their activity history. 
+              This action cannot be undone. The user will also be removed from the authentication system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onDelete(user.id);
+                setShowDeleteDialog(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

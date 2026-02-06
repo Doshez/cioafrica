@@ -204,6 +204,53 @@ export function useExternalUsers(departmentId: string | undefined) {
     return updateExternalUser(externalUserId, { isActive: true });
   };
 
+  const deleteExternalUser = async (externalUserId: string) => {
+    try {
+      // First delete activity logs
+      await supabase
+        .from('external_user_activity_log')
+        .delete()
+        .eq('external_user_id', externalUserId);
+
+      // Get the user_id before deleting
+      const { data: externalUser } = await supabase
+        .from('external_users')
+        .select('user_id, email')
+        .eq('id', externalUserId)
+        .single();
+
+      // Delete external user record
+      const { error: deleteError } = await supabase
+        .from('external_users')
+        .delete()
+        .eq('id', externalUserId);
+
+      if (deleteError) throw deleteError;
+
+      // Delete the auth user
+      if (externalUser?.user_id) {
+        await supabase.functions.invoke('delete-user', {
+          body: { userId: externalUser.user_id }
+        });
+      }
+
+      toast({ 
+        title: 'User deleted',
+        description: `${externalUser?.email || 'External user'} has been permanently deleted.`
+      });
+      fetchExternalUsers();
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting external user:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete external user',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   const fetchActivityLog = async (externalUserId: string): Promise<ExternalUserActivityLog[]> => {
     try {
       const { data, error } = await supabase
@@ -266,6 +313,7 @@ export function useExternalUsers(departmentId: string | undefined) {
     updateExternalUser,
     revokeAccess,
     reactivateAccess,
+    deleteExternalUser,
     fetchActivityLog,
     refetch: fetchExternalUsers
   };
