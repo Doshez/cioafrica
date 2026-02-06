@@ -81,7 +81,7 @@ const accessLevelConfig = {
 
 export default function ExternalUserPortal() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { toast } = useToast();
   
   const [externalUser, setExternalUser] = useState<ExternalUserData | null>(null);
@@ -98,11 +98,18 @@ export default function ExternalUserPortal() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (user) {
+    if (!authLoading && !user) {
+      navigate('/auth?redirect=external');
+    }
+  }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    if (user && !authLoading) {
       fetchExternalUserData();
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchExternalUserData = async () => {
     if (!user) return;
@@ -369,6 +376,30 @@ export default function ExternalUserPortal() {
     }
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect happens in useEffect, show nothing while redirecting
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
