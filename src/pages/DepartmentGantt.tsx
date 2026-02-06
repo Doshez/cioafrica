@@ -15,11 +15,12 @@ import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditElementDialog } from '@/components/EditElementDialog';
 import { EditDepartmentDialog } from '@/components/EditDepartmentDialog';
 import { DepartmentDocumentBrowser } from '@/components/documents/DepartmentDocumentBrowser';
+import { ExternalUsersManager } from '@/components/documents/ExternalUsersManager';
 import { DepartmentLeadDialog } from '@/components/DepartmentLeadDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useDepartmentLead } from '@/hooks/useDepartmentLead';
 import { useViewPreference } from '@/hooks/useViewPreference';
-import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical, Folder } from 'lucide-react';
+import { ArrowLeft, Plus, Filter, Calendar, Clock, Search, Trash2, Edit as EditIcon, MoreVertical, Folder, Users } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -685,7 +686,7 @@ export default function DepartmentGantt() {
       )}
 
       <Tabs defaultValue={hasAssignedTasks || isAdmin || isProjectManager || isCurrentUserLead ? "tasks" : "gantt"} className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="tasks" disabled={!hasAssignedTasks && !isAdmin && !isProjectManager && !isCurrentUserLead}>
             Tasks
           </TabsTrigger>
@@ -694,6 +695,12 @@ export default function DepartmentGantt() {
             <Folder className="h-4 w-4 mr-2" />
             Documents
           </TabsTrigger>
+          {(isAdmin || isProjectManager || isCurrentUserLead) && (
+            <TabsTrigger value="external-users">
+              <Users className="h-4 w-4 mr-2" />
+              External Access
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="tasks" className="space-y-4">
@@ -798,6 +805,16 @@ export default function DepartmentGantt() {
             departmentName={department.name}
           />
         </TabsContent>
+
+        {(isAdmin || isProjectManager || isCurrentUserLead) && (
+          <TabsContent value="external-users" className="space-y-4">
+            <ExternalUsersManager
+              departmentId={departmentId!}
+              projectId={projectId!}
+              departmentName={department.name}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Task Detail Drawer */}

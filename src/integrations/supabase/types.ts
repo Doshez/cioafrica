@@ -734,6 +734,144 @@ export type Database = {
           },
         ]
       }
+      external_user_activity_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          document_id: string | null
+          external_user_id: string
+          folder_id: string | null
+          id: string
+          ip_address: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          document_id?: string | null
+          external_user_id: string
+          folder_id?: string | null
+          id?: string
+          ip_address?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          document_id?: string | null
+          external_user_id?: string
+          folder_id?: string | null
+          id?: string
+          ip_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_user_activity_log_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_user_activity_log_external_user_id_fkey"
+            columns: ["external_user_id"]
+            isOneToOne: false
+            referencedRelation: "external_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_user_activity_log_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_users: {
+        Row: {
+          access_expires_at: string | null
+          access_level: Database["public"]["Enums"]["external_access_level"]
+          created_at: string
+          department_id: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string
+          is_active: boolean
+          last_activity_at: string | null
+          must_change_password: boolean
+          project_id: string
+          temporary_password_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_expires_at?: string | null
+          access_level?: Database["public"]["Enums"]["external_access_level"]
+          created_at?: string
+          department_id: string
+          email: string
+          full_name?: string | null
+          id?: string
+          invited_by: string
+          is_active?: boolean
+          last_activity_at?: string | null
+          must_change_password?: boolean
+          project_id: string
+          temporary_password_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_expires_at?: string | null
+          access_level?: Database["public"]["Enums"]["external_access_level"]
+          created_at?: string
+          department_id?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string
+          is_active?: boolean
+          last_activity_at?: string | null
+          must_change_password?: boolean
+          project_id?: string
+          temporary_password_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_users_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "external_users_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_analytics"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "external_users_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string | null
@@ -1498,6 +1636,14 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_external_users: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_external_user_department: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       has_document_access: {
         Args: { _document_id: string; _user_id: string }
         Returns: boolean
@@ -1553,6 +1699,7 @@ export type Database = {
         Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
+      is_external_user: { Args: { _user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
@@ -1566,6 +1713,7 @@ export type Database = {
       app_role: "admin" | "project_manager" | "member" | "viewer"
       chat_room_type: "public" | "private"
       document_permission: "view_only" | "download" | "edit"
+      external_access_level: "view_only" | "upload_edit" | "edit_download"
       project_role: "owner" | "manager" | "member" | "viewer"
       user_status: "online" | "away" | "busy" | "offline"
     }
@@ -1698,6 +1846,7 @@ export const Constants = {
       app_role: ["admin", "project_manager", "member", "viewer"],
       chat_room_type: ["public", "private"],
       document_permission: ["view_only", "download", "edit"],
+      external_access_level: ["view_only", "upload_edit", "edit_download"],
       project_role: ["owner", "manager", "member", "viewer"],
       user_status: ["online", "away", "busy", "offline"],
     },
