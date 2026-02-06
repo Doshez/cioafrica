@@ -23,11 +23,31 @@ export default function Auth() {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
+  // Check for redirect parameter (for external users)
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirectTo = searchParams.get('redirect');
+
   useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+    const checkUserAndRedirect = async () => {
+      if (user) {
+        // Check if user is an external user
+        const { data: externalUser } = await supabase
+          .from('external_users')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (externalUser || redirectTo === 'external') {
+          navigate('/external');
+        } else {
+          navigate('/');
+        }
+      }
+    };
+    
+    checkUserAndRedirect();
+  }, [user, navigate, redirectTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,10 +105,32 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handlePasswordChangeSuccess = () => {
+  const handlePasswordChangeSuccess = async () => {
     setShowPasswordChange(false);
     toast.success('Password changed successfully! Redirecting...');
-    navigate('/dashboard');
+    
+    // Check if user is external and redirect appropriately
+    if (redirectTo === 'external') {
+      navigate('/external');
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: externalUser } = await supabase
+          .from('external_users')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (externalUser) {
+          navigate('/external');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        navigate('/dashboard');
+      }
+    }
   };
 
   return (
