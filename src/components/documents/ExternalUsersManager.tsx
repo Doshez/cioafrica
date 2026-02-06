@@ -29,6 +29,7 @@ export function ExternalUsersManager({
     updateExternalUser,
     revokeAccess,
     reactivateAccess,
+    deleteExternalUser,
     fetchActivityLog
   } = useExternalUsers(departmentId);
 
@@ -181,6 +182,7 @@ export function ExternalUsersManager({
                       onEdit={handleEdit}
                       onRevoke={revokeAccess}
                       onReactivate={reactivateAccess}
+                      onDelete={deleteExternalUser}
                       onViewActivity={handleViewActivity}
                     />
                   ))}
@@ -224,6 +226,7 @@ export function ExternalUsersManager({
                       onEdit={handleEdit}
                       onRevoke={revokeAccess}
                       onReactivate={reactivateAccess}
+                      onDelete={deleteExternalUser}
                       onViewActivity={handleViewActivity}
                     />
                   ))}
