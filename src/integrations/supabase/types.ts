@@ -789,6 +789,58 @@ export type Database = {
           },
         ]
       }
+      external_user_departments: {
+        Row: {
+          access_level: Database["public"]["Enums"]["external_access_level"]
+          added_at: string
+          added_by: string
+          department_id: string
+          external_user_id: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["external_access_level"]
+          added_at?: string
+          added_by: string
+          department_id: string
+          external_user_id: string
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["external_access_level"]
+          added_at?: string
+          added_by?: string
+          department_id?: string
+          external_user_id?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_user_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "external_user_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_user_departments_external_user_id_fkey"
+            columns: ["external_user_id"]
+            isOneToOne: false
+            referencedRelation: "external_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_users: {
         Row: {
           access_expires_at: string | null
