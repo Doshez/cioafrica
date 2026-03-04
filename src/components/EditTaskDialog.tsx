@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Building2 } from 'lucide-react';
 import { SearchableUserSelect } from '@/components/SearchableUserSelect';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,20 +50,30 @@ interface Element {
   title: string;
 }
 
+interface Department {
+  id: string;
+  name: string;
+}
+
 export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTaskDialogProps) {
   const [title, setTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [elementId, setElementId] = useState<string>('');
+  const [departmentId, setDepartmentId] = useState<string>('');
   const [estimatedCost, setEstimatedCost] = useState<string>('0');
   const [actualCost, setActualCost] = useState<string>('0');
   const [startDate, setStartDate] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [users, setUsers] = useState<User[]>([]);
   const [elements, setElements] = useState<Element[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [canMoveDepartment, setCanMoveDepartment] = useState(false);
   const { toast } = useToast();
+  const { isAdmin, isProjectManager } = useUserRole();
+  const { user } = useAuth();
   
   // Track the task ID we've loaded data for to prevent redundant fetches
   const loadedTaskIdRef = useRef<string | null>(null);
@@ -71,14 +83,15 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     if (task) {
       setTitle(task.title);
       setElementId(task.element_id || '');
+      setDepartmentId(task.assignee_department_id || '');
       setEstimatedCost(task.estimated_cost?.toString() || '0');
       setActualCost(task.actual_cost?.toString() || '0');
       setStartDate(task.start_date || '');
       setDueDate(task.due_date || '');
     } else {
-      // Reset form when no task
       setTitle('');
       setElementId('');
+      setDepartmentId('');
       setEstimatedCost('0');
       setActualCost('0');
       setStartDate('');
@@ -86,9 +99,9 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
       setSelectedUserIds([]);
       loadedTaskIdRef.current = null;
     }
-  }, [task?.id, task?.title, task?.element_id, task?.estimated_cost, task?.actual_cost, task?.start_date, task?.due_date]);
+  }, [task?.id, task?.title, task?.element_id, task?.assignee_department_id, task?.estimated_cost, task?.actual_cost, task?.start_date, task?.due_date]);
 
-  // Fetch users, elements, and assignments when dialog opens
+  // Fetch users, elements, departments, and assignments when dialog opens
   useEffect(() => {
     if (!open || !task?.id) {
       return;
@@ -104,14 +117,30 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     const loadData = async () => {
       setDataLoading(true);
       try {
-        // Fetch users, elements, and assignments in parallel
-        const [usersResult, elementsResult, assignmentsResult] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        const queries: Promise<any>[] = [
+          Promise.resolve(supabase.from('profiles').select('id, full_name, email').order('full_name')),
           task.project_id && task.assignee_department_id
-            ? supabase.from('elements').select('id, title').eq('project_id', task.project_id).eq('department_id', task.assignee_department_id).order('title')
+            ? Promise.resolve(supabase.from('elements').select('id, title').eq('project_id', task.project_id).eq('department_id', task.assignee_department_id).order('title'))
             : Promise.resolve({ data: [], error: null }),
-          supabase.from('task_assignments').select('user_id').eq('task_id', task.id)
-        ]);
+          Promise.resolve(supabase.from('task_assignments').select('user_id').eq('task_id', task.id)),
+        ];
+
+        // Fetch departments for the project
+        if (task.project_id) {
+          queries.push(
+            Promise.resolve(supabase.from('departments').select('id, name').eq('project_id', task.project_id).order('name'))
+          );
+        }
+
+        // Check if user is department lead
+        if (task.assignee_department_id && user?.id) {
+          queries.push(
+            Promise.resolve(supabase.from('department_leads').select('id').eq('department_id', task.assignee_department_id).eq('user_id', user.id).maybeSingle())
+          );
+        }
+
+        const results = await Promise.all(queries);
+        const [usersResult, elementsResult, assignmentsResult] = results;
 
         if (usersResult.error) throw usersResult.error;
         if (elementsResult.error) throw elementsResult.error;
@@ -120,8 +149,17 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
         setUsers(usersResult.data || []);
         setElements(elementsResult.data || []);
         
-        const assignedIds = (assignmentsResult.data || []).map(a => a.user_id).filter(Boolean) as string[];
+        const assignedIds = (assignmentsResult.data || []).map((a: any) => a.user_id).filter(Boolean) as string[];
         setSelectedUserIds(assignedIds);
+
+        // Set departments if fetched
+        if (results[3] && !results[3].error) {
+          setDepartments(results[3].data || []);
+        }
+
+        // Check if user can move department
+        const isDeptLead = results[4]?.data ? true : false;
+        setCanMoveDepartment(isAdmin || isProjectManager || isDeptLead);
       } catch (error) {
         console.error('Error loading task data:', error);
       } finally {
@@ -130,7 +168,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     };
 
     loadData();
-  }, [open, task?.id, task?.project_id, task?.assignee_department_id]);
+  }, [open, task?.id, task?.project_id, task?.assignee_department_id, isAdmin, isProjectManager, user?.id]);
 
   // Reset loaded task ref when dialog closes
   useEffect(() => {
@@ -139,6 +177,25 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     }
   }, [open]);
 
+  // Reload elements when department changes
+  useEffect(() => {
+    if (!task?.project_id || !departmentId || departmentId === task?.assignee_department_id) return;
+    
+    const loadElements = async () => {
+      const { data, error } = await supabase
+        .from('elements')
+        .select('id, title')
+        .eq('project_id', task.project_id!)
+        .eq('department_id', departmentId)
+        .order('title');
+      
+      if (!error) {
+        setElements(data || []);
+        setElementId(''); // Reset element when department changes
+      }
+    };
+    loadElements();
+  }, [departmentId, task?.project_id, task?.assignee_department_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,17 +203,23 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
 
     setLoading(true);
     try {
-      // Update task
+      const updateData: any = {
+        title: title.trim(),
+        element_id: elementId || null,
+        estimated_cost: parseFloat(estimatedCost) || 0,
+        actual_cost: parseFloat(actualCost) || 0,
+        start_date: startDate || null,
+        due_date: dueDate || null,
+      };
+
+      // Only include department change if user has permission and it changed
+      if (canMoveDepartment && departmentId && departmentId !== task.assignee_department_id) {
+        updateData.assignee_department_id = departmentId;
+      }
+
       const { error: taskError } = await supabase
         .from('tasks')
-        .update({
-          title: title.trim(),
-          element_id: elementId || null,
-          estimated_cost: parseFloat(estimatedCost) || 0,
-          actual_cost: parseFloat(actualCost) || 0,
-          start_date: startDate || null,
-          due_date: dueDate || null,
-        })
+        .update(updateData)
         .eq('id', task.id);
 
       if (taskError) throw taskError;
@@ -189,11 +252,14 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
       });
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating task:', error);
+      const message = error?.message?.includes('department') 
+        ? 'Only admins, project managers, or department leads can move tasks between departments'
+        : 'Failed to update task';
       toast({
         title: 'Error',
-        description: 'Failed to update task',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -260,6 +326,36 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
                   required
                 />
               </div>
+
+              {/* Department selector - only visible to admin/PM/dept lead */}
+              {canMoveDepartment && departments.length > 1 && (
+                <div className="space-y-2">
+                  <Label htmlFor="department" className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Move to Department
+                  </Label>
+                  <Select
+                    value={departmentId}
+                    onValueChange={(value) => setDepartmentId(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {departmentId !== task?.assignee_department_id && (
+                    <p className="text-xs text-destructive">
+                      ⚠ Task will be moved to a different department
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="element">Element</Label>
