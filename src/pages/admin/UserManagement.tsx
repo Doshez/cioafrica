@@ -91,6 +91,10 @@ export default function UserManagement() {
   const [resetPasswordUser, setResetPasswordUser] = useState<ExternalUser | null>(null);
   const [resettingPassword, setResettingPassword] = useState(false);
   
+  // Internal user password reset state
+  const [resetInternalUser, setResetInternalUser] = useState<User | null>(null);
+  const [resettingInternalPassword, setResettingInternalPassword] = useState(false);
+  
   // Tab state
   const [activeTab, setActiveTab] = useState<"internal" | "external">("internal");
   
@@ -447,7 +451,34 @@ export default function UserManagement() {
     }
   };
 
-  // Filtered internal users
+  const resetInternalUserPassword = async () => {
+    if (!resetInternalUser) return;
+    
+    setResettingInternalPassword(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-temporary-password', {
+        body: { userId: resetInternalUser.id }
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Temporary Password Sent", 
+        description: `A temporary password has been emailed to ${resetInternalUser.email}. It expires in 30 minutes.` 
+      });
+      
+      setResetInternalUser(null);
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to send temporary password", 
+        variant: "destructive" 
+      });
+    } finally {
+      setResettingInternalPassword(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = searchQuery === "" || 
@@ -743,6 +774,7 @@ export default function UserManagement() {
                                   <SelectItem value="viewer">Viewer</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <Button variant="ghost" size="icon" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => setDeleteUserId(user.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                             </div>
@@ -780,6 +812,7 @@ export default function UserManagement() {
                           <SelectItem value="viewer">Viewer</SelectItem>
                         </SelectContent>
                       </Select>
+                      <Button variant="outline" size="icon" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-4 w-4" /></Button>
                       <Button variant="outline" size="icon" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
                       <Button variant="outline" size="icon" onClick={() => setDeleteUserId(user.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                     </div>
@@ -1014,6 +1047,41 @@ export default function UserManagement() {
             <AlertDialogAction onClick={resetExternalUserPassword} disabled={resettingPassword}>
               {resettingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Send Password Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Internal User Password Dialog */}
+      <AlertDialog open={!!resetInternalUser} onOpenChange={() => setResetInternalUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Reset Password
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Send a temporary password to <strong>{resetInternalUser?.full_name || resetInternalUser?.email}</strong>?
+                </p>
+                <div className="bg-muted p-3 rounded-md text-sm">
+                  <p className="font-medium mb-1">What happens:</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>• A secure temporary password will be generated</li>
+                    <li>• Password will be emailed to {resetInternalUser?.email}</li>
+                    <li>• User must set a new password on first login</li>
+                    <li>• <strong className="text-foreground">Temporary password expires in 30 minutes</strong></li>
+                  </ul>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resettingInternalPassword}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={resetInternalUserPassword} disabled={resettingInternalPassword}>
+              {resettingInternalPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Send Temporary Password
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
