@@ -4,9 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, UserPlus, Users, Eye, UserCog, Crown, Trash2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Loader2, UserPlus, Users, Eye, UserCog, Crown, Trash2, Mail } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -36,6 +39,14 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
   const [selectedRole, setSelectedRole] = useState<string>("member");
   const [isAdding, setIsAdding] = useState(false);
 
+  // Invite new user state
+  const [inviteTab, setInviteTab] = useState<string>("existing");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<string>("member");
+  const [newUserProjectRole, setNewUserProjectRole] = useState<string>("member");
+  const [isInviting, setIsInviting] = useState(false);
+
   useEffect(() => {
     fetchMembers();
     fetchAllUsers();
@@ -43,7 +54,6 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
   const fetchMembers = async () => {
     try {
-      // Fetch project members
       const { data: membersData, error: membersError } = await supabase
         .from('project_members')
         .select('*')
@@ -51,7 +61,6 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
       if (membersError) throw membersError;
 
-      // Fetch profiles for those members
       if (membersData && membersData.length > 0) {
         const userIds = membersData.map(m => m.user_id);
         const { data: profilesData, error: profilesError } = await supabase
@@ -61,7 +70,6 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
         if (profilesError) throw profilesError;
 
-        // Combine the data
         const combinedData = membersData.map(member => {
           const profile = profilesData?.find(p => p.id === member.user_id);
           return {
@@ -78,11 +86,7 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
         setMembers([]);
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -90,13 +94,19 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
   const fetchAllUsers = async () => {
     try {
+      // Exclude external users from the list
+      const { data: externalUserData } = await supabase
+        .from('external_users')
+        .select('user_id');
+      const externalUserIds = new Set(externalUserData?.map(eu => eu.user_id) || []);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, full_name')
         .order('email');
 
       if (error) throw error;
-      setAllUsers(data || []);
+      setAllUsers((data || []).filter(u => !externalUserIds.has(u.id)));
     } catch (error: any) {
       console.error('Error fetching users:', error);
     }
@@ -104,21 +114,12 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
   const addMember = async () => {
     if (!selectedUserId || !selectedRole) {
-      toast({
-        title: "Error",
-        description: "Please select a user and role",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please select a user and role", variant: "destructive" });
       return;
     }
 
-    // Check if user is already a member
     if (members.some(m => m.user_id === selectedUserId)) {
-      toast({
-        title: "Error",
-        description: "User is already a member of this project",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "User is already a member of this project", variant: "destructive" });
       return;
     }
 
@@ -134,23 +135,59 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
 
       if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: "Member added successfully",
-      });
-
+      toast({ title: "Success", description: "Member added successfully" });
       setDialogOpen(false);
       setSelectedUserId("");
       setSelectedRole("member");
       fetchMembers();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const inviteNewUser = async () => {
+    if (!newUserEmail || !newUserName) {
+      toast({ title: "Error", description: "Please fill in email and name", variant: "destructive" });
+      return;
+    }
+
+    setIsInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail,
+          full_name: newUserName,
+          role: newUserRole,
+          project_ids: [projectId],
+        },
+      });
+
+      if (error) throw error;
+
+      // Update the project member role if different from default viewer
+      if (data?.user?.id && newUserProjectRole !== 'viewer') {
+        await supabase
+          .from('project_members')
+          .update({ role: newUserProjectRole as any })
+          .eq('project_id', projectId)
+          .eq('user_id', data.user.id);
+      }
+
+      toast({ title: "User Invited", description: `An invitation email has been sent to ${newUserEmail}` });
+      setDialogOpen(false);
+      setNewUserEmail("");
+      setNewUserName("");
+      setNewUserRole("member");
+      setNewUserProjectRole("member");
+      setInviteTab("existing");
+      fetchMembers();
+      fetchAllUsers();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsInviting(false);
     }
   };
 
@@ -162,19 +199,10 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
         .eq('id', memberId);
 
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Role updated successfully",
-      });
-
+      toast({ title: "Success", description: "Role updated successfully" });
       fetchMembers();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -186,19 +214,10 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
         .eq('id', memberId);
 
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Member removed successfully",
-      });
-
+      toast({ title: "Success", description: "Member removed successfully" });
       fetchMembers();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -247,7 +266,7 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
             <span className="truncate">Project Members ({members.length + 1})</span>
           </CardTitle>
           {canManageMembers && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setInviteTab("existing"); }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="w-full sm:w-auto">
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -258,73 +277,139 @@ export function ProjectMembersCard({ projectId, projectOwnerId }: ProjectMembers
                 <DialogHeader>
                   <DialogTitle className="text-base sm:text-lg">Add Project Member</DialogTitle>
                   <DialogDescription className="text-sm">
-                    Assign a user to this project with a specific role
+                    Add an existing user or invite a new one to this project
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Select User</label>
-                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose a user" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[200px]">
-                        {availableUsers.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            <span className="truncate">{user.full_name || user.email}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <Tabs value={inviteTab} onValueChange={setInviteTab}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="existing">
+                      <Users className="h-4 w-4 mr-1.5" />
+                      Existing User
+                    </TabsTrigger>
+                    <TabsTrigger value="invite">
+                      <Mail className="h-4 w-4 mr-1.5" />
+                      Invite New
+                    </TabsTrigger>
+                  </TabsList>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Project Role</label>
-                    <Select value={selectedRole} onValueChange={setSelectedRole}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="viewer">
-                          <div className="flex items-center gap-2">
-                            <Eye className="h-4 w-4 shrink-0" />
-                            <span className="truncate">Viewer - View only</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="member">
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 shrink-0" />
-                            <span className="truncate">Member - Create & manage tasks</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="manager">
-                          <div className="flex items-center gap-2">
-                            <UserCog className="h-4 w-4 shrink-0" />
-                            <span className="truncate">Manager - Full project control</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* Existing user tab */}
+                  <TabsContent value="existing" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label>Select User</Label>
+                      <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose a user" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {availableUsers.length === 0 ? (
+                            <div className="py-2 px-3 text-sm text-muted-foreground">No available users</div>
+                          ) : (
+                            availableUsers.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                <span className="truncate">{user.full_name || user.email}</span>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Project Role</Label>
+                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">
+                            <div className="flex items-center gap-2"><Eye className="h-4 w-4 shrink-0" /><span>Viewer</span></div>
+                          </SelectItem>
+                          <SelectItem value="member">
+                            <div className="flex items-center gap-2"><Users className="h-4 w-4 shrink-0" /><span>Member</span></div>
+                          </SelectItem>
+                          <SelectItem value="manager">
+                            <div className="flex items-center gap-2"><UserCog className="h-4 w-4 shrink-0" /><span>Manager</span></div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                      <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isAdding} className="w-full sm:w-auto">Cancel</Button>
+                      <Button onClick={addMember} disabled={isAdding || !selectedUserId} className="w-full sm:w-auto">
+                        {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Add Member
+                      </Button>
+                    </DialogFooter>
+                  </TabsContent>
+
+                  {/* Invite new user tab */}
+                  <TabsContent value="invite" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-email">Email Address</Label>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        placeholder="user@example.com"
+                        value={newUserEmail}
+                        onChange={(e) => setNewUserEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-name">Full Name</Label>
+                      <Input
+                        id="invite-name"
+                        type="text"
+                        placeholder="John Doe"
+                        value={newUserName}
+                        onChange={(e) => setNewUserName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>System Role</Label>
+                      <Select value={newUserRole} onValueChange={setNewUserRole}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select system role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="project_manager">Project Manager</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Project Role</Label>
+                      <Select value={newUserProjectRole} onValueChange={setNewUserProjectRole}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select project role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <Alert>
+                      <Mail className="h-4 w-4" />
                       <AlertDescription className="text-xs">
-                        {selectedRole === 'viewer' && 'Can only view Gantt charts and project data'}
-                        {selectedRole === 'member' && 'Can create tasks, assign work, and update status'}
-                        {selectedRole === 'manager' && 'Can manage all aspects of this project'}
+                        A welcome email with temporary login credentials will be sent to the user. They will be required to change their password on first login.
                       </AlertDescription>
                     </Alert>
-                  </div>
-                </div>
 
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isAdding} className="w-full sm:w-auto">
-                    Cancel
-                  </Button>
-                  <Button onClick={addMember} disabled={isAdding} className="w-full sm:w-auto">
-                    {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Add Member
-                  </Button>
-                </DialogFooter>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                      <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isInviting} className="w-full sm:w-auto">Cancel</Button>
+                      <Button onClick={inviteNewUser} disabled={isInviting || !newUserEmail || !newUserName} className="w-full sm:w-auto">
+                        {isInviting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Invitation
+                      </Button>
+                    </DialogFooter>
+                  </TabsContent>
+                </Tabs>
               </DialogContent>
             </Dialog>
           )}

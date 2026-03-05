@@ -37,20 +37,28 @@ export function DepartmentLeadDialog({ departmentId, departmentName, projectId }
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      // Get project members
-      const { data: members } = await supabase
-        .from('project_members')
-        .select('user_id')
-        .eq('project_id', projectId);
+      // Get project members + project owner
+      const [membersRes, projectRes] = await Promise.all([
+        supabase.from('project_members').select('user_id').eq('project_id', projectId),
+        supabase.from('projects').select('owner_id').eq('id', projectId).single(),
+      ]);
 
-      if (members && members.length > 0) {
-        const userIds = members.map(m => m.user_id);
+      const memberIds = [...new Set([
+        ...(membersRes.data || []).map(m => m.user_id),
+        ...(projectRes.data?.owner_id ? [projectRes.data.owner_id] : []),
+      ])];
+
+      // Exclude external users
+      const { data: externalUserData } = await supabase.from('external_users').select('user_id');
+      const externalUserIds = new Set(externalUserData?.map(eu => eu.user_id) || []);
+
+      if (memberIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, email')
-          .in('id', userIds);
+          .in('id', memberIds);
 
-        setUsers(profiles || []);
+        setUsers((profiles || []).filter(u => !externalUserIds.has(u.id)));
       }
     } catch (error) {
       console.error('Error fetching users:', error);
