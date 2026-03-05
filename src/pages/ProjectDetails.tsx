@@ -337,13 +337,13 @@ export default function ProjectDetails() {
               {(isAdmin || isProjectManager) && (
                 <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="gap-1.5 rounded-lg border-primary/20 hover:bg-primary/10 hover:text-primary"
+                    className="gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md hover:shadow-lg hover:scale-[1.02] transition-all duration-200 font-semibold px-4"
                     onClick={() => navigate(`/projects/${projectId}/gantt`)}
                   >
-                    <GanttChartSquare className="h-3.5 w-3.5" />
+                    <GanttChartSquare className="h-4 w-4" />
                     Gantt Chart
+                    <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                   </Button>
                   <UpdateProjectLogoDialog projectId={projectId!} currentLogoUrl={project.logo_url} onLogoUpdated={fetchProjectData} />
                   <CreateTaskDialog projectId={projectId} onTaskCreated={fetchProjectData} showTrigger={false} />
