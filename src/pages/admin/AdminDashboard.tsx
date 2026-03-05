@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Users, FolderKanban, CheckSquare, TrendingUp, UserPlus, BarChart3, Shield, FileText, Loader2, ArrowRight } from "lucide-react";
-import { CreateProjectDialog } from "@/components/CreateProjectDialog";
+
 import { Progress } from "@/components/ui/progress";
 import { OverdueReminderSettings } from "@/components/OverdueReminderSettings";
 
@@ -103,7 +103,10 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">System overview and management</p>
         </div>
-        <CreateProjectDialog onProjectCreated={fetchData} />
+        <Button className="gap-2 shadow-sm" onClick={() => navigate('/projects')}>
+          <FolderKanban className="h-4 w-4" />
+          View Projects
+        </Button>
       </div>
 
       {/* Stats */}
