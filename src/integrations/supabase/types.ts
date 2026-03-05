@@ -1020,6 +1020,36 @@ export type Database = {
           },
         ]
       }
+      overdue_reminder_settings: {
+        Row: {
+          enabled: boolean
+          id: string
+          reminder_days: string[]
+          send_time: string
+          timezone: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          reminder_days?: string[]
+          send_time?: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          reminder_days?: string[]
+          send_time?: string
+          timezone?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       password_reset_requests: {
         Row: {
           completed_at: string | null
