@@ -470,21 +470,39 @@ export default function ProjectDetails() {
             </Card>
           )}
 
-          {/* Quick Actions */}
-          {(isAdmin || isProjectManager) && (
-            <div className="flex flex-wrap gap-2">
-              <CreateTaskDialog projectId={projectId} onTaskCreated={fetchProjectData} showTrigger={true} />
-              <CreateDepartmentDialog projectId={projectId!} onDepartmentCreated={fetchProjectData} />
-              <Button variant="outline" size="sm" className="gap-1.5 rounded-lg" onClick={() => setActiveTab('team')}>
-                <Users className="h-3.5 w-3.5" />
-                Invite User
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 rounded-lg" onClick={() => navigate(`/projects/${projectId}/documents`)}>
-                <Upload className="h-3.5 w-3.5" />
-                Upload Document
-              </Button>
-            </div>
-          )}
+          {/* Gantt Chart CTA + Quick Actions */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Gantt CTA */}
+            <button
+              onClick={() => navigate(`/projects/${projectId}/gantt`)}
+              className="flex items-center gap-3 px-5 py-3.5 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5 hover:from-primary/10 hover:via-primary/15 hover:to-accent/10 transition-all duration-300 group shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]"
+            >
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                <GanttChartSquare className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-left min-w-0">
+                <p className="text-sm font-semibold group-hover:text-primary transition-colors">Open Gantt Chart</p>
+                <p className="text-xs text-muted-foreground">View timeline, track progress & export reports</p>
+              </div>
+              <ArrowLeft className="h-4 w-4 rotate-180 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all ml-auto flex-shrink-0" />
+            </button>
+
+            {/* Quick Actions */}
+            {(isAdmin || isProjectManager) && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <CreateTaskDialog projectId={projectId} onTaskCreated={fetchProjectData} showTrigger={true} />
+                <CreateDepartmentDialog projectId={projectId!} onDepartmentCreated={fetchProjectData} />
+                <Button variant="outline" size="sm" className="gap-1.5 rounded-lg" onClick={() => setActiveTab('team')}>
+                  <Users className="h-3.5 w-3.5" />
+                  Invite User
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5 rounded-lg" onClick={() => navigate(`/projects/${projectId}/documents`)}>
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload Document
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

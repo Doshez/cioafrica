@@ -1,15 +1,19 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, GanttChartSquare, Layers } from 'lucide-react';
 import { InteractiveGanttChart } from '@/components/InteractiveGanttChart';
 import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface Project {
   id: string;
   name: string;
   description: string;
+  logo_url?: string | null;
+  status: string;
 }
 
 export default function ProjectGanttChartPage() {
@@ -28,14 +32,13 @@ export default function ProjectGanttChartPage() {
     try {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, name, description')
+        .select('id, name, description, logo_url, status')
         .eq('id', projectId)
         .maybeSingle();
 
       if (error) throw error;
       
       if (!data) {
-        console.error('Project not found or access denied');
         navigate('/projects');
         return;
       }
@@ -53,31 +56,67 @@ export default function ProjectGanttChartPage() {
     return <ProjectLoadingScreen projectId={projectId} />;
   }
 
+  const statusConfig: Record<string, { label: string; className: string }> = {
+    active: { label: 'Active', className: 'bg-success/10 text-success border-success/20' },
+    completed: { label: 'Completed', className: 'bg-primary/10 text-primary border-primary/20' },
+    inactive: { label: 'Inactive', className: 'bg-muted text-muted-foreground border-border' },
+    on_hold: { label: 'On Hold', className: 'bg-warning/10 text-warning border-warning/20' },
+  };
+
+  const currentStatus = statusConfig[project?.status || 'active'] || statusConfig['active'];
+
   return (
-    <div className="min-h-screen w-full flex flex-col">
-      {/* Header */}
-      <div className="px-2 sm:px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 flex-shrink-0">
-        <div className="flex items-center justify-between max-w-full">
-          <div className="flex items-center gap-3 min-w-0">
+    <div className="min-h-screen w-full flex flex-col bg-background">
+      {/* Modern Header */}
+      <div className="border-b bg-card/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-[1800px] mx-auto px-3 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => navigate(`/projects/${projectId}`)}
+                className="h-9 w-9 rounded-lg flex-shrink-0 hover:bg-muted"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+
+              {project?.logo_url ? (
+                <img src={project.logo_url} alt="" className="h-9 w-9 rounded-xl object-contain flex-shrink-0 ring-1 ring-border" />
+              ) : (
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--gradient-primary)' }}>
+                  <Layers className="h-4 w-4 text-primary-foreground" />
+                </div>
+              )}
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">{project?.name}</h1>
+                  <Badge variant="outline" className={cn('text-[10px] font-medium flex-shrink-0 border', currentStatus.className)}>
+                    {currentStatus.label}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <GanttChartSquare className="h-3 w-3" />
+                  <span>Gantt Chart View</span>
+                </div>
+              </div>
+            </div>
+
             <Button 
               variant="outline" 
-              size="icon" 
+              size="sm" 
               onClick={() => navigate(`/projects/${projectId}`)}
-              className="flex-shrink-0"
+              className="hidden sm:flex gap-1.5 text-xs"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Project
             </Button>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Gantt Chart</h1>
-              {project && (
-                <p className="text-sm text-muted-foreground truncate">{project.name}</p>
-              )}
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Interactive Gantt Chart - Full Width */}
+      {/* Gantt Chart - Full Width */}
       <div className="w-full flex-1 overflow-hidden">
         <InteractiveGanttChart projectId={projectId!} />
       </div>

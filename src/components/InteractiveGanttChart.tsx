@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1184,74 +1185,65 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
   return (
     <>
       <Card className="w-full rounded-none border-x-0 overflow-hidden" ref={chartRef}>
-        <CardHeader className="px-2 sm:px-3 py-3">
+        <CardHeader className="px-3 sm:px-5 py-4 bg-card border-b">
           <div className="flex flex-col gap-4">
             {/* Header Row */}
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <Calendar className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="truncate">Interactive Gantt Chart</span>
-              </CardTitle>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--gradient-primary)' }}>
+                  <GanttChartSquare className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight">Project Timeline</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {filteredElements.length} element{filteredElements.length !== 1 ? 's' : ''} · {filteredElements.reduce((sum, e) => sum + e.tasks.length, 0)} tasks
+                  </p>
+                </div>
+              </div>
               
               <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                 {/* Chart Mode Toggle */}
-                <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/30">
+                <div className="flex items-center rounded-xl border bg-muted/30 p-0.5">
                   <Button
                     variant={chartMode === 'gantt' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setChartMode('gantt')}
-                    className="h-8 text-xs gap-1.5"
+                    className="h-8 text-xs gap-1.5 rounded-[10px]"
                   >
                     <GanttChartSquare className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Gantt</span>
+                    <span className="hidden sm:inline">Timeline</span>
                   </Button>
                   <Button
                     variant={chartMode === 'analytics' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setChartMode('analytics')}
-                    className="h-8 text-xs gap-1.5"
+                    className="h-8 text-xs gap-1.5 rounded-[10px]"
                   >
                     <BarChart3 className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Analytics</span>
                   </Button>
                 </div>
+
                 {/* View Mode Toggle */}
-                <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted/30">
-                  <Button
-                    variant={viewMode === 'day' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('day')}
-                    className="h-8 text-xs px-2 sm:px-3"
-                  >
-                    Day
-                  </Button>
-                  <Button
-                    variant={viewMode === 'week' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('week')}
-                    className="h-8 text-xs px-2 sm:px-3"
-                  >
-                    Week
-                  </Button>
-                  <Button
-                    variant={viewMode === 'month' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('month')}
-                    className="h-8 text-xs px-2 sm:px-3"
-                  >
-                    Month
-                  </Button>
+                <div className="flex items-center rounded-xl border bg-muted/30 p-0.5">
+                  {(['day', 'week', 'month'] as ViewMode[]).map(mode => (
+                    <Button
+                      key={mode}
+                      variant={viewMode === mode ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode(mode)}
+                      className="h-8 text-xs px-3 capitalize rounded-[10px]"
+                    >
+                      {mode}
+                    </Button>
+                  ))}
                 </div>
                 
                 {/* Export Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-2"
-                    >
-                      <Download className="h-4 w-4" />
+                    <Button variant="outline" size="sm" className="h-8 gap-2 rounded-xl">
+                      <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Export</span>
                     </Button>
                   </DropdownMenuTrigger>
@@ -1269,15 +1261,15 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               </div>
             </div>
 
-            {/* Filters Row */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium hidden sm:inline">Filters:</span>
+            {/* Filters Row - Modern pill style */}
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-muted/20 border border-border/50">
+              <div className="flex items-center gap-1.5 mr-1">
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
               </div>
               
               <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger className="w-[140px] sm:w-[180px] h-8">
+                <SelectTrigger className="w-[150px] sm:w-[180px] h-8 rounded-lg text-xs border-border/50 bg-background">
                   <SelectValue placeholder="All Departments" />
                 </SelectTrigger>
                 <SelectContent className="z-50 bg-background">
@@ -1285,10 +1277,7 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                   {departments.map(dept => (
                     <SelectItem key={dept.id} value={dept.id}>
                       <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
-                          style={{ backgroundColor: getDepartmentColor(dept.id) }}
-                        />
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getDepartmentColor(dept.id) }} />
                         <span className="truncate">{dept.name}</span>
                       </div>
                     </SelectItem>
@@ -1297,14 +1286,29 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[120px] sm:w-[150px] h-8">
+                <SelectTrigger className="w-[130px] sm:w-[150px] h-8 rounded-lg text-xs border-border/50 bg-background">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent className="z-50 bg-background">
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="todo">To Do</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="todo">
+                    <div className="flex items-center gap-2">
+                      <Circle className="h-3 w-3 text-muted-foreground" />
+                      To Do
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="in_progress">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3 text-blue-500" />
+                      In Progress
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="done">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      Completed
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1316,35 +1320,41 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     setFilterDepartment('all');
                     setFilterStatus('all');
                   }}
-                  className="h-8 gap-1"
+                  className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground rounded-lg"
                 >
                   <X className="h-3 w-3" />
-                  <span className="hidden sm:inline">Clear</span>
+                  Clear filters
                 </Button>
               )}
-            </div>
 
-            {/* Department Legend with Analytics */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-muted/30">
-              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Depts:</span>
-              {departmentAnalytics.map(analytics => {
-                const dept = departments.find(d => d.id === analytics.departmentId);
-                if (!dept) return null;
-                return (
-                  <div key={dept.id} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                    <div 
-                      className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full shadow-sm flex-shrink-0" 
-                      style={{ backgroundColor: getDepartmentColor(dept.id) }}
-                    />
-                    <span className="truncate max-w-[80px] sm:max-w-none">{dept.name}</span>
-                    {chartMode === 'analytics' && (
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs h-4 sm:h-5 px-1 sm:px-2">
-                        {analytics.percentage}%
-                      </Badge>
-                    )}
-                  </div>
-                );
-              })}
+              {/* Department color chips */}
+              <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+                {departmentAnalytics.filter(a => {
+                  const dept = departments.find(d => d.id === a.departmentId);
+                  return dept;
+                }).map(analytics => {
+                  const dept = departments.find(d => d.id === analytics.departmentId)!;
+                  const isActive = filterDepartment === 'all' || filterDepartment === dept.id;
+                  return (
+                    <button
+                      key={dept.id}
+                      onClick={() => setFilterDepartment(filterDepartment === dept.id ? 'all' : dept.id)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all duration-200',
+                        isActive
+                          ? 'bg-background border-border shadow-sm'
+                          : 'bg-transparent border-transparent opacity-50 hover:opacity-80'
+                      )}
+                    >
+                      <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: getDepartmentColor(dept.id) }} />
+                      <span className="truncate max-w-[60px] sm:max-w-[100px]">{dept.name}</span>
+                      {chartMode === 'analytics' && (
+                        <span className="text-muted-foreground">{analytics.percentage}%</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </CardHeader>
