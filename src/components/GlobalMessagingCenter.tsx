@@ -94,6 +94,9 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
   const [groupName, setGroupName] = useState('');
   const [newChatSearch, setNewChatSearch] = useState('');
   const [showRightPanel, setShowRightPanel] = useState(false);
+  const [channelsCollapsed, setChannelsCollapsed] = useState(false);
+  const [groupsCollapsed, setGroupsCollapsed] = useState(false);
+  const [dmsCollapsed, setDmsCollapsed] = useState(false);
   const [unreadByRoom, setUnreadByRoom] = useState<Map<string, number>>(new Map());
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [reactions, setReactions] = useState<Map<string, Array<{ emoji: string; user_id: string; id: string }>>>(new Map());
@@ -558,35 +561,45 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
               <ScrollArea className="flex-1">
                 <div className="p-2">
                   {/* Channels */}
-                  <div className="mb-3">
-                    <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Channels</div>
-                    {publicRoom && (
-                      <button className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${selectedRoom === publicRoom.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(publicRoom.id)}>
-                        <Hash className="h-4 w-4 opacity-60" />
-                        <span className="truncate flex-1 text-left">General</span>
-                        {(unreadByRoom.get(publicRoom.id) || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadByRoom.get(publicRoom.id)}</Badge>}
-                      </button>
+                  <div className="mb-1">
+                    <button className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors" onClick={() => setChannelsCollapsed(!channelsCollapsed)}>
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Channels</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${channelsCollapsed ? '-rotate-90' : ''}`} />
+                    </button>
+                    {!channelsCollapsed && (
+                      <>
+                        {publicRoom && (
+                          <button className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors ${selectedRoom === publicRoom.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(publicRoom.id)}>
+                            <Hash className="h-4 w-4 opacity-60" />
+                            <span className="truncate flex-1 text-left">General</span>
+                            {(unreadByRoom.get(publicRoom.id) || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadByRoom.get(publicRoom.id)}</Badge>}
+                          </button>
+                        )}
+                        {departmentRooms.map(room => (
+                          <button key={room.id} className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
+                            <Building2 className="h-4 w-4 opacity-60" />
+                            <span className="truncate flex-1 text-left">{room.name}</span>
+                            {(unreadByRoom.get(room.id) || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadByRoom.get(room.id)}</Badge>}
+                          </button>
+                        ))}
+                        {departments.filter(d => !departmentRooms.find(r => r.department_id === d.id)).map(dept => (
+                          <button key={dept.id} className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm hover:bg-muted text-muted-foreground" onClick={() => createDepartmentChannel(dept)}>
+                            <Building2 className="h-4 w-4 opacity-40" />
+                            <span className="truncate flex-1 text-left">{dept.name}</span>
+                          </button>
+                        ))}
+                      </>
                     )}
-                    {departmentRooms.map(room => (
-                      <button key={room.id} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
-                        <Building2 className="h-4 w-4 opacity-60" />
-                        <span className="truncate flex-1 text-left">{room.name}</span>
-                        {(unreadByRoom.get(room.id) || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadByRoom.get(room.id)}</Badge>}
-                      </button>
-                    ))}
-                    {departments.filter(d => !departmentRooms.find(r => r.department_id === d.id)).map(dept => (
-                      <button key={dept.id} className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm hover:bg-muted text-muted-foreground" onClick={() => createDepartmentChannel(dept)}>
-                        <Building2 className="h-4 w-4 opacity-40" />
-                        <span className="truncate flex-1 text-left">{dept.name}</span>
-                      </button>
-                    ))}
                   </div>
 
                   {groupRooms.length > 0 && (
-                    <div className="mb-3">
-                      <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Groups</div>
-                      {groupRooms.map(room => (
-                        <button key={room.id} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
+                    <div className="mb-1">
+                      <button className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors" onClick={() => setGroupsCollapsed(!groupsCollapsed)}>
+                        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Groups</span>
+                        <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${groupsCollapsed ? '-rotate-90' : ''}`} />
+                      </button>
+                      {!groupsCollapsed && groupRooms.map(room => (
+                        <button key={room.id} className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
                           <Users className="h-4 w-4 opacity-60" />
                           <span className="truncate flex-1 text-left">{room.name || 'Group'}</span>
                           {(unreadByRoom.get(room.id) || 0) > 0 && <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadByRoom.get(room.id)}</Badge>}
@@ -597,14 +610,18 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
 
                   <Separator className="my-2" />
 
-                  <div>
-                    <div className="px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Direct Messages</div>
+                  <div className="mb-1">
+                    <button className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors" onClick={() => setDmsCollapsed(!dmsCollapsed)}>
+                      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Direct Messages</span>
+                      <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${dmsCollapsed ? '-rotate-90' : ''}`} />
+                    </button>
+                    {!dmsCollapsed && (<>
                     {filteredPrivateRooms.map(room => {
                       const unread = unreadByRoom.get(room.id) || 0;
                       const status = room.other_user?.id ? getUserStatus(room.other_user.id) : 'offline';
                       return (
                         <div key={room.id} className="relative group">
-                          <button className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
+                          <button className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
                             <div className="relative flex-shrink-0">
                               <Avatar className="h-7 w-7"><AvatarImage src={room.other_user?.avatar_url || undefined} /><AvatarFallback className="text-[10px]">{(room.other_user?.full_name || 'U').charAt(0).toUpperCase()}</AvatarFallback></Avatar>
                               <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${getStatusColor(status)}`} />
@@ -624,6 +641,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                     {filteredPrivateRooms.length === 0 && !searchQuery && (
                       <p className="text-xs text-muted-foreground px-2.5 py-2">No conversations yet</p>
                     )}
+                    </>)}
                   </div>
                 </div>
               </ScrollArea>
