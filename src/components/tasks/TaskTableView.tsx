@@ -85,6 +85,8 @@ export function TaskTableView({
     switch (status) {
       case 'done': return 'bg-green-500';
       case 'in_progress': return 'bg-blue-500';
+      case 'review': return 'bg-yellow-500';
+      case 'blocked': return 'bg-red-500';
       case 'todo': return 'bg-gray-500';
       default: return 'bg-gray-500';
     }
@@ -215,9 +217,11 @@ export function TaskTableView({
                           </div>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="todo">To Do</SelectItem>
+                          <SelectItem value="todo">Not Started</SelectItem>
                           <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
+                          <SelectItem value="review">Review</SelectItem>
+                          <SelectItem value="done">Completed</SelectItem>
+                          <SelectItem value="blocked">Blocked</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (

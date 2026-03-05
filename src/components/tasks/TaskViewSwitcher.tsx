@@ -98,9 +98,11 @@ export function TaskViewSwitcher({
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="todo">To Do</SelectItem>
+            <SelectItem value="todo">Not Started</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="done">Done</SelectItem>
+            <SelectItem value="review">Review</SelectItem>
+            <SelectItem value="done">Completed</SelectItem>
+            <SelectItem value="blocked">Blocked</SelectItem>
           </SelectContent>
         </Select>
 

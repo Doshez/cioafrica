@@ -66,7 +66,9 @@ export function TaskListView({
     switch (status) {
       case 'todo': return 'bg-secondary text-secondary-foreground';
       case 'in_progress': return 'bg-primary text-primary-foreground';
+      case 'review': return 'bg-yellow-500 text-white';
       case 'done': return 'bg-green-500 text-white';
+      case 'blocked': return 'bg-red-500 text-white';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -122,7 +124,7 @@ export function TaskListView({
                               </Button>
                             )}
                             <Badge className={getStatusColor(task.status, taskOverdue)}>
-                              {taskOverdue ? 'Overdue' : task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : 'To Do'}
+                              {taskOverdue ? 'Overdue' : task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Completed' : task.status === 'review' ? 'Review' : task.status === 'blocked' ? 'Blocked' : 'Not Started'}
                             </Badge>
                           </div>
                         </div>
@@ -181,9 +183,11 @@ export function TaskListView({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="todo">To Do (0%)</SelectItem>
+                              <SelectItem value="todo">Not Started (0%)</SelectItem>
                               <SelectItem value="in_progress">In Progress (1-99%)</SelectItem>
-                              <SelectItem value="done">Done (100%)</SelectItem>
+                              <SelectItem value="review">Review</SelectItem>
+                              <SelectItem value="done">Completed (100%)</SelectItem>
+                              <SelectItem value="blocked">Blocked</SelectItem>
                             </SelectContent>
                           </Select>
                         )}

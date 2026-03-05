@@ -310,9 +310,11 @@ export function TaskDetailDrawer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
+                  <SelectItem value="todo">Not Started</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="done">Completed</SelectItem>
+                  <SelectItem value="blocked">Blocked</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -428,10 +430,10 @@ export function TaskDetailDrawer({
             )}
           </div>
 
-          {/* Element */}
+          {/* Brief */}
           {task?.element_name && (
             <div className="space-y-2">
-              <Label>Element</Label>
+              <Label>Brief</Label>
               <Badge variant="outline">{task.element_name}</Badge>
             </div>
           )}

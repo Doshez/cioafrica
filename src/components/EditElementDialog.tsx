@@ -50,15 +50,15 @@ export function EditElementDialog({ open, onOpenChange, element, onSuccess }: Ed
 
       toast({
         title: 'Success',
-        description: 'Element updated successfully',
+        description: 'Brief updated successfully',
       });
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error updating element:', error);
+      console.error('Error updating brief:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update element',
+        description: 'Failed to update brief',
         variant: 'destructive',
       });
     } finally {
@@ -70,16 +70,16 @@ export function EditElementDialog({ open, onOpenChange, element, onSuccess }: Ed
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Element</DialogTitle>
+          <DialogTitle>Edit Brief</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Element Name</Label>
+            <Label htmlFor="title">Brief Name</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter element name"
+              placeholder="Enter brief name"
               required
             />
           </div>
@@ -90,7 +90,7 @@ export function EditElementDialog({ open, onOpenChange, element, onSuccess }: Ed
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter element description"
+              placeholder="Enter brief description"
               rows={3}
             />
           </div>

@@ -68,7 +68,6 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
 
   useEffect(() => {
     if (open) {
-      fetchProfiles();
       if (!projectId) {
         fetchProjects();
       } else {
@@ -76,6 +75,13 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
       }
     }
   }, [open, projectId]);
+
+  // Re-fetch profiles when project changes
+  useEffect(() => {
+    if (open && selectedProjectId) {
+      fetchProfiles();
+    }
+  }, [open, selectedProjectId]);
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -86,9 +92,44 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
   }, [selectedProjectId]);
 
   const fetchProfiles = async () => {
+    // Only fetch users who are members of the selected project
+    const targetProjectId = selectedProjectId || projectId;
+    if (!targetProjectId) {
+      // Fallback: fetch all profiles if no project context
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .order('full_name');
+      if (data) setProfiles(data);
+      return;
+    }
+
+    // Get project members + owner
+    const [membersRes, projectRes] = await Promise.all([
+      supabase
+        .from('project_members')
+        .select('user_id')
+        .eq('project_id', targetProjectId),
+      supabase
+        .from('projects')
+        .select('owner_id')
+        .eq('id', targetProjectId)
+        .single(),
+    ]);
+
+    const memberIds = (membersRes.data || []).map(m => m.user_id);
+    if (projectRes.data?.owner_id) memberIds.push(projectRes.data.owner_id);
+    const uniqueIds = [...new Set(memberIds)];
+
+    if (uniqueIds.length === 0) {
+      setProfiles([]);
+      return;
+    }
+
     const { data } = await supabase
       .from('profiles')
       .select('id, full_name, email')
+      .in('id', uniqueIds)
       .order('full_name');
     if (data) setProfiles(data);
   };
@@ -330,7 +371,7 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="element">Element (Optional)</Label>
+            <Label htmlFor="element">Brief (Optional)</Label>
             <Select
               value={formData.element_id}
               onValueChange={(value) => setFormData({ ...formData, element_id: value })}
@@ -341,8 +382,8 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
                   !formData.assignee_department_id
                     ? "Select a department first" 
                     : elements.filter(e => e.department_id === formData.assignee_department_id).length === 0 
-                    ? "No elements available" 
-                    : "Select element (optional)"
+                    ? "No briefs available" 
+                    : "Select brief (optional)"
                 } />
               </SelectTrigger>
               <SelectContent>
@@ -375,10 +416,11 @@ export function CreateTaskDialog({ projectId, departmentId, onTaskCreated, showT
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To Do</SelectItem>
+                  <SelectItem value="todo">Not Started</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="done">Completed</SelectItem>
+                  <SelectItem value="blocked">Blocked</SelectItem>
                 </SelectContent>
               </Select>
             </div>
