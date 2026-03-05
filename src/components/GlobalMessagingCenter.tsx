@@ -138,8 +138,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
       memberProjects?.forEach(m => projectIds.add(m.project_id));
       ownedProjects?.forEach(p => projectIds.add(p.id));
       if (projectIds.size === 0) {
-        const { data } = await supabase.from('projects').select('id, name, logo_url').order('name');
-        setProjects(data || []);
+        setProjects([]);
       } else {
         const { data } = await supabase.from('projects').select('id, name, logo_url')
           .in('id', Array.from(projectIds)).order('name');
