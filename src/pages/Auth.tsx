@@ -139,12 +139,12 @@ export default function Auth() {
         open={showForgotPassword}
         onOpenChange={setShowForgotPassword}
       />
-      <div className="min-h-screen gradient-subtle flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src={cioDxLogo} alt="CIO Africa DX5" className="mx-auto mb-3 h-16" />
-          <h1 className="text-3xl font-bold">Project Planner</h1>
-          <p className="text-sm text-muted-foreground mt-1">Internal Employee Portal</p>
+          <img src={cioDxLogo} alt="CIO Africa DX5" className="mx-auto mb-4 h-12" />
+          <h1 className="text-2xl font-bold">Project Planner</h1>
+          <p className="text-xs text-muted-foreground mt-1">Internal Employee Portal</p>
         </div>
 
         {externalUserError && (
