@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock, Loader2, Bell } from 'lucide-react';
+import { Plus, TrendingUp, CheckCircle2, AlertCircle, Clock, Loader2, Bell, ArrowRight, FolderKanban } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { isTaskDoneStatus } from '@/lib/taskStatus';
+import { Badge } from '@/components/ui/badge';
 
 interface DashboardStats {
   activeProjects: number;
@@ -68,7 +68,6 @@ export default function Dashboard() {
         .select('id, name, description, status')
         .order('created_at', { ascending: false });
 
-      // If user is not admin or project manager, filter to projects they own or are a member of
       if (!isAdmin && !isProjectManager) {
         const [memberProjectsRes, ownedProjectsRes] = await Promise.all([
           supabase
@@ -91,12 +90,7 @@ export default function Dashboard() {
         if (visibleProjectIds.length > 0) {
           projectsQuery = projectsQuery.in('id', visibleProjectIds);
         } else {
-          setStats({
-            activeProjects: 0,
-            completedTasks: 0,
-            overdueTasks: 0,
-            totalTasks: 0,
-          });
+          setStats({ activeProjects: 0, completedTasks: 0, overdueTasks: 0, totalTasks: 0 });
           setRecentProjects([]);
           setOverdueTasks([]);
           setLoading(false);
@@ -113,114 +107,15 @@ export default function Dashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Admin/PM: show real project-wide numbers (not just tasks assigned to you)
-      if (isAdmin || isProjectManager) {
-        if (projectIds.length === 0) {
-          setStats({ activeProjects, completedTasks: 0, overdueTasks: 0, totalTasks: 0 });
-          setRecentProjects([]);
-          setOverdueTasks([]);
-          return;
-        }
-
-        const recent = (projects || []).slice(0, 3);
-        const recentProjectIds = recent.map(p => p.id);
-
-        const [totalRes, completedRes, overdueRes, progressTasksRes] = await Promise.all([
-          supabase
-            .from('tasks')
-            .select('id', { count: 'exact', head: true })
-            .in('project_id', projectIds),
-
-          supabase
-            .from('tasks')
-            .select('id', { count: 'exact', head: true })
-            .in('project_id', projectIds)
-            .in('status', ['done', 'completed', 'complete', 'Done', 'Completed', 'DONE', 'COMPLETED']),
-
-          supabase
-            .from('tasks')
-            .select(
-              `
-              id,
-              title,
-              due_date,
-              project_id,
-              projects (
-                name
-              )
-            `,
-              { count: 'exact' }
-            )
-            .in('project_id', projectIds)
-            .not('due_date', 'is', null)
-            .lt('due_date', today.toISOString())
-            // include tasks where status is null OR not in done/completed
-            .or('status.is.null,status.not.in.(done,completed,complete)')
-            .order('due_date', { ascending: true })
-            .limit(50),
-
-          recentProjectIds.length > 0
-            ? supabase.from('tasks').select('id, status, project_id').in('project_id', recentProjectIds)
-            : (Promise.resolve({ data: [] as any[] }) as any),
-        ]);
-
-        if (totalRes.error) throw totalRes.error;
-        if (completedRes.error) throw completedRes.error;
-        if (overdueRes.error) throw overdueRes.error;
-        if (progressTasksRes.error) throw progressTasksRes.error;
-
-        const totalTasks = totalRes.count || 0;
-        const completedTasks = completedRes.count || 0;
-        const overdueTasksCount = overdueRes.count || 0;
-
-        const overdueTasksList = overdueRes.data || [];
-        setOverdueTasks(
-          overdueTasksList.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            due_date: t.due_date,
-            project_name: (t.projects as any)?.name || 'Unknown Project',
-          }))
-        );
-
-        const progressTasks = (progressTasksRes.data || []) as any[];
-        const projectsWithProgress = recent.map(project => {
-          const projectTasks = progressTasks.filter(t => t.project_id === project.id);
-          const completedProjectTasks = projectTasks.filter(t => isTaskDoneStatus(t.status));
-          const progress = projectTasks.length > 0
-            ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
-            : 0;
-
-          return {
-            ...project,
-            progress,
-            tasks: {
-              total: projectTasks.length,
-              completed: completedProjectTasks.length,
-            },
-          };
-        });
-
-        setStats({
-          activeProjects,
-          completedTasks,
-          overdueTasks: overdueTasksCount,
-          totalTasks,
-        });
-
-        setRecentProjects(projectsWithProgress);
-        return;
-      }
-
-      // Non-admin / non-PM: also compute from all tasks in accessible projects
       if (projectIds.length === 0) {
         setStats({ activeProjects, completedTasks: 0, overdueTasks: 0, totalTasks: 0 });
         setRecentProjects([]);
         setOverdueTasks([]);
+        setLoading(false);
         return;
       }
 
-      const recent = (projects || []).slice(0, 3);
+      const recent = (projects || []).slice(0, 4);
       const recentProjectIds = recent.map(p => p.id);
 
       const [totalRes, completedRes, overdueRes, progressTasksRes] = await Promise.all([
@@ -228,34 +123,20 @@ export default function Dashboard() {
           .from('tasks')
           .select('id', { count: 'exact', head: true })
           .in('project_id', projectIds),
-
         supabase
           .from('tasks')
           .select('id', { count: 'exact', head: true })
           .in('project_id', projectIds)
           .in('status', ['done', 'completed', 'complete', 'Done', 'Completed', 'DONE', 'COMPLETED']),
-
         supabase
           .from('tasks')
-          .select(
-            `
-            id,
-            title,
-            due_date,
-            project_id,
-            projects (
-              name
-            )
-          `,
-            { count: 'exact' }
-          )
+          .select(`id, title, due_date, project_id, projects (name)`, { count: 'exact' })
           .in('project_id', projectIds)
           .not('due_date', 'is', null)
           .lt('due_date', today.toISOString())
           .or('status.is.null,status.not.in.(done,completed,complete)')
           .order('due_date', { ascending: true })
           .limit(50),
-
         recentProjectIds.length > 0
           ? supabase.from('tasks').select('id, status, project_id').in('project_id', recentProjectIds)
           : (Promise.resolve({ data: [] as any[] }) as any),
@@ -287,31 +168,17 @@ export default function Dashboard() {
         const progress = projectTasks.length > 0
           ? Math.round((completedProjectTasks.length / projectTasks.length) * 100)
           : 0;
-
         return {
           ...project,
           progress,
-          tasks: {
-            total: projectTasks.length,
-            completed: completedProjectTasks.length,
-          },
+          tasks: { total: projectTasks.length, completed: completedProjectTasks.length },
         };
       });
 
-      setStats({
-        activeProjects,
-        completedTasks,
-        overdueTasks: overdueTasksCount,
-        totalTasks,
-      });
-
+      setStats({ activeProjects, completedTasks, overdueTasks: overdueTasksCount, totalTasks });
       setRecentProjects(projectsWithProgress);
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -320,156 +187,176 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  const completionRate = stats.totalTasks > 0 
+    ? Math.round((stats.completedTasks / stats.totalTasks) * 100) 
+    : 0;
+
   const statsCards = [
     {
       title: 'Active Projects',
-      value: stats.activeProjects.toString(),
-      change: 'Currently active',
-      icon: TrendingUp,
+      value: stats.activeProjects,
+      icon: FolderKanban,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
     },
     {
-      title: 'Tasks Completed',
-      value: stats.completedTasks.toString(),
-      change: `Out of ${stats.totalTasks} total`,
+      title: 'Completed',
+      value: stats.completedTasks,
+      subtitle: `of ${stats.totalTasks} tasks`,
       icon: CheckCircle2,
       color: 'text-success',
       bgColor: 'bg-success/10',
     },
     {
-      title: 'Overdue Tasks',
-      value: stats.overdueTasks.toString(),
-      change: stats.overdueTasks > 0 ? 'Needs attention' : 'All on track',
+      title: 'Overdue',
+      value: stats.overdueTasks,
+      subtitle: stats.overdueTasks > 0 ? 'Need attention' : 'All on track',
       icon: AlertCircle,
       color: stats.overdueTasks > 0 ? 'text-destructive' : 'text-success',
       bgColor: stats.overdueTasks > 0 ? 'bg-destructive/10' : 'bg-success/10',
     },
     {
-      title: 'Total Tasks',
-      value: stats.totalTasks.toString(),
-      change: 'In your projects',
-      icon: Clock,
+      title: 'Completion Rate',
+      value: `${completionRate}%`,
+      icon: TrendingUp,
       color: 'text-accent',
       bgColor: 'bg-accent/10',
+      isProgress: true,
+      progressValue: completionRate,
     },
   ];
 
+  const firstName = (user?.user_metadata?.full_name || user?.email || 'there').split(' ')[0];
+
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
+    <div className="space-y-6 max-w-7xl">
+      {/* Welcome */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back, {user?.user_metadata?.full_name || user?.email || 'there'}!
-          </h1>
-          <p className="text-muted-foreground">
-            Here's what's happening with your projects today
+          <h1 className="text-2xl font-bold">Welcome back, {firstName} 👋</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Here's what's happening across your projects
           </p>
         </div>
         {(isAdmin || isProjectManager) && (
-          <Button className="gap-2" onClick={() => navigate('/projects')}>
+          <Button size="sm" className="gap-2 shadow-sm" onClick={() => navigate('/projects')}>
             <Plus className="h-4 w-4" />
-            View Projects
+            New Project
           </Button>
         )}
       </div>
 
-      {/* Overdue Tasks Alert */}
+      {/* Overdue Alert */}
       {stats.overdueTasks > 0 && (
-        <Alert className="border-destructive bg-destructive/10 cursor-pointer hover:bg-destructive/20 transition-colors" onClick={() => navigate('/my-tasks?filter=overdue')}>
-          <Bell className="h-5 w-5 text-destructive" />
-          <AlertTitle className="text-destructive font-semibold">
-            {stats.overdueTasks} Overdue Task{stats.overdueTasks > 1 ? 's' : ''} Require Attention
-          </AlertTitle>
-          <AlertDescription className="text-sm">
-            <div className="mt-2 space-y-1">
-              {overdueTasks.slice(0, 3).map((task) => (
-                <div key={task.id} className="flex items-start justify-between gap-2">
-                  <span className="text-xs line-clamp-1">{task.title}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(task.due_date).toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
-              {overdueTasks.length > 3 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  +{overdueTasks.length - 3} more overdue task{overdueTasks.length - 3 > 1 ? 's' : ''}
-                </p>
-              )}
+        <Card 
+          className="border-destructive/30 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors"
+          onClick={() => navigate('/my-tasks?filter=overdue')}
+        >
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
+              <Bell className="h-5 w-5 text-destructive" />
             </div>
-            <Button variant="destructive" size="sm" className="mt-3 w-full sm:w-auto">
-              View All Overdue Tasks
-            </Button>
-          </AlertDescription>
-        </Alert>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-destructive">
+                {stats.overdueTasks} overdue task{stats.overdueTasks > 1 ? 's' : ''} need attention
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {overdueTasks.slice(0, 2).map(t => t.title).join(', ')}
+                {overdueTasks.length > 2 && ` +${overdueTasks.length - 2} more`}
+              </p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          </CardContent>
+        </Card>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {statsCards.map((stat) => (
           <Card key={stat.title} className="transition-smooth hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            <CardContent className="pt-5 pb-4 px-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {stat.title}
+                </span>
+                <div className={`h-8 w-8 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold mb-1">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.change}</p>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              {stat.isProgress && (
+                <Progress value={stat.progressValue} className="h-1.5 mt-2" />
+              )}
+              {stat.subtitle && (
+                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Recent Projects */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Recent Projects</CardTitle>
-              <CardDescription>Projects you have access to</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/projects')}>
-              View All
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      {/* Projects */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Recent Projects</h2>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="text-xs gap-1">
+            View all <ArrowRight className="h-3 w-3" />
+          </Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {recentProjects.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No projects assigned yet
-            </p>
+            <Card className="col-span-full">
+              <CardContent className="py-12 text-center">
+                <FolderKanban className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No projects yet</p>
+                {(isAdmin || isProjectManager) && (
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => navigate('/projects')}>
+                    Create your first project
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             recentProjects.map((project) => (
-              <div 
+              <Card 
                 key={project.id} 
-                className="space-y-2 cursor-pointer hover:bg-muted/50 p-3 rounded-lg transition-smooth"
+                className="cursor-pointer transition-smooth hover:shadow-md group"
                 onClick={() => navigate(`/projects/${project.id}`)}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">{project.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {project.tasks.completed} of {project.tasks.total} tasks completed
-                    </p>
+                <CardContent className="pt-5 pb-4 px-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors pr-2">
+                      {project.name}
+                    </h3>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-[10px] flex-shrink-0 ${
+                        project.status === 'active' 
+                          ? 'border-success/30 text-success bg-success/5' 
+                          : 'border-muted text-muted-foreground'
+                      }`}
+                    >
+                      {project.status}
+                    </Badge>
                   </div>
-                  <span className="text-sm font-medium">{project.progress}%</span>
-                </div>
-                <Progress value={project.progress} />
-              </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{project.tasks.completed}/{project.tasks.total} tasks</span>
+                      <span className="font-medium">{project.progress}%</span>
+                    </div>
+                    <Progress value={project.progress} className="h-1.5" />
+                  </div>
+                </CardContent>
+              </Card>
             ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

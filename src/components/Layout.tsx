@@ -2,22 +2,21 @@ import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { 
   LayoutDashboard, 
   FolderKanban, 
   CheckSquare, 
   BarChart3, 
-  Users, 
   LogOut,
-  Menu,
   Shield,
   UserCog,
   KeyRound,
   User,
   MessageSquare,
-  Palette
+  Palette,
+  Search,
+  ChevronRight,
 } from 'lucide-react';
 import cioLogo from '@/assets/cio-africa-logo.png';
 import { cn } from '@/lib/utils';
@@ -36,17 +35,216 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarFooter,
+  SidebarHeader,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
+function AppSidebar({ 
+  onOpenPasswordChange, 
+  onOpenTheme 
+}: { 
+  onOpenPasswordChange: () => void; 
+  onOpenTheme: () => void;
+}) {
+  const { user, signOut } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const location = useLocation();
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
+
+  const userNavItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: CheckSquare, label: 'My Tasks', path: '/my-tasks' },
+    { icon: FolderKanban, label: 'Projects', path: '/projects' },
+  ];
+
+  const adminNavItems = [
+    { icon: Shield, label: 'Admin', path: '/admin' },
+    { icon: UserCog, label: 'Users', path: '/admin/users' },
+    { icon: FolderKanban, label: 'Projects', path: '/projects' },
+    { icon: CheckSquare, label: 'Tasks', path: '/my-tasks' },
+    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : userNavItems;
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const getInitials = () => {
+    const name = user?.user_metadata?.full_name || user?.email || '';
+    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+  };
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="p-4">
+        <Link to="/" className="flex items-center gap-3 min-h-[40px]">
+          <img src={cioLogo} alt="CIO Africa" className="h-8 w-8 object-contain flex-shrink-0" />
+          {!collapsed && (
+            <div className="flex flex-col">
+              <span className="font-bold text-sm leading-tight">Project Planner</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">by CIO Africa</span>
+            </div>
+          )}
+        </Link>
+      </SidebarHeader>
+
+      <Separator className="mx-4 w-auto" />
+
+      <SidebarContent className="px-2 py-3">
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground px-3 mb-1">
+            {collapsed ? '' : 'Navigation'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.path)}
+                    tooltip={item.label}
+                  >
+                    <Link
+                      to={item.path}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                        isActive(item.path)
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span>{item.label}</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="p-3 mt-auto">
+        <Separator className="mb-3" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className={cn(
+              'flex items-center gap-3 w-full rounded-lg p-2 hover:bg-muted transition-colors text-left',
+              collapsed && 'justify-center'
+            )}>
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {user?.user_metadata?.full_name || 'User'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              )}
+              {!collapsed && <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" className="w-56">
+            <DropdownMenuLabel className="text-xs">My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onOpenPasswordChange}>
+              <KeyRound className="mr-2 h-4 w-4" />
+              Change Password
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenTheme}>
+              <Palette className="mr-2 h-4 w-4" />
+              Change Theme
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+function LayoutHeader({ 
+  onOpenMessaging, 
+  onOpenPasswordChange,
+  onOpenTheme,
+  totalUnreadCount 
+}: { 
+  onOpenMessaging: () => void;
+  onOpenPasswordChange: () => void;
+  onOpenTheme: () => void;
+  totalUnreadCount: number;
+}) {
+  return (
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 sm:px-6">
+      <SidebarTrigger className="-ml-1" />
+      
+      <div className="flex-1" />
+
+      <div className="flex items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenMessaging}
+              className="relative h-9 w-9"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {totalUnreadCount > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center"
+                >
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </Badge>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Messages</TooltipContent>
+        </Tooltip>
+        
+        <NotificationBell />
+      </div>
+    </header>
+  );
+}
+
 export default function Layout({ children }: LayoutProps) {
   const { user, loading, signOut } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [messagingOpen, setMessagingOpen] = useState(false);
   const [themeDialogOpen, setThemeDialogOpen] = useState(false);
@@ -58,7 +256,6 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [user, loading, navigate]);
 
-  // Check if user must change password on mount
   useEffect(() => {
     const checkPasswordChange = async () => {
       if (user) {
@@ -73,7 +270,6 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
     };
-
     checkPasswordChange();
   }, [user]);
 
@@ -83,34 +279,18 @@ export default function Layout({ children }: LayoutProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen gradient-subtle flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mb-4 animate-pulse">
-            <LayoutDashboard className="h-8 w-8 text-white" />
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl gradient-primary shadow-glow mb-4 animate-pulse">
+            <LayoutDashboard className="h-6 w-6 text-primary-foreground" />
           </div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   if (!user) return null;
-
-  const userNavItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: CheckSquare, label: 'My Tasks', path: '/my-tasks' },
-    { icon: FolderKanban, label: 'Projects', path: '/projects' },
-  ];
-
-  const adminNavItems = [
-    { icon: Shield, label: 'Admin Dashboard', path: '/admin' },
-    { icon: UserCog, label: 'User Management', path: '/admin/users' },
-    { icon: FolderKanban, label: 'All Projects', path: '/projects' },
-    { icon: CheckSquare, label: 'All Tasks', path: '/my-tasks' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-  ];
-
-  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   return (
     <>
@@ -126,122 +306,22 @@ export default function Layout({ children }: LayoutProps) {
         open={themeDialogOpen} 
         onOpenChange={setThemeDialogOpen}
       />
-      <div className="min-h-screen gradient-subtle transition-colors duration-300">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden h-9 w-9"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            
-            <Link to="/" className="flex items-center gap-2">
-              <img src={cioLogo} alt="CIO Africa" className="h-8 sm:h-10 w-auto" />
-              <span className="font-semibold text-sm sm:text-lg hidden sm:inline">Project Planner</span>
-            </Link>
-
-            <nav className="hidden md:flex items-center gap-0.5 lg:gap-1">
-              {navItems.map((item) => (
-                <Link key={item.path} to={item.path}>
-                  <Button
-                    variant={location.pathname === item.path ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className={cn(
-                      'gap-1.5 lg:gap-2 px-2 lg:px-3',
-                      location.pathname === item.path && 'bg-primary/10 text-primary hover:bg-primary/20'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="hidden lg:inline text-sm">{item.label}</span>
-                  </Button>
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Global Messaging Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMessagingOpen(true)}
-              className="relative h-9 w-9"
-              title="Messaging Center"
-            >
-              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
-              {totalUnreadCount > 0 && (
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 h-4 sm:h-5 min-w-4 sm:min-w-5 px-1 text-[10px] sm:text-xs flex items-center justify-center"
-                >
-                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                </Badge>
-              )}
-            </Button>
-            
-            <NotificationBell />
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <User className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="text-xs sm:text-sm">My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowPasswordChange(true)} className="text-sm">
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  Change Password
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setThemeDialogOpen(true)} className="text-sm">
-                  <Palette className="mr-2 h-4 w-4" />
-                  Change Theme
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="text-sm">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AppSidebar onOpenPasswordChange={() => setShowPasswordChange(true)} onOpenTheme={() => setThemeDialogOpen(true)} />
+          <div className="flex-1 flex flex-col min-w-0">
+            <LayoutHeader 
+              onOpenMessaging={() => setMessagingOpen(true)}
+              onOpenPasswordChange={() => setShowPasswordChange(true)}
+              onOpenTheme={() => setThemeDialogOpen(true)}
+              totalUnreadCount={totalUnreadCount}
+            />
+            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
+              {children}
+            </main>
           </div>
         </div>
-      </header>
-
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b bg-background/95 backdrop-blur fixed top-14 left-0 right-0 z-40">
-          <nav className="container py-3 sm:py-4 px-4 flex flex-col gap-1.5 sm:gap-2">
-            {navItems.map((item) => (
-              <Link key={item.path} to={item.path} onClick={() => setMobileMenuOpen(false)}>
-                <Button
-                  variant={location.pathname === item.path ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className={cn(
-                    'w-full justify-start gap-2 text-sm',
-                    location.pathname === item.path && 'bg-primary/10 text-primary hover:bg-primary/20'
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
-          </nav>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="container py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
-        {children}
-      </main>
-    </div>
+      </SidebarProvider>
     </>
   );
 }
