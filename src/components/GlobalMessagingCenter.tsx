@@ -130,21 +130,32 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
     if (!open || !user) return;
     const fetchProjects = async () => {
       setLoadingProjects(true);
-      const { data: memberProjects } = await supabase
-        .from('project_members').select('project_id').eq('user_id', user.id);
-      const { data: ownedProjects } = await supabase
-        .from('projects').select('id').eq('owner_id', user.id);
-      const projectIds = new Set<string>();
-      memberProjects?.forEach(m => projectIds.add(m.project_id));
-      ownedProjects?.forEach(p => projectIds.add(p.id));
-      if (projectIds.size === 0) {
-        setProjects([]);
-      } else {
-        const { data } = await supabase.from('projects').select('id, name, logo_url')
-          .in('id', Array.from(projectIds)).order('name');
+      // Check if user is admin
+      const { data: adminRole } = await supabase
+        .from('user_roles').select('id').eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+      
+      if (adminRole) {
+        // Admins see all projects
+        const { data } = await supabase.from('projects').select('id, name, logo_url').order('name');
         setProjects(data || []);
+        if (!selectedProjectId && data?.length) setSelectedProjectId(data[0].id);
+      } else {
+        const { data: memberProjects } = await supabase
+          .from('project_members').select('project_id').eq('user_id', user.id);
+        const { data: ownedProjects } = await supabase
+          .from('projects').select('id').eq('owner_id', user.id);
+        const projectIds = new Set<string>();
+        memberProjects?.forEach(m => projectIds.add(m.project_id));
+        ownedProjects?.forEach(p => projectIds.add(p.id));
+        if (projectIds.size === 0) {
+          setProjects([]);
+        } else {
+          const { data } = await supabase.from('projects').select('id, name, logo_url')
+            .in('id', Array.from(projectIds)).order('name');
+          setProjects(data || []);
+        }
+        if (!selectedProjectId && projectIds.size > 0) setSelectedProjectId(Array.from(projectIds)[0]);
       }
-      if (!selectedProjectId && projectIds.size > 0) setSelectedProjectId(Array.from(projectIds)[0]);
       setLoadingProjects(false);
     };
     fetchProjects();
@@ -518,24 +529,24 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Messages</span>
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-shrink-0">Messages</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
-                          <UserPlus className="h-3 w-3" />
-                          Chat
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2.5" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
+                          <UserPlus className="h-3 w-3 flex-shrink-0" />
+                          <span>Chat</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Start a new direct message</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
-                          <Plus className="h-3 w-3" />
-                          Group
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2.5" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
+                          <Plus className="h-3 w-3 flex-shrink-0" />
+                          <span>Group</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Create a group chat</TooltipContent>
