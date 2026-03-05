@@ -22,12 +22,20 @@ import EditUserDialog from "@/components/EditUserDialog";
 import PasswordResetRequestsCard from "@/components/PasswordResetRequestsCard";
 import { format } from "date-fns";
 
+interface UserProject {
+  id: string;
+  name: string;
+  role: string | null;
+}
+
 interface User {
   id: string;
   email: string;
   full_name: string | null;
   roles: string[];
   created_at?: string;
+  isInternalDomain: boolean;
+  projects: UserProject[];
 }
 
 interface ExternalUser {
@@ -101,6 +109,7 @@ export default function UserManagement() {
   // Filter and view states
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"card" | "table">("table");
@@ -151,12 +160,47 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch project memberships for all users
+      const { data: memberships } = await supabase
+        .from('project_members')
+        .select('user_id, project_id, role, projects(id, name)');
+
+      // Also fetch projects owned by users
+      const { data: ownedProjects } = await supabase
+        .from('projects')
+        .select('id, name, owner_id');
+
+      // Build user -> projects map
+      const userProjectsMap: Record<string, UserProject[]> = {};
+      (memberships || []).forEach(m => {
+        if (!userProjectsMap[m.user_id]) userProjectsMap[m.user_id] = [];
+        const proj = m.projects as any;
+        if (proj) {
+          // Avoid duplicates
+          if (!userProjectsMap[m.user_id].some(p => p.id === proj.id)) {
+            userProjectsMap[m.user_id].push({ id: proj.id, name: proj.name, role: m.role });
+          }
+        }
+      });
+      (ownedProjects || []).forEach(p => {
+        if (p.owner_id) {
+          if (!userProjectsMap[p.owner_id]) userProjectsMap[p.owner_id] = [];
+          if (!userProjectsMap[p.owner_id].some(up => up.id === p.id)) {
+            userProjectsMap[p.owner_id].push({ id: p.id, name: p.name, role: 'owner' });
+          }
+        }
+      });
+
       // Filter out external users from the internal users list
       const internalProfiles = profiles?.filter(p => !externalUserIds.includes(p.id)) || [];
 
+      const INTERNAL_DOMAINS = ['cioafrica.co', 'cioafrica.com'];
+
       const usersWithRoles = internalProfiles.map(profile => ({
         ...profile,
-        roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || []
+        roles: roles?.filter(r => r.user_id === profile.id).map(r => r.role) || [],
+        isInternalDomain: INTERNAL_DOMAINS.some(d => profile.email.toLowerCase().endsWith(`@${d}`)),
+        projects: userProjectsMap[profile.id] || [],
       }));
 
       setUsers(usersWithRoles);
@@ -485,9 +529,12 @@ export default function UserManagement() {
         user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesRole = roleFilter === "all" || user.roles.includes(roleFilter);
-      return matchesSearch && matchesRole;
+      const matchesType = typeFilter === "all" || 
+        (typeFilter === "internal" && user.isInternalDomain) ||
+        (typeFilter === "invited" && !user.isInternalDomain);
+      return matchesSearch && matchesRole && matchesType;
     });
-  }, [users, searchQuery, roleFilter]);
+  }, [users, searchQuery, roleFilter, typeFilter]);
 
   // Filtered external users
   const filteredExternalUsers = useMemo(() => {
@@ -685,15 +732,15 @@ export default function UserManagement() {
 
       {/* User Type Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as "internal" | "external"); setSearchQuery(""); }} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-2">
           <TabsTrigger value="internal" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Internal Users
+            System Users
             <Badge variant="secondary" className="ml-1">{users.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="external" className="flex items-center gap-2">
-            <ExternalLink className="h-4 w-4" />
-            External Users
+            <FileText className="h-4 w-4" />
+            Document Access
             <Badge variant="secondary" className="ml-1">{externalUsers.length}</Badge>
           </TabsTrigger>
         </TabsList>
@@ -718,6 +765,14 @@ export default function UserManagement() {
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="User type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="internal">Internal</SelectItem>
+                    <SelectItem value="invited">Invited</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "table")}>
                   <TabsList>
                     <TabsTrigger value="table"><LayoutList className="h-4 w-4" /></TabsTrigger>
@@ -726,9 +781,9 @@ export default function UserManagement() {
                 </Tabs>
               </div>
               <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {filteredUsers.length} of {users.length} internal users</span>
-                {(searchQuery || roleFilter !== "all") && (
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setRoleFilter("all"); }}>Clear filters</Button>
+                <span>Showing {filteredUsers.length} of {users.length} users</span>
+                {(searchQuery || roleFilter !== "all" || typeFilter !== "all") && (
+                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setRoleFilter("all"); setTypeFilter("all"); }}>Clear filters</Button>
                 )}
               </div>
             </CardContent>
@@ -741,26 +796,61 @@ export default function UserManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Projects</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground">No users found</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No users found</TableCell></TableRow>
                     ) : (
                       filteredUsers.map((user) => (
                         <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.full_name || 'No name'}</TableCell>
-                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{user.full_name || 'No name'}</span>
+                              <span className="text-sm text-muted-foreground">{user.email}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {user.isInternalDomain ? (
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                                <Building2 className="h-3 w-3 mr-1" />Internal
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                                <ExternalLink className="h-3 w-3 mr-1" />Invited
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
                               {user.roles.map((role) => (
                                 <Badge key={role} className={getRoleBadgeColor(role)}>{role.replace('_', ' ')}</Badge>
                               ))}
                               {user.roles.length === 0 && <Badge variant="outline">No role</Badge>}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 max-w-[250px]">
+                              {user.projects.length === 0 ? (
+                                <span className="text-sm text-muted-foreground">No projects</span>
+                              ) : (
+                                <>
+                                  {user.projects.slice(0, 2).map(p => (
+                                    <Badge key={p.id} variant="secondary" className="text-xs">
+                                      {p.name}
+                                      {p.role === 'owner' && <span className="ml-1 opacity-60">👑</span>}
+                                    </Badge>
+                                  ))}
+                                  {user.projects.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">+{user.projects.length - 2} more</Badge>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -795,13 +885,36 @@ export default function UserManagement() {
                       <div>
                         <CardTitle className="text-lg">{user.full_name || 'No name'}</CardTitle>
                         <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <div className="mt-1">
+                          {user.isInternalDomain ? (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                              <Building2 className="h-3 w-3 mr-1" />Internal
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                              <ExternalLink className="h-3 w-3 mr-1" />Invited
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         {user.roles.map((role) => <Badge key={role} className={getRoleBadgeColor(role)}>{role}</Badge>)}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-3">
+                    {user.projects.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {user.projects.map(p => (
+                          <Badge key={p.id} variant="secondary" className="text-xs">
+                            {p.name}{p.role === 'owner' && ' 👑'}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {user.projects.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No projects assigned</p>
+                    )}
                     <div className="flex gap-2">
                       <Select value={user.roles[0] || ''} onValueChange={(value) => setUserRole(user.id, value)}>
                         <SelectTrigger className="flex-1"><SelectValue placeholder="Role" /></SelectTrigger>
