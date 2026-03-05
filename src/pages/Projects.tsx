@@ -8,7 +8,6 @@ import { Search, Calendar, Loader2, ArrowRight, Trash2, FolderKanban, Plus, More
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { EditProjectDialog } from '@/components/EditProjectDialog';
 import { DuplicateProjectDialog } from '@/components/DuplicateProjectDialog';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -72,15 +71,26 @@ export default function Projects() {
         .select('id, name, description, status, start_date, end_date, logo_url, owner_id')
         .order('created_at', { ascending: false });
 
-      if (!isAdmin && !isProjectManager) {
-        const { data: assignedProjects } = await supabase
+      // Admin sees all projects; PM and regular users see only projects they own or are members of
+      if (!isAdmin) {
+        // Get projects where user is owner
+        const { data: ownedProjects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('owner_id', user?.id);
+
+        // Get projects where user is a member
+        const { data: memberProjects } = await supabase
           .from('project_members')
           .select('project_id')
           .eq('user_id', user?.id);
 
-        if (assignedProjects && assignedProjects.length > 0) {
-          const projectIds = assignedProjects.map(p => p.project_id);
-          projectsQuery = projectsQuery.in('id', projectIds);
+        const ownedIds = (ownedProjects || []).map(p => p.id);
+        const memberIds = (memberProjects || []).map(p => p.project_id);
+        const allIds = [...new Set([...ownedIds, ...memberIds])];
+
+        if (allIds.length > 0) {
+          projectsQuery = projectsQuery.in('id', allIds);
         } else {
           setProjects([]);
           setLoading(false);
@@ -180,7 +190,10 @@ export default function Projects() {
           </p>
         </div>
         {(isAdmin || isProjectManager) && (
-          <CreateProjectDialog onProjectCreated={fetchProjects} />
+          <Button className="gap-2" onClick={() => navigate('/projects/new')}>
+            <Plus className="h-4 w-4" />
+            New Project
+          </Button>
         )}
       </div>
 
@@ -220,7 +233,10 @@ export default function Projects() {
             </p>
             {(isAdmin || isProjectManager) && !searchQuery && (
               <div className="mt-4">
-                <CreateProjectDialog onProjectCreated={fetchProjects} />
+                <Button className="gap-2" onClick={() => navigate('/projects/new')}>
+                  <Plus className="h-4 w-4" />
+                  New Project
+                </Button>
               </div>
             )}
           </CardContent>

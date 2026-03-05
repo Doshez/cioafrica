@@ -89,6 +89,7 @@ interface Task {
 export default function ProjectDetails() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { isAdmin, isProjectManager } = useUserRole();
@@ -102,6 +103,17 @@ export default function ProjectDetails() {
   const [searchQuery, setSearchQuery] = useState('');
   const [messagingOpen, setMessagingOpen] = useState(false);
   const { unreadCount } = useUnreadMessages(projectId || null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('onboarding') === 'true') {
+      setShowOnboarding(true);
+      setActiveTab('team');
+      // Clean URL
+      navigate(`/projects/${projectId}`, { replace: true });
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (projectId) {
@@ -221,13 +233,10 @@ export default function ProjectDetails() {
     { id: 'departments', label: 'Departments', icon: Folder, count: departments.length },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'chat', label: 'Chat', icon: MessageSquare, count: unreadCount || undefined },
-  ];
-
-  const quickActions = [
-    { label: 'Gantt', icon: GanttChartSquare, onClick: () => navigate(`/projects/${projectId}/gantt`) },
-    { label: 'Docs', icon: FileText, onClick: () => navigate(`/projects/${projectId}/documents`) },
-    { label: 'Analytics', icon: BarChart3, onClick: () => navigate(`/projects/${projectId}/analytics`) },
-    ...(isAdmin ? [{ label: 'Reports', icon: FileText, onClick: () => navigate(`/projects/${projectId}/reports`) }] : []),
+    { id: 'gantt', label: 'Gantt', icon: GanttChartSquare, action: () => navigate(`/projects/${projectId}/gantt`) },
+    { id: 'docs', label: 'Documents', icon: FileText, action: () => navigate(`/projects/${projectId}/documents`) },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, action: () => navigate(`/projects/${projectId}/analytics`) },
+    ...(isAdmin ? [{ id: 'reports', label: 'Reports', icon: FileText, action: () => navigate(`/projects/${projectId}/reports`) }] : []),
   ];
 
   return (
@@ -263,30 +272,22 @@ export default function ProjectDetails() {
         )}
       </div>
 
-      {/* Quick Actions Bar */}
-      <div className="flex gap-2 flex-wrap">
-        {quickActions.map(action => (
-          <Button key={action.label} variant="outline" size="sm" onClick={action.onClick} className="gap-1.5 text-xs">
-            <action.icon className="h-3.5 w-3.5" />
-            {action.label}
-          </Button>
-        ))}
-      </div>
-
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 border-b">
+      <div className="flex items-center gap-1 border-b overflow-x-auto">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => {
-              if (item.id === 'chat') {
+              if ('action' in item && item.action) {
+                (item as any).action();
+              } else if (item.id === 'chat') {
                 setMessagingOpen(true);
               } else {
                 setActiveTab(item.id);
               }
             }}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+              'flex items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap',
               activeTab === item.id
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
@@ -294,9 +295,9 @@ export default function ProjectDetails() {
           >
             <item.icon className="h-4 w-4" />
             {item.label}
-            {item.count !== undefined && item.count > 0 && (
+            {'count' in item && item.count !== undefined && (item.count as number) > 0 && (
               <Badge variant={item.id === 'chat' ? 'destructive' : 'secondary'} className="h-5 min-w-5 px-1.5 text-[10px]">
-                {item.count}
+                {item.count as number}
               </Badge>
             )}
           </button>
@@ -308,6 +309,30 @@ export default function ProjectDetails() {
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Onboarding prompt */}
+          {showOnboarding && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Add team members to your project</p>
+                    <p className="text-xs text-muted-foreground">Invite users so you can assign tasks and collaborate.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => { setActiveTab('team'); setShowOnboarding(false); }}>
+                    Add Users
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowOnboarding(false)}>
+                    Dismiss
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>

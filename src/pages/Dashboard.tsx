@@ -68,7 +68,7 @@ export default function Dashboard() {
         .select('id, name, description, status')
         .order('created_at', { ascending: false });
 
-      if (!isAdmin && !isProjectManager) {
+      if (!isAdmin) {
         const [memberProjectsRes, ownedProjectsRes] = await Promise.all([
           supabase
             .from('project_members')
