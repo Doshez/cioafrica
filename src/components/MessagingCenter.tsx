@@ -441,14 +441,19 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <div className="flex flex-1 overflow-hidden">
+        <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden [&>button[class*='absolute']]:hidden">
+          <div className="flex flex-1 overflow-hidden">
           
-          {/* ===== LEFT PANEL ===== */}
-          <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
-            <div className="p-3 border-b">
-              <div className="flex items-center justify-between mb-2.5">
-                <h2 className="text-base font-bold">Messages</h2>
+            {/* ===== LEFT PANEL ===== */}
+            <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
+              <div className="p-3 border-b">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => onOpenChange(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <h2 className="text-base font-bold">Messages</h2>
+                  </div>
                 <div className="flex items-center gap-1">
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
