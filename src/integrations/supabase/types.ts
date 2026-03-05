@@ -161,7 +161,10 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          department_id: string | null
           id: string
+          last_message_at: string | null
+          last_message_preview: string | null
           name: string | null
           project_id: string
           room_type: Database["public"]["Enums"]["chat_room_type"]
@@ -170,7 +173,10 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
           name?: string | null
           project_id: string
           room_type?: Database["public"]["Enums"]["chat_room_type"]
@@ -179,13 +185,30 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          department_id?: string | null
           id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
           name?: string | null
           project_id?: string
           room_type?: Database["public"]["Enums"]["chat_room_type"]
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "chat_rooms_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "department_analytics"
+            referencedColumns: ["department_id"]
+          },
+          {
+            foreignKeyName: "chat_rooms_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "chat_rooms_project_id_fkey"
             columns: ["project_id"]
