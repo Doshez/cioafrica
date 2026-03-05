@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, MoreVertical, Calendar, Loader2, ArrowRight, Trash2 } from 'lucide-react';
+import { Search, Calendar, Loader2, ArrowRight, Trash2, FolderKanban, Plus, MoreHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +12,7 @@ import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { EditProjectDialog } from '@/components/EditProjectDialog';
 import { DuplicateProjectDialog } from '@/components/DuplicateProjectDialog';
 import { useUserRole } from '@/hooks/useUserRole';
+import { Progress } from '@/components/ui/progress';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Project {
   id: string;
@@ -34,16 +41,23 @@ interface Project {
   owner_id?: string | null;
 }
 
+interface ProjectWithStats extends Project {
+  taskCount: number;
+  completedCount: number;
+  progress: number;
+}
+
 export default function Projects() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, isProjectManager } = useUserRole();
   const [searchQuery, setSearchQuery] = useState('');
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     if (user && (isAdmin !== undefined && isProjectManager !== undefined)) {
@@ -58,9 +72,7 @@ export default function Projects() {
         .select('id, name, description, status, start_date, end_date, logo_url, owner_id')
         .order('created_at', { ascending: false });
 
-      // If user is not admin or project manager, filter by assigned projects
       if (!isAdmin && !isProjectManager) {
-        // Get user's assigned projects
         const { data: assignedProjects } = await supabase
           .from('project_members')
           .select('project_id')
@@ -70,7 +82,6 @@ export default function Projects() {
           const projectIds = assignedProjects.map(p => p.project_id);
           projectsQuery = projectsQuery.in('id', projectIds);
         } else {
-          // User has no assigned projects, return empty
           setProjects([]);
           setLoading(false);
           return;
@@ -78,15 +89,40 @@ export default function Projects() {
       }
 
       const { data, error } = await projectsQuery;
-
       if (error) throw error;
-      setProjects(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+
+      // Fetch task stats for all projects
+      const projectIds = (data || []).map(p => p.id);
+      let taskStats: Record<string, { total: number; completed: number }> = {};
+      
+      if (projectIds.length > 0) {
+        const { data: tasks } = await supabase
+          .from('tasks')
+          .select('id, status, project_id')
+          .in('project_id', projectIds);
+
+        (tasks || []).forEach(t => {
+          if (!taskStats[t.project_id]) taskStats[t.project_id] = { total: 0, completed: 0 };
+          taskStats[t.project_id].total++;
+          if (['done', 'completed', 'complete'].includes(t.status || '')) {
+            taskStats[t.project_id].completed++;
+          }
+        });
+      }
+
+      const projectsWithStats: ProjectWithStats[] = (data || []).map(p => {
+        const stats = taskStats[p.id] || { total: 0, completed: 0 };
+        return {
+          ...p,
+          taskCount: stats.total,
+          completedCount: stats.completed,
+          progress: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+        };
       });
+
+      setProjects(projectsWithStats);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -94,67 +130,53 @@ export default function Projects() {
 
   const handleDeleteProject = async () => {
     if (!projectToDelete) return;
-    
     try {
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', projectToDelete.id);
-
+      const { error } = await supabase.from('projects').delete().eq('id', projectToDelete.id);
       if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Project deleted successfully",
-      });
-      
+      toast({ title: "Success", description: "Project deleted successfully" });
       fetchProjects();
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setDeleteDialogOpen(false);
       setProjectToDelete(null);
     }
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyles = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-success/10 text-success border-success/20';
-      case 'review':
-        return 'bg-warning/10 text-warning border-warning/20';
-      case 'completed':
-        return 'bg-primary/10 text-primary border-primary/20';
-      default:
-        return 'bg-muted text-muted-foreground';
+      case 'active': return 'border-success/30 text-success bg-success/5';
+      case 'review': return 'border-warning/30 text-warning bg-warning/5';
+      case 'completed': return 'border-primary/30 text-primary bg-primary/5';
+      default: return 'border-border text-muted-foreground';
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  const statuses = ['all', ...new Set(projects.map(p => p.status))];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Projects</h1>
-          <p className="text-muted-foreground">
-            Manage and track all your projects
+          <h1 className="text-2xl font-bold">Projects</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {projects.length} project{projects.length !== 1 ? 's' : ''} total
           </p>
         </div>
         {(isAdmin || isProjectManager) && (
@@ -162,120 +184,144 @@ export default function Projects() {
         )}
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-9 bg-card"
           />
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto">
+          {statuses.map(status => (
+            <Button
+              key={status}
+              variant={statusFilter === status ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setStatusFilter(status)}
+              className="capitalize text-xs whitespace-nowrap"
+            >
+              {status === 'all' ? 'All' : status}
+            </Button>
+          ))}
         </div>
       </div>
 
       {/* Projects Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredProjects.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                {searchQuery ? 'No projects match your search' : 'No projects assigned to you yet'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredProjects.map((project) => (
+      {filteredProjects.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <FolderKanban className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+            <p className="text-muted-foreground text-sm">
+              {searchQuery ? 'No projects match your search' : 'No projects yet'}
+            </p>
+            {(isAdmin || isProjectManager) && !searchQuery && (
+              <div className="mt-4">
+                <CreateProjectDialog onProjectCreated={fetchProjects} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredProjects.map((project) => (
             <Card 
               key={project.id} 
-              className="transition-smooth hover:shadow-lg group cursor-pointer"
+              className="transition-smooth hover:shadow-md group cursor-pointer overflow-hidden"
               onClick={() => navigate(`/projects/${project.id}`)}
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  {project.logo_url && (
-                    <div className="h-24 w-24 flex-shrink-0 bg-muted rounded-lg p-2 border border-border">
-                      <img src={project.logo_url} alt={`${project.name} logo`} className="h-full w-full object-contain" />
-                    </div>
-                  )}
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <CardTitle className="text-xl group-hover:text-primary transition-smooth truncate">
-                      {project.name}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {project.description}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    {(isAdmin || project.owner_id === user?.id) && (
-                      <DuplicateProjectDialog
-                        projectId={project.id}
-                        projectName={project.name}
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {project.logo_url ? (
+                      <img 
+                        src={project.logo_url} 
+                        alt="" 
+                        className="h-10 w-10 rounded-lg object-contain bg-muted p-1 flex-shrink-0 border" 
                       />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <FolderKanban className="h-5 w-5 text-primary" />
+                      </div>
                     )}
-                    {isAdmin && (
-                      <>
-                        <EditProjectDialog
-                          projectId={project.id}
-                          currentName={project.name}
-                          currentDescription={project.description}
-                          onProjectUpdated={fetchProjects}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToDelete(project);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {project.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                        {project.description || 'No description'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      </>
-                    )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                          Open
+                        </DropdownMenuItem>
+                        {(isAdmin || project.owner_id === user?.id) && (
+                          <DropdownMenuItem onClick={() => {}}>
+                            Duplicate
+                          </DropdownMenuItem>
+                        )}
+                        {isAdmin && (
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => {
+                              setProjectToDelete(project);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Status */}
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={getStatusColor(project.status)}>
+
+                {/* Status & Date */}
+                <div className="flex items-center gap-2 mb-4">
+                  <Badge variant="outline" className={`text-[10px] ${getStatusStyles(project.status)}`}>
                     {project.status}
                   </Badge>
-                </div>
-                
-                {/* Dates */}
-                <div className="flex items-center justify-between">
                   {project.end_date && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>Due: {new Date(project.end_date).toLocaleDateString()}</span>
-                    </div>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
                   )}
-                  <Button variant="ghost" size="sm" onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/projects/${project.id}`);
-                  }}>
-                    View Details <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                </div>
+
+                {/* Progress */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{project.completedCount}/{project.taskCount} tasks</span>
+                    <span className="font-medium text-foreground">{project.progress}%</span>
+                  </div>
+                  <Progress value={project.progress} className="h-1.5" />
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the project "{projectToDelete?.name}". 
-              This action cannot be undone and will remove all associated tasks, elements, and data.
+              This will permanently delete "{projectToDelete?.name}" and all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -284,7 +330,7 @@ export default function Projects() {
               onClick={handleDeleteProject}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete Project
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
