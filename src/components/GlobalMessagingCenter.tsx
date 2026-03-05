@@ -481,12 +481,18 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
-        <div className="flex flex-1 overflow-hidden">
-          {/* LEFT PANEL */}
-          <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
-            <div className="p-3 border-b space-y-2">
-              <DropdownMenu>
+        <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden [&>button[class*='absolute']]:hidden">
+          <div className="flex flex-1 overflow-hidden">
+            {/* LEFT PANEL */}
+            <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
+              <div className="p-3 border-b space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => onOpenChange(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <span className="text-base font-bold">Messages</span>
+                </div>
+                <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full gap-2 justify-between h-9 text-sm" disabled={loadingProjects}>
                     {selectedProject ? (
