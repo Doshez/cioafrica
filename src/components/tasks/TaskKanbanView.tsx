@@ -7,9 +7,11 @@ import { Slider } from '@/components/ui/slider';
 import type { TaskViewProps, TaskWithProfile } from './types';
 
 const COLUMNS = [
-  { id: 'todo', label: 'To Do', color: 'bg-gray-500' },
+  { id: 'todo', label: 'Not Started', color: 'bg-gray-500' },
   { id: 'in_progress', label: 'In Progress', color: 'bg-blue-500' },
-  { id: 'done', label: 'Done', color: 'bg-green-500' },
+  { id: 'review', label: 'Review', color: 'bg-yellow-500' },
+  { id: 'done', label: 'Completed', color: 'bg-green-500' },
+  { id: 'blocked', label: 'Blocked', color: 'bg-red-500' },
 ];
 
 export function TaskKanbanView({ 

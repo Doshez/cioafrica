@@ -162,7 +162,7 @@ export function TasksByElementView({
                 <Card className="border-dashed">
                   <CardContent className="py-8">
                     <p className="text-sm text-muted-foreground text-center">
-                      No tasks in this element yet
+                      No tasks in this brief yet
                     </p>
                   </CardContent>
                 </Card>

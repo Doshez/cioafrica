@@ -30,7 +30,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const elementSchema = z.object({
-  title: z.string().min(1, 'Element title is required'),
+  title: z.string().min(1, 'Brief title is required'),
   description: z.string().optional(),
   departmentId: z.string().min(1, 'Department is required'),
 });
@@ -98,7 +98,7 @@ export function CreateElementDialog({
 
       toast({
         title: 'Success',
-        description: 'Element created successfully',
+        description: 'Brief created successfully',
       });
 
       form.reset();
@@ -108,7 +108,7 @@ export function CreateElementDialog({
       console.error('Error creating element:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create element',
+        description: error.message || 'Failed to create brief',
         variant: 'destructive',
       });
     } finally {
@@ -121,12 +121,12 @@ export function CreateElementDialog({
       <DialogTrigger asChild>
         <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Element</span>
+          <span className="hidden sm:inline">Add Brief</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Element</DialogTitle>
+          <DialogTitle>Create New Brief</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -136,9 +136,9 @@ export function CreateElementDialog({
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Element Title *</FormLabel>
+                  <FormLabel>Brief Title *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Marketing Campaign" {...field} />
+                    <Input placeholder="e.g., Event Production Brief" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,7 +153,7 @@ export function CreateElementDialog({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Describe this element..."
+                      placeholder="Describe this brief..."
                       className="min-h-[100px]"
                       {...field}
                     />
