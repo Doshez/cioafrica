@@ -451,36 +451,32 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
             {/* ===== LEFT PANEL ===== */}
             <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
               <div className="p-3 border-b">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => onOpenChange(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <h2 className="text-base font-bold">Messages</h2>
-                  </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => onOpenChange(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <h2 className="text-base font-bold flex-1">Messages</h2>
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs px-2.5" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
-                          <UserPlus className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">New Chat</span>
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
+                          <UserPlus className="h-3 w-3" />
+                          Chat
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Start a new direct message</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs px-2.5" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
-                          <Plus className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Group</span>
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
+                          <Plus className="h-3 w-3" />
+                          Group
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Create a group chat</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-              </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-8 pl-8 text-sm bg-background" />
