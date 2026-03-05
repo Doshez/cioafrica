@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, UserPlus, Info, Shield, Eye, Users, UserCog, Trash2, Edit, Search, Filter, LayoutGrid, LayoutList, KeyRound, ExternalLink, Building2, FileText, AlertTriangle, UserX, CheckCircle2, Clock, XCircle, Mail } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -899,23 +900,28 @@ export default function UserManagement() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1 max-w-[220px]">
-                            {user.projects.length === 0 ? (
-                              <span className="text-xs text-muted-foreground italic">No projects</span>
-                            ) : (
-                              <>
-                                {user.projects.slice(0, 2).map(p => (
-                                  <Badge key={p.id} variant="secondary" className="text-xs font-normal">
-                                    {p.name}
-                                    {p.role === 'owner' && <span className="ml-1 opacity-60">👑</span>}
-                                  </Badge>
-                                ))}
-                                {user.projects.length > 2 && (
-                                  <Badge variant="outline" className="text-xs font-normal">+{user.projects.length - 2}</Badge>
-                                )}
-                              </>
-                            )}
-                          </div>
+                          {user.projects.length === 0 ? (
+                            <span className="text-xs text-muted-foreground italic">No projects</span>
+                          ) : (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Badge variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
+                                  {user.projects.length} project{user.projects.length !== 1 ? 's' : ''}
+                                </Badge>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-64 p-3" align="start">
+                                <p className="text-sm font-semibold mb-2">Assigned Projects</p>
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                  {user.projects.map(p => (
+                                    <div key={p.id} className="flex items-center justify-between text-sm py-1 px-2 rounded-md bg-muted/50">
+                                      <span className="truncate">{p.name}</span>
+                                      {p.role === 'owner' && <span className="ml-1 text-xs opacity-60">👑</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
@@ -968,18 +974,31 @@ export default function UserManagement() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-0">
-                    {user.projects.length > 0 ? (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1.5">Projects</p>
-                        <div className="flex flex-wrap gap-1">
-                          {user.projects.map(p => (
-                            <Badge key={p.id} variant="secondary" className="text-xs font-normal">{p.name}{p.role === 'owner' && ' 👑'}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">No projects assigned</p>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-muted-foreground">Projects:</p>
+                      {user.projects.length === 0 ? (
+                        <span className="text-xs text-muted-foreground italic">None</span>
+                      ) : (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Badge variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
+                              {user.projects.length} project{user.projects.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-3" align="start">
+                            <p className="text-sm font-semibold mb-2">Assigned Projects</p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                              {user.projects.map(p => (
+                                <div key={p.id} className="flex items-center justify-between text-sm py-1 px-2 rounded-md bg-muted/50">
+                                  <span className="truncate">{p.name}</span>
+                                  {p.role === 'owner' && <span className="ml-1 text-xs opacity-60">👑</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
                     <Separator />
                     <div className="flex gap-1.5">
                       <Select value={user.roles[0] || ''} onValueChange={(value) => setUserRole(user.id, value)}>
