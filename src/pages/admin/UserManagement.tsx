@@ -594,13 +594,23 @@ export default function UserManagement() {
     );
   }
 
+  // Compute stats
+  const internalCount = users.filter(u => u.isInternalDomain).length;
+  const invitedCount = users.filter(u => !u.isInternalDomain).length;
+  const activeExternalCount = externalUsers.filter(u => u.is_active).length;
+
+  const getInitials = (name: string | null, email: string) => {
+    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return email[0].toUpperCase();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground mt-2">Manage internal employees and external collaborators</p>
+          <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage system users and document access collaborators</p>
         </div>
         
         <div className="flex gap-2">
@@ -730,194 +740,250 @@ export default function UserManagement() {
         </div>
       </div>
 
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{users.length}</p>
+              <p className="text-xs text-muted-foreground">System Users</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{internalCount}</p>
+              <p className="text-xs text-muted-foreground">Internal (@cioafrica)</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+              <ExternalLink className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{invitedCount}</p>
+              <p className="text-xs text-muted-foreground">Invited Users</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{activeExternalCount}<span className="text-sm font-normal text-muted-foreground">/{externalUsers.length}</span></p>
+              <p className="text-xs text-muted-foreground">Doc Access Active</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* User Type Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as "internal" | "external"); setSearchQuery(""); }} className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-2">
-          <TabsTrigger value="internal" className="flex items-center gap-2">
+        <TabsList className="w-full max-w-lg grid grid-cols-2 h-11">
+          <TabsTrigger value="internal" className="flex items-center gap-2 data-[state=active]:shadow-sm">
             <Users className="h-4 w-4" />
             System Users
-            <Badge variant="secondary" className="ml-1">{users.length}</Badge>
+            <Badge variant="secondary" className="ml-1 text-xs">{users.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="external" className="flex items-center gap-2">
+          <TabsTrigger value="external" className="flex items-center gap-2 data-[state=active]:shadow-sm">
             <FileText className="h-4 w-4" />
             Document Access
-            <Badge variant="secondary" className="ml-1">{externalUsers.length}</Badge>
+            <Badge variant="secondary" className="ml-1 text-xs">{externalUsers.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
         {/* Internal Users Tab */}
         <TabsContent value="internal" className="space-y-4 mt-6">
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-                </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]"><Filter className="h-4 w-4 mr-2" /><SelectValue placeholder="Filter by role" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="project_manager">Project Manager</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="User type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="internal">Internal</SelectItem>
-                    <SelectItem value="invited">Invited</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "table")}>
-                  <TabsList>
-                    <TabsTrigger value="table"><LayoutList className="h-4 w-4" /></TabsTrigger>
-                    <TabsTrigger value="card"><LayoutGrid className="h-4 w-4" /></TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {filteredUsers.length} of {users.length} users</span>
-                {(searchQuery || roleFilter !== "all" || typeFilter !== "all") && (
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setRoleFilter("all"); setTypeFilter("all"); }}>Clear filters</Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-card" />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full sm:w-[160px] h-9 bg-card"><Filter className="h-3.5 w-3.5 mr-1.5" /><SelectValue placeholder="Role" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="project_manager">Project Manager</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[140px] h-9 bg-card"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="internal">Internal</SelectItem>
+                <SelectItem value="invited">Invited</SelectItem>
+              </SelectContent>
+            </Select>
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "card" | "table")}>
+              <TabsList className="h-9">
+                <TabsTrigger value="table" className="h-7 px-2"><LayoutList className="h-3.5 w-3.5" /></TabsTrigger>
+                <TabsTrigger value="card" className="h-7 px-2"><LayoutGrid className="h-3.5 w-3.5" /></TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>Showing {filteredUsers.length} of {users.length} users</span>
+            {(searchQuery || roleFilter !== "all" || typeFilter !== "all") && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setSearchQuery(""); setRoleFilter("all"); setTypeFilter("all"); }}>Clear filters</Button>
+            )}
+          </div>
 
           {/* Internal Users Table */}
           {viewMode === "table" ? (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Projects</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No users found</TableCell></TableRow>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{user.full_name || 'No name'}</span>
-                              <span className="text-sm text-muted-foreground">{user.email}</span>
+            <Card className="border shadow-sm overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="font-semibold">User</TableHead>
+                    <TableHead className="font-semibold">Type</TableHead>
+                    <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Projects</TableHead>
+                    <TableHead className="font-semibold text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
+                      <div className="flex flex-col items-center gap-2">
+                        <Users className="h-8 w-8 text-muted-foreground/40" />
+                        <p>No users found</p>
+                      </div>
+                    </TableCell></TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id} className="group">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                              {getInitials(user.full_name, user.email)}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            {user.isInternalDomain ? (
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                                <Building2 className="h-3 w-3 mr-1" />Internal
-                              </Badge>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{user.full_name || 'No name'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.isInternalDomain ? (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-xs">
+                              <Building2 className="h-3 w-3 mr-1" />Internal
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 text-xs">
+                              <ExternalLink className="h-3 w-3 mr-1" />Invited
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {user.roles.map((role) => (
+                              <Badge key={role} className={`${getRoleBadgeColor(role)} text-xs`}>{role.replace('_', ' ')}</Badge>
+                            ))}
+                            {user.roles.length === 0 && <Badge variant="outline" className="text-xs">No role</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            {user.projects.length === 0 ? (
+                              <span className="text-xs text-muted-foreground italic">No projects</span>
                             ) : (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                                <ExternalLink className="h-3 w-3 mr-1" />Invited
-                              </Badge>
+                              <>
+                                {user.projects.slice(0, 2).map(p => (
+                                  <Badge key={p.id} variant="secondary" className="text-xs font-normal">
+                                    {p.name}
+                                    {p.role === 'owner' && <span className="ml-1 opacity-60">👑</span>}
+                                  </Badge>
+                                ))}
+                                {user.projects.length > 2 && (
+                                  <Badge variant="outline" className="text-xs font-normal">+{user.projects.length - 2}</Badge>
+                                )}
+                              </>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1 flex-wrap">
-                              {user.roles.map((role) => (
-                                <Badge key={role} className={getRoleBadgeColor(role)}>{role.replace('_', ' ')}</Badge>
-                              ))}
-                              {user.roles.length === 0 && <Badge variant="outline">No role</Badge>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1 max-w-[250px]">
-                              {user.projects.length === 0 ? (
-                                <span className="text-sm text-muted-foreground">No projects</span>
-                              ) : (
-                                <>
-                                  {user.projects.slice(0, 2).map(p => (
-                                    <Badge key={p.id} variant="secondary" className="text-xs">
-                                      {p.name}
-                                      {p.role === 'owner' && <span className="ml-1 opacity-60">👑</span>}
-                                    </Badge>
-                                  ))}
-                                  {user.projects.length > 2 && (
-                                    <Badge variant="outline" className="text-xs">+{user.projects.length - 2} more</Badge>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Select value={user.roles[0] || ''} onValueChange={(value) => setUserRole(user.id, value)}>
-                                <SelectTrigger className="w-[130px] h-8"><SelectValue placeholder="Role" /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="project_manager">PM</SelectItem>
-                                  <SelectItem value="member">Member</SelectItem>
-                                  <SelectItem value="viewer">Viewer</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Button variant="ghost" size="icon" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => setDeleteUserId(user.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                            <Select value={user.roles[0] || ''} onValueChange={(value) => setUserRole(user.id, value)}>
+                              <SelectTrigger className="w-[110px] h-8 text-xs"><SelectValue placeholder="Role" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="project_manager">PM</SelectItem>
+                                <SelectItem value="member">Member</SelectItem>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteUserId(user.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredUsers.map((user) => (
-                <Card key={user.id}>
+                <Card key={user.id} className="group hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{user.full_name || 'No name'}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        <div className="mt-1">
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                        {getInitials(user.full_name, user.email)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <CardTitle className="text-sm font-semibold truncate">{user.full_name || 'No name'}</CardTitle>
+                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                          </div>
                           {user.isInternalDomain ? (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                              <Building2 className="h-3 w-3 mr-1" />Internal
-                            </Badge>
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 text-xs shrink-0">Internal</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                              <ExternalLink className="h-3 w-3 mr-1" />Invited
-                            </Badge>
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 text-xs shrink-0">Invited</Badge>
                           )}
                         </div>
-                      </div>
-                      <div className="flex gap-1">
-                        {user.roles.map((role) => <Badge key={role} className={getRoleBadgeColor(role)}>{role}</Badge>)}
+                        <div className="flex gap-1 mt-2">
+                          {user.roles.map((role) => <Badge key={role} className={`${getRoleBadgeColor(role)} text-xs`}>{role.replace('_', ' ')}</Badge>)}
+                          {user.roles.length === 0 && <Badge variant="outline" className="text-xs">No role</Badge>}
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    {user.projects.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {user.projects.map(p => (
-                          <Badge key={p.id} variant="secondary" className="text-xs">
-                            {p.name}{p.role === 'owner' && ' 👑'}
-                          </Badge>
-                        ))}
+                  <CardContent className="space-y-3 pt-0">
+                    {user.projects.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">Projects</p>
+                        <div className="flex flex-wrap gap-1">
+                          {user.projects.map(p => (
+                            <Badge key={p.id} variant="secondary" className="text-xs font-normal">{p.name}{p.role === 'owner' && ' 👑'}</Badge>
+                          ))}
+                        </div>
                       </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">No projects assigned</p>
                     )}
-                    {user.projects.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No projects assigned</p>
-                    )}
-                    <div className="flex gap-2">
+                    <Separator />
+                    <div className="flex gap-1.5">
                       <Select value={user.roles[0] || ''} onValueChange={(value) => setUserRole(user.id, value)}>
-                        <SelectTrigger className="flex-1"><SelectValue placeholder="Role" /></SelectTrigger>
+                        <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Role" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="project_manager">PM</SelectItem>
@@ -925,9 +991,9 @@ export default function UserManagement() {
                           <SelectItem value="viewer">Viewer</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" size="icon" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-4 w-4" /></Button>
-                      <Button variant="outline" size="icon" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="outline" size="icon" onClick={() => setDeleteUserId(user.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setResetInternalUser(user)} title="Reset Password"><KeyRound className="h-3.5 w-3.5" /></Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditUser(user); setEditDialogOpen(true); }}><Edit className="h-3.5 w-3.5" /></Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteUserId(user.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -939,122 +1005,114 @@ export default function UserManagement() {
         {/* External Users Tab */}
         <TabsContent value="external" className="space-y-4 mt-6">
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by name, email, or department..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]"><Building2 className="h-4 w-4 mr-2" /><SelectValue placeholder="Department" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                <span>Showing {filteredExternalUsers.length} of {externalUsers.length} external users</span>
-                {(searchQuery || statusFilter !== "all" || departmentFilter !== "all") && (
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setStatusFilter("all"); setDepartmentFilter("all"); }}>Clear filters</Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by name, email, or department..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-card" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[140px] h-9 bg-card"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="disabled">Disabled</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+              <SelectTrigger className="w-full sm:w-[170px] h-9 bg-card"><Building2 className="h-3.5 w-3.5 mr-1.5" /><SelectValue placeholder="Department" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>Showing {filteredExternalUsers.length} of {externalUsers.length} document access users</span>
+            {(searchQuery || statusFilter !== "all" || departmentFilter !== "all") && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setSearchQuery(""); setStatusFilter("all"); setDepartmentFilter("all"); }}>Clear filters</Button>
+            )}
+          </div>
 
           {/* External Users Table */}
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Document Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Activity</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingExternal ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-                  ) : filteredExternalUsers.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No external users found</TableCell></TableRow>
-                  ) : (
-                    filteredExternalUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{user.full_name || 'No name'}</span>
-                            <span className="text-sm text-muted-foreground">{user.email}</span>
-                            <Badge variant="outline" className="w-fit mt-1 text-xs">External User</Badge>
+          <Card className="border shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-semibold">User</TableHead>
+                  <TableHead className="font-semibold">Department</TableHead>
+                  <TableHead className="font-semibold">Document Role</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Last Activity</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingExternal ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-16"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                ) : filteredExternalUsers.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2">
+                      <FileText className="h-8 w-8 text-muted-foreground/40" />
+                      <p>No document access users found</p>
+                    </div>
+                  </TableCell></TableRow>
+                ) : (
+                  filteredExternalUsers.map((user) => (
+                    <TableRow key={user.id} className="group">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-accent/10 flex items-center justify-center text-xs font-semibold text-accent shrink-0">
+                            {getInitials(user.full_name, user.email)}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <div className="font-medium">{user.department_name}</div>
-                              <div className="text-xs text-muted-foreground">{user.project_name}</div>
-                            </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{user.full_name || 'No name'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Select value={user.access_level} onValueChange={(v) => updateExternalUserAccess(user.id, v)}>
-                            <SelectTrigger className="w-[150px] h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="view_only">
-                                <div className="flex items-center gap-2"><Eye className="h-3 w-3" />View Only</div>
-                              </SelectItem>
-                              <SelectItem value="upload_edit">
-                                <div className="flex items-center gap-2"><FileText className="h-3 w-3" />Upload & Edit</div>
-                              </SelectItem>
-                              <SelectItem value="edit_download">
-                                <div className="flex items-center gap-2"><FileText className="h-3 w-3" />Edit & Download</div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(user)}</TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {user.last_activity_at ? format(new Date(user.last_activity_at), 'MMM d, yyyy HH:mm') : 'Never'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => setResetPasswordUser(user)} title="Reset Password">
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => toggleExternalUserStatus(user)}
-                              className={user.is_active ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}>
-                              {user.is_active ? <UserX className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => { setDeleteExternalUser(user); fetchExternalUserImpact(user); }}
-                              className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{user.department_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{user.project_name}</p>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={user.access_level} onValueChange={(v) => updateExternalUserAccess(user.id, v)}>
+                          <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="view_only"><div className="flex items-center gap-2"><Eye className="h-3 w-3" />View Only</div></SelectItem>
+                            <SelectItem value="upload_edit"><div className="flex items-center gap-2"><FileText className="h-3 w-3" />Upload & Edit</div></SelectItem>
+                            <SelectItem value="edit_download"><div className="flex items-center gap-2"><FileText className="h-3 w-3" />Edit & Download</div></SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(user)}</TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">
+                          {user.last_activity_at ? format(new Date(user.last_activity_at), 'MMM d, yyyy HH:mm') : 'Never'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setResetPasswordUser(user)} title="Reset Password"><Mail className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className={user.is_active ? "text-amber-600 hover:text-amber-700 h-8 w-8" : "text-emerald-600 hover:text-emerald-700 h-8 w-8"} onClick={() => toggleExternalUserStatus(user)}>
+                            {user.is_active ? <UserX className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => { setDeleteExternalUser(user); fetchExternalUserImpact(user); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </Card>
         </TabsContent>
       </Tabs>
