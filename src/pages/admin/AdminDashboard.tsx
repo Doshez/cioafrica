@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { Users, FolderKanban, CheckSquare, TrendingUp, UserPlus, BarChart3, Shield, FileText, Loader2, ArrowRight } from "lucide-react";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 import { Progress } from "@/components/ui/progress";
+import { OverdueReminderSettings } from "@/components/OverdueReminderSettings";
 
 interface RawData {
   users: number;
@@ -122,24 +123,30 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Completion Overview */}
-      <Card>
-        <CardContent className="pt-5 pb-4 px-5">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-medium">Task Completion</p>
-              <p className="text-xs text-muted-foreground">{stats.completedTasks} of {stats.totalTasks} tasks completed</p>
+      {/* Completion + Overdue Settings side by side */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Completion Overview */}
+        <Card>
+          <CardContent className="pt-5 pb-4 px-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-medium">Task Completion</p>
+                <p className="text-xs text-muted-foreground">{stats.completedTasks} of {stats.totalTasks} tasks completed</p>
+              </div>
+              <span className="text-2xl font-bold">{completionRate}%</span>
             </div>
-            <span className="text-2xl font-bold">{completionRate}%</span>
-          </div>
-          <Progress value={completionRate} className="h-2" />
-          <div className="flex gap-6 mt-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Done: {stats.completedTasks}</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Active: {stats.activeTasks}</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-muted-foreground" /> Todo: {stats.todoTasks}</span>
-          </div>
-        </CardContent>
-      </Card>
+            <Progress value={completionRate} className="h-2" />
+            <div className="flex gap-6 mt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Done: {stats.completedTasks}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Active: {stats.activeTasks}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-muted-foreground" /> Todo: {stats.todoTasks}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overdue Reminder Settings */}
+        <OverdueReminderSettings />
+      </div>
 
       {/* Quick Actions */}
       <div>

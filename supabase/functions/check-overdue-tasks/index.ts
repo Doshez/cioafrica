@@ -3,6 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const getBaseUrl = () => "https://projects.cioafrica.co";
+
 const sendEmail = async (to: string, subject: string, html: string) => {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -17,22 +24,11 @@ const sendEmail = async (to: string, subject: string, html: string) => {
       html,
     }),
   });
-  
   if (!res.ok) {
     const error = await res.text();
     throw new Error(`Failed to send email: ${error}`);
   }
-  
   return res.json();
-};
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const getBaseUrl = () => {
-  return "https://projects.cioafrica.co";
 };
 
 const generateEmailHtml = (
@@ -40,12 +36,10 @@ const generateEmailHtml = (
   departmentName: string,
   projectName: string,
   projectId: string,
-  isAssignee: boolean
+  dueDate: string
 ) => {
   const baseUrl = getBaseUrl();
   const ctaLink = `${baseUrl}/projects/${projectId}`;
-  const roleText = isAssignee ? "You are assigned to" : "A task in your project is";
-
   return `
 <!DOCTYPE html>
 <html>
@@ -73,15 +67,16 @@ const generateEmailHtml = (
     </div>
     <div class="content">
       <p style="margin: 0 0 12px; color: #334155; font-size: 14px;">
-        ${roleText} overdue:
+        You have an overdue task that needs your attention:
       </p>
       <div class="message">
         <p><strong>Task:</strong> ${taskName}</p>
         <p><strong>Department:</strong> ${departmentName}</p>
         <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Due Date:</strong> ${dueDate}</p>
       </div>
       <p style="margin: 12px 0 0; color: #64748b; font-size: 13px;">
-        Please review and update the task status.
+        Please review and update the task status as soon as possible.
       </p>
       <div class="cta">
         <a href="${ctaLink}">View in Project Planner</a>
@@ -106,23 +101,44 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check reminder settings
+    const { data: settings } = await supabase
+      .from('overdue_reminder_settings')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+
+    if (!settings || !settings.enabled) {
+      console.log("Overdue reminders are disabled");
+      return new Response(
+        JSON.stringify({ success: true, message: "Reminders disabled", sent: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if today is a reminder day
+    const now = new Date();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const todayDay = dayNames[now.getDay()];
+    
+    if (!settings.reminder_days.includes(todayDay)) {
+      console.log(`Today (${todayDay}) is not a reminder day`);
+      return new Response(
+        JSON.stringify({ success: true, message: `Not a reminder day (${todayDay})`, sent: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log("Checking for overdue tasks...");
 
-    // Get today's date in EAT timezone
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0];
 
-    // Find overdue tasks that are not completed
+    // Find overdue tasks - only those with an assigned user
     const { data: overdueTasks, error: tasksError } = await supabase
       .from('tasks')
       .select(`
-        id,
-        title,
-        due_date,
-        assignee_user_id,
-        project_id,
-        status,
-        projects!inner(id, name, owner_id),
+        id, title, due_date, assignee_user_id, project_id, status,
+        projects!inner(id, name),
         departments!tasks_assignee_department_id_fkey(id, name)
       `)
       .lt('due_date', todayStr)
@@ -145,6 +161,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     let sentCount = 0;
 
+    // Group tasks by assignee to send one consolidated or per-task email
     for (const task of overdueTasks) {
       const project = task.projects as any;
       const department = task.departments as any;
@@ -152,56 +169,33 @@ const handler = async (req: Request): Promise<Response> => {
       const projectName = project?.name || 'Unknown Project';
       const projectId = project?.id || task.project_id;
 
-      // Get project managers
-      const { data: managers, error: managersError } = await supabase
-        .from('project_members')
-        .select('user_id')
-        .eq('project_id', task.project_id)
-        .eq('role', 'manager');
-
-      if (managersError) {
-        console.error('Error fetching managers:', managersError);
-        continue;
-      }
-
-      // Collect all recipient IDs (assignee + managers + owner)
-      const recipientIds = new Set<string>();
-      if (task.assignee_user_id) recipientIds.add(task.assignee_user_id);
-      if (project?.owner_id) recipientIds.add(project.owner_id);
-      managers?.forEach(m => recipientIds.add(m.user_id));
-
-      // Get profiles for all recipients
-      const { data: profiles, error: profilesError } = await supabase
+      // Only email the assigned user
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, email, full_name')
-        .in('id', Array.from(recipientIds));
+        .eq('id', task.assignee_user_id)
+        .single();
 
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
+      if (profileError || !profile?.email) {
+        console.error('Error fetching assignee profile:', profileError);
         continue;
       }
 
-      const subject = `⏰ Task Overdue: ${task.title} On ${departmentName} for ${projectName}`;
+      const subject = `⏰ Task Overdue: ${task.title} — ${projectName}`;
+      const html = generateEmailHtml(
+        task.title,
+        departmentName,
+        projectName,
+        projectId,
+        task.due_date
+      );
 
-      for (const profile of profiles || []) {
-        if (!profile.email) continue;
-
-        const isAssignee = profile.id === task.assignee_user_id;
-        const html = generateEmailHtml(
-          task.title,
-          departmentName,
-          projectName,
-          projectId,
-          isAssignee
-        );
-
-        try {
-          await sendEmail(profile.email, subject, html);
-          sentCount++;
-          console.log(`Overdue notification sent to ${profile.email} for task: ${task.title}`);
-        } catch (emailError) {
-          console.error(`Error sending email to ${profile.email}:`, emailError);
-        }
+      try {
+        await sendEmail(profile.email, subject, html);
+        sentCount++;
+        console.log(`Overdue notification sent to ${profile.email} for task: ${task.title}`);
+      } catch (emailError) {
+        console.error(`Error sending email to ${profile.email}:`, emailError);
       }
     }
 
