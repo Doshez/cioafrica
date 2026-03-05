@@ -28,6 +28,7 @@ import ProjectAnalytics from "./pages/ProjectAnalytics";
 import ProjectDocuments from "./pages/ProjectDocuments";
 import ProjectReportSettings from "./pages/ProjectReportSettings";
 import ExternalUserPortal from "./pages/ExternalUserPortal";
+import NewProject from "./pages/NewProject";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,7 @@ const App: React.FC = () => (
                 <Route path="/dashboard" element={<ExternalUserRoute><Layout><Dashboard /></Layout></ExternalUserRoute>} />
                 <Route path="/my-tasks" element={<ExternalUserRoute><Layout><MyTasks /></Layout></ExternalUserRoute>} />
                 <Route path="/projects" element={<ExternalUserRoute><Layout><Projects /></Layout></ExternalUserRoute>} />
+                <Route path="/projects/new" element={<ExternalUserRoute><NewProject /></ExternalUserRoute>} />
                 <Route path="/projects/:projectId" element={<ExternalUserRoute><Layout><ProjectDetails /></Layout></ExternalUserRoute>} />
                 <Route path="/projects/:projectId/gantt" element={<ExternalUserRoute><Layout><ProjectGanttChartPage /></Layout></ExternalUserRoute>} />
                 <Route path="/projects/:projectId/analytics" element={<ExternalUserRoute><Layout><ProjectAnalytics /></Layout></ExternalUserRoute>} />
