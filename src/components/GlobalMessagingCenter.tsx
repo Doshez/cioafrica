@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Dialog, DialogContent } from './ui/dialog';
 import { Button } from './ui/button';
-import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -13,13 +12,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   MessageSquare, Users, Trash2, Hash, Plus, Search, X,
-  FileText, UserPlus, Building2, ChevronRight, FolderKanban, ChevronDown
+  FileText, UserPlus, Building2, ChevronRight, FolderKanban, ChevronDown,
+  Reply, CornerDownRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
 import { Separator } from './ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
+import { MessageConfirmDialog } from './MessageConfirmDialog';
+import { MessageEditDialog } from './MessageEditDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,9 +97,26 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
   const [unreadByRoom, setUnreadByRoom] = useState<Map<string, number>>(new Map());
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [reactions, setReactions] = useState<Map<string, Array<{ emoji: string; user_id: string; id: string }>>>(new Map());
+  const [roomParticipants, setRoomParticipants] = useState<UserProfile[]>([]);
+
+  // Threading
+  const [replyTo, setReplyTo] = useState<{ id: string; content: string; userName: string } | null>(null);
+
+  // Edit/Delete dialogs
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<{ id: string; content: string } | null>(null);
+
+  // Auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { messages, loading, sendMessage, editMessage, deleteMessage } = useChatMessages(selectedRoom);
   const { presenceMap } = useUserPresence();
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (urlProjectId && open) setSelectedProjectId(urlProjectId);
@@ -112,11 +131,9 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
         .from('project_members').select('project_id').eq('user_id', user.id);
       const { data: ownedProjects } = await supabase
         .from('projects').select('id').eq('owner_id', user.id);
-
       const projectIds = new Set<string>();
       memberProjects?.forEach(m => projectIds.add(m.project_id));
       ownedProjects?.forEach(p => projectIds.add(p.id));
-
       if (projectIds.size === 0) {
         const { data } = await supabase.from('projects').select('id, name, logo_url').order('name');
         setProjects(data || []);
@@ -125,10 +142,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
           .in('id', Array.from(projectIds)).order('name');
         setProjects(data || []);
       }
-
-      if (!selectedProjectId && projectIds.size > 0) {
-        setSelectedProjectId(Array.from(projectIds)[0]);
-      }
+      if (!selectedProjectId && projectIds.size > 0) setSelectedProjectId(Array.from(projectIds)[0]);
       setLoadingProjects(false);
     };
     fetchProjects();
@@ -138,20 +152,14 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
   useEffect(() => {
     if (!open || !user || !selectedProjectId) return;
     const fetchProjectUsers = async () => {
-      const { data: members } = await supabase
-        .from('project_members').select('user_id').eq('project_id', selectedProjectId);
-      const { data: project } = await supabase
-        .from('projects').select('owner_id').eq('id', selectedProjectId).single();
-
+      const { data: members } = await supabase.from('project_members').select('user_id').eq('project_id', selectedProjectId);
+      const { data: project } = await supabase.from('projects').select('owner_id').eq('id', selectedProjectId).single();
       const userIds = new Set<string>();
       members?.forEach(m => userIds.add(m.user_id));
       if (project?.owner_id) userIds.add(project.owner_id);
       userIds.delete(user.id);
-
       if (userIds.size === 0) { setProjectUsers([]); return; }
-
-      const { data: profiles } = await supabase
-        .from('profiles').select('id, full_name, avatar_url, email')
+      const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url, email')
         .in('id', Array.from(userIds)).order('full_name');
       setProjectUsers(profiles || []);
     };
@@ -208,14 +216,11 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
   useEffect(() => {
     if (!selectedProjectId || !open || !user) { setPrivateRooms([]); setGroupRooms([]); return; }
     const fetchRooms = async () => {
-      const { data: participations } = await supabase
-        .from('chat_participants').select('room_id').eq('user_id', user.id);
+      const { data: participations } = await supabase.from('chat_participants').select('room_id').eq('user_id', user.id);
       if (!participations?.length) { setPrivateRooms([]); setGroupRooms([]); return; }
       const roomIds = participations.map(p => p.room_id);
-
       const { data: privRooms } = await supabase.from('chat_rooms').select('*')
         .in('id', roomIds).eq('room_type', 'private').eq('project_id', selectedProjectId);
-
       const privateWithUsers = await Promise.all(
         (privRooms || []).map(async (room) => {
           const { data: other } = await supabase.from('chat_participants').select('user_id')
@@ -235,7 +240,6 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
         return tB - tA;
       });
       setPrivateRooms(privateWithUsers);
-
       const { data: grpRooms } = await supabase.from('chat_rooms').select('*')
         .in('id', roomIds).eq('room_type', 'group' as any).eq('project_id', selectedProjectId);
       setGroupRooms(grpRooms || []);
@@ -251,8 +255,8 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
   useEffect(() => {
     if (!selectedProjectId || !open || !user) return;
     const fetch = async () => {
-      const { data: participations } = await supabase
-        .from('chat_participants').select('room_id, last_read_at').eq('user_id', user.id);
+      const { data: participations } = await supabase.from('chat_participants')
+        .select('room_id, last_read_at').eq('user_id', user.id);
       if (!participations) return;
       const roomIds = participations.map(p => p.room_id);
       const { data: rooms } = await supabase.from('chat_rooms').select('id')
@@ -289,6 +293,21 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
     };
     fetch();
   }, [selectedRoom, messages]);
+
+  // Fetch room participants for right panel
+  useEffect(() => {
+    if (!selectedRoom || !showRightPanel) return;
+    const fetchParticipants = async () => {
+      const { data: parts } = await supabase.from('chat_participants')
+        .select('user_id').eq('room_id', selectedRoom);
+      if (!parts || parts.length === 0) { setRoomParticipants([]); return; }
+      const ids = parts.map(p => p.user_id);
+      const { data: profiles } = await supabase.from('profiles')
+        .select('id, full_name, avatar_url, email').in('id', ids);
+      setRoomParticipants(profiles || []);
+    };
+    fetchParticipants();
+  }, [selectedRoom, showRightPanel]);
 
   const markRoomAsRead = useCallback(async (roomId: string) => {
     if (!user) return;
@@ -391,6 +410,33 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
     }
   };
 
+  const handleEditClick = (messageId: string, content: string) => {
+    setSelectedMessage({ id: messageId, content });
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (messageId: string) => {
+    setSelectedMessage({ id: messageId, content: '' });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedMessage) deleteMessage(selectedMessage.id);
+    setDeleteDialogOpen(false);
+    setSelectedMessage(null);
+  };
+
+  const handleSaveEdit = (newContent: string) => {
+    if (selectedMessage) editMessage(selectedMessage.id, newContent);
+    setEditDialogOpen(false);
+    setSelectedMessage(null);
+  };
+
+  const handleSendWithReply = (content: string, attachment?: { url: string; name: string; type: string; size: number }) => {
+    sendMessage(content, attachment);
+    setReplyTo(null);
+  };
+
   const getUserStatus = (userId: string) => presenceMap.get(userId)?.status || 'offline';
   const getStatusColor = (s: string) => {
     switch (s) { case 'online': return 'bg-green-500'; case 'away': return 'bg-amber-500'; case 'busy': return 'bg-red-500'; default: return 'bg-muted-foreground/30'; }
@@ -424,6 +470,11 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
       u.email.toLowerCase().includes(newChatSearch.toLowerCase());
   });
 
+  const getParentMessage = (parentId: string | null) => {
+    if (!parentId) return null;
+    return messages.find(m => m.id === parentId);
+  };
+
   const roomInfo = getSelectedRoomInfo();
   const quickEmojis = ['👍', '❤️', '🔥', '✅', '🎉', '😂'];
   const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -434,18 +485,13 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT PANEL */}
           <div className="w-72 border-r bg-muted/30 flex flex-col flex-shrink-0">
-            {/* Project Selector + Header */}
             <div className="p-3 border-b space-y-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="w-full gap-2 justify-between h-9 text-sm" disabled={loadingProjects}>
                     {selectedProject ? (
                       <div className="flex items-center gap-2 min-w-0">
-                        {selectedProject.logo_url ? (
-                          <img src={selectedProject.logo_url} alt="" className="h-4 w-4 object-contain rounded flex-shrink-0" />
-                        ) : (
-                          <FolderKanban className="h-3.5 w-3.5 flex-shrink-0" />
-                        )}
+                        {selectedProject.logo_url ? <img src={selectedProject.logo_url} alt="" className="h-4 w-4 object-contain rounded flex-shrink-0" /> : <FolderKanban className="h-3.5 w-3.5 flex-shrink-0" />}
                         <span className="truncate">{selectedProject.name}</span>
                       </div>
                     ) : (
@@ -552,10 +598,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                         <div key={room.id} className="relative group">
                           <button className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${selectedRoom === room.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'}`} onClick={() => setSelectedRoom(room.id)}>
                             <div className="relative flex-shrink-0">
-                              <Avatar className="h-7 w-7">
-                                <AvatarImage src={room.other_user?.avatar_url || undefined} />
-                                <AvatarFallback className="text-[10px]">{(room.other_user?.full_name || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                              </Avatar>
+                              <Avatar className="h-7 w-7"><AvatarImage src={room.other_user?.avatar_url || undefined} /><AvatarFallback className="text-[10px]">{(room.other_user?.full_name || 'U').charAt(0).toUpperCase()}</AvatarFallback></Avatar>
                               <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${getStatusColor(status)}`} />
                             </div>
                             <div className="flex-1 min-w-0 text-left">
@@ -647,6 +690,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
               </div>
             ) : selectedRoom ? (
               <>
+                {/* Chat Header */}
                 <div className="border-b px-4 py-3 bg-card flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-3 min-w-0">
                     {roomInfo.avatar ? (
@@ -669,7 +713,7 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                   </Button>
                 </div>
 
-                {/* Messages with reactions */}
+                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {loading ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground"><p className="text-sm">Loading...</p></div>
@@ -682,12 +726,14 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                       const isOwn = message.user_id === user?.id;
                       const userName = message.user?.full_name || message.user_email || 'Unknown';
                       const msgReactions = reactions.get(message.id) || [];
+                      const parentMsg = getParentMessage(message.parent_message_id);
                       const groupedReactions: { emoji: string; count: number; hasOwn: boolean }[] = [];
                       msgReactions.forEach(r => {
                         const ex = groupedReactions.find(g => g.emoji === r.emoji);
                         if (ex) { ex.count++; if (r.user_id === user?.id) ex.hasOwn = true; }
                         else groupedReactions.push({ emoji: r.emoji, count: 1, hasOwn: r.user_id === user?.id });
                       });
+
                       return (
                         <div key={message.id} className={`flex gap-3 group ${isOwn ? 'flex-row-reverse' : ''}`}>
                           <Avatar className="h-8 w-8 flex-shrink-0 mt-1"><AvatarImage src={message.user?.avatar_url || undefined} /><AvatarFallback className="text-[10px]">{userName.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
@@ -696,6 +742,17 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                               <span className="text-xs font-medium">{userName}</span>
                               <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
                             </div>
+
+                            {/* Reply context */}
+                            {parentMsg && (
+                              <div className={`flex items-center gap-1.5 mb-1 text-xs text-muted-foreground ${isOwn ? 'justify-end' : ''}`}>
+                                <CornerDownRight className="h-3 w-3" />
+                                <span className="truncate max-w-[200px] italic">
+                                  Replying to: {parentMsg.content.slice(0, 50)}{parentMsg.content.length > 50 ? '...' : ''}
+                                </span>
+                              </div>
+                            )}
+
                             <div className={`inline-block rounded-2xl px-3.5 py-2 text-sm ${isOwn ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md'}`}>
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
                               {message.attachment_url && <a href={message.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs mt-1.5 hover:underline opacity-80"><FileText className="h-3 w-3" />{message.attachment_name}</a>}
@@ -714,10 +771,13 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                               {quickEmojis.map(emoji => (
                                 <button key={emoji} className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-xs" onClick={() => toggleReaction(message.id, emoji)}>{emoji}</button>
                               ))}
+                              <button className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center" onClick={() => setReplyTo({ id: message.id, content: message.content, userName })} title="Reply">
+                                <Reply className="h-3 w-3" />
+                              </button>
                               {isOwn && (
                                 <>
-                                  <button className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center" onClick={() => { const c = prompt('Edit:', message.content); if (c && c !== message.content) editMessage(message.id, c); }}><span className="text-[10px]">✏️</span></button>
-                                  <button className="h-6 w-6 rounded hover:bg-destructive/10 flex items-center justify-center" onClick={() => { if (confirm('Delete?')) deleteMessage(message.id); }}><Trash2 className="h-3 w-3 text-destructive" /></button>
+                                  <button className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center" onClick={() => handleEditClick(message.id, message.content)}><span className="text-[10px]">✏️</span></button>
+                                  <button className="h-6 w-6 rounded hover:bg-destructive/10 flex items-center justify-center" onClick={() => handleDeleteClick(message.id)}><Trash2 className="h-3 w-3 text-destructive" /></button>
                                 </>
                               )}
                             </div>
@@ -726,8 +786,24 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                       );
                     })
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
-                <MessageInput onSend={sendMessage} />
+
+                {/* Reply banner */}
+                {replyTo && (
+                  <div className="border-t border-border px-4 py-2 bg-muted/50 flex items-center gap-2">
+                    <CornerDownRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground">Replying to {replyTo.userName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{replyTo.content}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setReplyTo(null)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+                <MessageInput onSend={handleSendWithReply} />
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -749,7 +825,59 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                     <p className="font-semibold">{roomInfo.name}</p>
                     <p className="text-xs text-muted-foreground">{roomInfo.type}</p>
                   </div>
+
                   <Separator />
+
+                  {/* Members */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      Members ({roomParticipants.length})
+                    </p>
+                    <div className="space-y-2">
+                      {roomParticipants.map(p => {
+                        const status = getUserStatus(p.id);
+                        return (
+                          <div key={p.id} className="flex items-center gap-2">
+                            <div className="relative">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={p.avatar_url || undefined} />
+                                <AvatarFallback className="text-[10px]">{(p.full_name || p.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${getStatusColor(status)}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs truncate block">{p.id === user?.id ? 'You' : (p.full_name || p.email)}</span>
+                              <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Department info */}
+                  {(() => {
+                    const deptRoom = departmentRooms.find(r => r.id === selectedRoom);
+                    if (!deptRoom?.department_id) return null;
+                    const dept = departments.find(d => d.id === deptRoom.department_id);
+                    if (!dept) return null;
+                    return (
+                      <>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Department</p>
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{dept.name}</span>
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    );
+                  })()}
+
+                  {/* Shared files */}
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Shared Files</p>
                     {messages.filter(m => m.attachment_url).length === 0 ? (
@@ -770,6 +898,25 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
           )}
         </div>
       </DialogContent>
+
+      {/* Edit Dialog */}
+      <MessageEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        currentContent={selectedMessage?.content || ''}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <MessageConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Message"
+        description="Are you sure you want to delete this message? This action cannot be undone."
+        onConfirm={handleConfirmDelete}
+        confirmText="Delete"
+        variant="destructive"
+      />
     </Dialog>
   );
 };
