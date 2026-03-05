@@ -431,9 +431,14 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
         return false;
       }
       if (filterStatus !== 'all') {
-        // Filter by task status within element
-        const hasMatchingStatus = element.tasks.some(task => task.status === filterStatus);
-        if (!hasMatchingStatus) return false;
+        if (filterStatus === 'overdue') {
+          const now = new Date();
+          const hasOverdue = element.tasks.some(task => task.status !== 'done' && task.due_date && new Date(task.due_date) < now);
+          if (!hasOverdue) return false;
+        } else {
+          const hasMatchingStatus = element.tasks.some(task => task.status === filterStatus);
+          if (!hasMatchingStatus) return false;
+        }
       }
       return true;
     });
@@ -1307,6 +1312,12 @@ export function InteractiveGanttChart({ projectId }: InteractiveGanttChartProps)
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-3 w-3 text-green-500" />
                       Completed
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="overdue">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-3 w-3 text-destructive" />
+                      Overdue
                     </div>
                   </SelectItem>
                 </SelectContent>
