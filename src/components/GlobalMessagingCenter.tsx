@@ -511,24 +511,26 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
               </DropdownMenu>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground">Messages</span>
-                <div className="flex gap-0.5">
-                  <TooltipProvider>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Messages</span>
+                <div className="flex items-center gap-1">
+                  <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
-                          <UserPlus className="h-3.5 w-3.5" />
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewChat(true); setShowNewGroup(false); }}>
+                          <UserPlus className="h-3 w-3" />
+                          Chat
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>New message</TooltipContent>
+                      <TooltipContent>Start a new direct message</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
-                          <Plus className="h-3.5 w-3.5" />
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] px-2" onClick={() => { setShowNewGroup(true); setShowNewChat(false); }}>
+                          <Plus className="h-3 w-3" />
+                          Group
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>New group</TooltipContent>
+                      <TooltipContent>Create a group chat</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -691,10 +693,10 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
             ) : selectedRoom ? (
               <>
                 {/* Chat Header */}
-                <div className="border-b px-4 py-3 bg-card flex items-center justify-between flex-shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="border-b px-4 py-2.5 bg-card flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     {roomInfo.avatar ? (
-                      <Avatar className="h-9 w-9"><AvatarImage src={roomInfo.avatar} /><AvatarFallback>{roomInfo.name.charAt(0)}</AvatarFallback></Avatar>
+                      <Avatar className="h-9 w-9 flex-shrink-0"><AvatarImage src={roomInfo.avatar} /><AvatarFallback className="text-sm">{roomInfo.name.charAt(0)}</AvatarFallback></Avatar>
                     ) : (
                       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         {publicRoom?.id === selectedRoom ? <Hash className="h-4 w-4 text-primary" /> :
@@ -708,9 +710,18 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                       <p className="text-xs text-muted-foreground">{roomInfo.type}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowRightPanel(!showRightPanel)}>
-                    <ChevronRight className={`h-4 w-4 transition-transform ${showRightPanel ? 'rotate-180' : ''}`} />
-                  </Button>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs px-2.5 flex-shrink-0" onClick={() => setShowRightPanel(!showRightPanel)}>
+                          <Users className="h-3.5 w-3.5" />
+                          Details
+                          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showRightPanel ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{showRightPanel ? 'Hide details' : 'Show details'}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
 
                 {/* Messages */}
@@ -767,19 +778,26 @@ export const GlobalMessagingCenter = ({ open, onOpenChange }: GlobalMessagingCen
                                 ))}
                               </div>
                             )}
-                            <div className={`flex gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'justify-end' : ''}`}>
-                              {quickEmojis.map(emoji => (
-                                <button key={emoji} className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center text-xs" onClick={() => toggleReaction(message.id, emoji)}>{emoji}</button>
-                              ))}
-                              <button className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center" onClick={() => setReplyTo({ id: message.id, content: message.content, userName })} title="Reply">
-                                <Reply className="h-3 w-3" />
-                              </button>
-                              {isOwn && (
-                                <>
-                                  <button className="h-6 w-6 rounded hover:bg-muted flex items-center justify-center" onClick={() => handleEditClick(message.id, message.content)}><span className="text-[10px]">✏️</span></button>
-                                  <button className="h-6 w-6 rounded hover:bg-destructive/10 flex items-center justify-center" onClick={() => handleDeleteClick(message.id)}><Trash2 className="h-3 w-3 text-destructive" /></button>
-                                </>
-                              )}
+                            <div className={`flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'justify-end' : ''}`}>
+                              <div className="inline-flex items-center bg-card border border-border rounded-lg shadow-sm p-0.5 gap-0.5">
+                                {quickEmojis.slice(0, 4).map(emoji => (
+                                  <button key={emoji} className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-sm transition-colors" onClick={() => toggleReaction(message.id, emoji)} title={`React ${emoji}`}>{emoji}</button>
+                                ))}
+                                <div className="w-px h-4 bg-border mx-0.5" />
+                                <button className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors" onClick={() => setReplyTo({ id: message.id, content: message.content, userName })} title="Reply">
+                                  <Reply className="h-3.5 w-3.5" />
+                                </button>
+                                {isOwn && (
+                                  <>
+                                    <button className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors" onClick={() => handleEditClick(message.id, message.content)} title="Edit">
+                                      <span className="text-xs">✏️</span>
+                                    </button>
+                                    <button className="h-7 w-7 rounded-md hover:bg-destructive/10 flex items-center justify-center transition-colors" onClick={() => handleDeleteClick(message.id)} title="Delete">
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
