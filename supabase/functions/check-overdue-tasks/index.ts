@@ -97,6 +97,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Check if this is a test request
+    let isTest = false;
+    try {
+      const body = await req.json();
+      isTest = body?.test === true;
+    } catch {
+      // No body or invalid JSON, not a test
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -108,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
       .limit(1)
       .maybeSingle();
 
-    if (!settings || !settings.enabled) {
+    if (!isTest && (!settings || !settings.enabled)) {
       console.log("Overdue reminders are disabled");
       return new Response(
         JSON.stringify({ success: true, message: "Reminders disabled", sent: 0 }),
@@ -116,20 +125,22 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check if today is a reminder day
-    const now = new Date();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const todayDay = dayNames[now.getDay()];
-    
-    if (!settings.reminder_days.includes(todayDay)) {
-      console.log(`Today (${todayDay}) is not a reminder day`);
-      return new Response(
-        JSON.stringify({ success: true, message: `Not a reminder day (${todayDay})`, sent: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Check if today is a reminder day (skip for test)
+    if (!isTest) {
+      const now = new Date();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const todayDay = dayNames[now.getDay()];
+      
+      if (!settings.reminder_days.includes(todayDay)) {
+        console.log(`Today (${todayDay}) is not a reminder day`);
+        return new Response(
+          JSON.stringify({ success: true, message: `Not a reminder day (${todayDay})`, sent: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
-    console.log("Checking for overdue tasks...");
+    console.log(isTest ? "Running TEST overdue check..." : "Checking for overdue tasks...");
 
     const todayStr = now.toISOString().split('T')[0];
 
