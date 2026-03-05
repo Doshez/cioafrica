@@ -1,38 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
 
 @layer base {
   /* ========== LIGHT THEME (Default) ========== */
   :root,
   .light {
-    --background: 240 20% 99%;
-    --foreground: 222 47% 11%;
+    --background: 220 14% 96%;
+    --foreground: 224 71% 4%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 71% 4%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 224 71% 4%;
 
-    --primary: 217 91% 60%;
+    --primary: 220 70% 50%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 70%;
+    --primary-glow: 220 70% 60%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
 
-    --muted: 220 13% 95%;
+    --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
     --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -43,31 +41,29 @@ All colors MUST be HSL.
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --ring: 220 70% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-foreground: 224 71% 4%;
+    --sidebar-primary: 220 70% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 13% 95%;
-    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 224 71% 4%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 220 70% 50%;
 
-    /* Custom design tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
-    --gradient-subtle: linear-gradient(180deg, hsl(240 20% 99%), hsl(220 13% 95%));
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 40px hsl(217 91% 70% / 0.3);
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 50%), hsl(262 83% 58%));
+    --gradient-subtle: linear-gradient(180deg, hsl(220 14% 96%), hsl(220 14% 94%));
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+    --shadow-glow: 0 0 40px hsl(220 70% 60% / 0.15);
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Theme-specific tokens */
-    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-    --card-hover-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    --card-hover-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08);
     --card-border-width: 1px;
     --card-transform: none;
     --button-transform: none;
@@ -76,29 +72,29 @@ All colors MUST be HSL.
 
   /* ========== DARK THEME ========== */
   .dark {
-    --background: 222 47% 11%;
+    --background: 224 71% 4%;
     --foreground: 210 40% 98%;
 
-    --card: 217 33% 17%;
+    --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 217 33% 17%;
+    --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
+    --primary: 220 70% 55%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 70%;
+    --primary-glow: 220 70% 65%;
 
-    --secondary: 217 33% 22%;
+    --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 22%;
+    --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
     --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -107,27 +103,25 @@ All colors MUST be HSL.
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 22%;
-    --input: 217 33% 22%;
-    --ring: 217 91% 60%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 220 70% 55%;
 
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 220 70% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 22%;
+    --sidebar-accent: 217 33% 17%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 22%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 220 70% 55%;
 
-    /* Custom design tokens for dark mode */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
-    --gradient-subtle: linear-gradient(180deg, hsl(222 47% 11%), hsl(217 33% 17%));
-    --shadow-glow: 0 0 40px hsl(217 91% 70% / 0.2);
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 55%), hsl(262 83% 58%));
+    --gradient-subtle: linear-gradient(180deg, hsl(224 71% 4%), hsl(222 47% 11%));
+    --shadow-glow: 0 0 40px hsl(220 70% 60% / 0.1);
 
-    /* Theme-specific tokens */
-    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
-    --card-hover-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.2);
+    --card-hover-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.3);
     --card-border-width: 1px;
     --card-transform: none;
     --button-transform: none;
@@ -171,7 +165,7 @@ All colors MUST be HSL.
     --input: 40 15% 88%;
     --ring: 158 64% 40%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 40 25% 97%;
     --sidebar-foreground: 30 10% 20%;
@@ -182,7 +176,6 @@ All colors MUST be HSL.
     --sidebar-border: 40 15% 88%;
     --sidebar-ring: 158 64% 40%;
 
-    /* Custom design tokens for soft mode */
     --gradient-primary: linear-gradient(135deg, hsl(158 64% 40%), hsl(158 50% 55%));
     --gradient-subtle: linear-gradient(180deg, hsl(40 30% 98%), hsl(40 20% 94%));
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.03);
@@ -190,7 +183,6 @@ All colors MUST be HSL.
     --shadow-lg: 0 6px 12px -3px rgb(0 0 0 / 0.06);
     --shadow-glow: 0 0 30px hsl(158 64% 50% / 0.15);
 
-    /* Theme-specific tokens - Soft has minimal shadows */
     --card-shadow: 0 0 0 1px hsl(40 15% 88%);
     --card-hover-shadow: 0 0 0 1px hsl(158 64% 40% / 0.3);
     --card-border-width: 0px;
@@ -198,7 +190,6 @@ All colors MUST be HSL.
     --button-transform: none;
     --interactive-scale: 1;
   }
-
 }
 
 @layer base {
@@ -208,23 +199,31 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
   h1 {
-    @apply text-4xl md:text-5xl lg:text-6xl;
+    @apply text-2xl md:text-3xl font-bold;
   }
 
   h2 {
-    @apply text-3xl md:text-4xl;
+    @apply text-xl md:text-2xl font-semibold;
   }
 
   h3 {
-    @apply text-2xl md:text-3xl;
+    @apply text-lg md:text-xl font-semibold;
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
@@ -251,27 +250,26 @@ All colors MUST be HSL.
 
   /* Custom scrollbar styles */
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 3px;
+    background: transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary) / 0.3);
+    background: hsl(var(--muted-foreground) / 0.2);
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary) / 0.5);
+    background: hsl(var(--muted-foreground) / 0.4);
   }
 
   /* Firefox scrollbar */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--primary) / 0.3) hsl(var(--muted));
+    scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
   }
 
   /* Safe area insets for mobile devices */
