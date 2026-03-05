@@ -83,7 +83,7 @@ const generateEmailHtml = (
       </div>
     </div>
     <div class="footer">
-      This notification is from ${projectName} on CIO Africa Project Planner
+      CIO Africa Project Planner
     </div>
   </div>
 </body>

@@ -68,7 +68,7 @@ const generatePreviewHtml = () => `
       </div>
     </div>
     <div class="footer">
-      This notification is from Website Redesign 2026 on CIO Africa Project Planner
+      CIO Africa Project Planner
     </div>
   </div>
 </body>
