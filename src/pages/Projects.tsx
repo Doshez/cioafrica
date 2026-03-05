@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Calendar, Loader2, ArrowRight, Trash2, FolderKanban, Plus, MoreHorizontal } from 'lucide-react';
+import { Search, Calendar, Loader2, ArrowRight, Trash2, FolderKanban, Plus, MoreHorizontal, Power } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -153,6 +153,27 @@ export default function Projects() {
     }
   };
 
+  const handleToggleProjectStatus = async (project: Project) => {
+    const newStatus = project.status === 'inactive' ? 'active' : 'inactive';
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: newStatus })
+        .eq('id', project.id);
+      if (error) throw error;
+      toast({ title: "Success", description: `Project marked as ${newStatus}` });
+      fetchProjects();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const canToggleStatus = (project: Project) => {
+    if (isAdmin) return true;
+    if (isProjectManager && project.owner_id === user?.id) return true;
+    return false;
+  };
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -163,6 +184,7 @@ export default function Projects() {
   const getStatusStyles = (status: string) => {
     switch (status) {
       case 'active': return 'border-success/30 text-success bg-success/5';
+      case 'inactive': return 'border-muted-foreground/30 text-muted-foreground bg-muted/50';
       case 'review': return 'border-warning/30 text-warning bg-warning/5';
       case 'completed': return 'border-primary/30 text-primary bg-primary/5';
       default: return 'border-border text-muted-foreground';
@@ -283,6 +305,12 @@ export default function Projects() {
                         <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
                           Open
                         </DropdownMenuItem>
+                        {canToggleStatus(project) && (
+                          <DropdownMenuItem onClick={() => handleToggleProjectStatus(project)}>
+                            <Power className="h-4 w-4 mr-2" />
+                            {project.status === 'inactive' ? 'Set Active' : 'Set Inactive'}
+                          </DropdownMenuItem>
+                        )}
                         {(isAdmin || project.owner_id === user?.id) && (
                           <DropdownMenuItem onClick={() => {}}>
                             Duplicate
