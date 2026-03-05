@@ -905,9 +905,9 @@ export default function UserManagement() {
                           ) : (
                             <Popover>
                               <PopoverTrigger asChild>
-                                <Badge variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
+                                <button className="inline-flex items-center rounded-full border border-transparent bg-secondary text-secondary-foreground px-2.5 py-0.5 text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
                                   {user.projects.length} project{user.projects.length !== 1 ? 's' : ''}
-                                </Badge>
+                                </button>
                               </PopoverTrigger>
                               <PopoverContent className="w-64 p-3" align="start">
                                 <p className="text-sm font-semibold mb-2">Assigned Projects</p>
@@ -981,9 +981,9 @@ export default function UserManagement() {
                       ) : (
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Badge variant="secondary" className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
+                            <button className="inline-flex items-center rounded-full border border-transparent bg-secondary text-secondary-foreground px-2.5 py-0.5 text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors">
                               {user.projects.length} project{user.projects.length !== 1 ? 's' : ''}
-                            </Badge>
+                            </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-64 p-3" align="start">
                             <p className="text-sm font-semibold mb-2">Assigned Projects</p>
