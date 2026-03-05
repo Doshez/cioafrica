@@ -248,6 +248,50 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
   useEffect(() => {
     if (!selectedRoom || !showRightPanel) return;
     const fetchParticipants = async () => {
+      // General/public room: show all project members
+      if (publicRoom?.id === selectedRoom) {
+        const { data: members } = await supabase
+          .from('project_members').select('user_id').eq('project_id', projectId);
+        const { data: project } = await supabase
+          .from('projects').select('owner_id').eq('id', projectId).single();
+        const userIds = new Set<string>();
+        members?.forEach(m => userIds.add(m.user_id));
+        if (project?.owner_id) userIds.add(project.owner_id);
+        if (userIds.size === 0) { setRoomParticipants([]); return; }
+        const { data: profiles } = await supabase.from('profiles')
+          .select('id, full_name, avatar_url, email').in('id', Array.from(userIds));
+        setRoomParticipants(profiles || []);
+        return;
+      }
+
+      // Department channel: show department leads + users with tasks in that department
+      const deptRoom = departmentRooms.find(r => r.id === selectedRoom);
+      if (deptRoom?.department_id) {
+        const userIds = new Set<string>();
+        // Get department leads
+        const { data: leads } = await supabase
+          .from('department_leads').select('user_id').eq('department_id', deptRoom.department_id);
+        leads?.forEach(l => userIds.add(l.user_id));
+        // Get users with tasks assigned to this department
+        const { data: taskUsers } = await supabase
+          .from('tasks').select('assignee_user_id')
+          .eq('assignee_department_id', deptRoom.department_id)
+          .eq('project_id', projectId)
+          .not('assignee_user_id', 'is', null);
+        taskUsers?.forEach(t => { if (t.assignee_user_id) userIds.add(t.assignee_user_id); });
+        if (userIds.size === 0) { setRoomParticipants([]); return; }
+        const { data: profiles } = await supabase.from('profiles')
+          .select('id, full_name, avatar_url, email').in('id', Array.from(userIds));
+        // Tag leads for display
+        const leadIds = new Set(leads?.map(l => l.user_id) || []);
+        const tagged = (profiles || []).map(p => ({ ...p, isLead: leadIds.has(p.id) }));
+        // Sort leads first
+        tagged.sort((a, b) => (b.isLead ? 1 : 0) - (a.isLead ? 1 : 0));
+        setRoomParticipants(tagged);
+        return;
+      }
+
+      // Default: show chat_participants
       const { data: parts } = await supabase.from('chat_participants')
         .select('user_id').eq('room_id', selectedRoom);
       if (!parts || parts.length === 0) { setRoomParticipants([]); return; }
@@ -257,7 +301,7 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
       setRoomParticipants(profiles || []);
     };
     fetchParticipants();
-  }, [selectedRoom, showRightPanel]);
+  }, [selectedRoom, showRightPanel, publicRoom, departmentRooms, projectId]);
 
   // Mark room as read
   useEffect(() => {
@@ -842,8 +886,13 @@ export const MessagingCenter = ({ open, onOpenChange, projectId }: MessagingCent
                               </Avatar>
                               <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-background ${getStatusColor(status)}`} />
                             </div>
-                            <div className="min-w-0">
-                              <span className="text-xs truncate block">{p.id === user?.id ? 'You' : (p.full_name || p.email)}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs truncate block">{p.id === user?.id ? 'You' : (p.full_name || p.email)}</span>
+                                {(p as any).isLead && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/30 text-primary flex-shrink-0">Lead</Badge>
+                                )}
+                              </div>
                               <span className="text-[10px] text-muted-foreground capitalize">{status}</span>
                             </div>
                           </div>
