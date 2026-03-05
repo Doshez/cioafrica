@@ -117,8 +117,28 @@ export function EditTaskDialog({ open, onOpenChange, task, onSuccess }: EditTask
     const loadData = async () => {
       setDataLoading(true);
       try {
+        // Scope users to project members only
+        let profilesQuery: Promise<any>;
+        if (task.project_id) {
+          const [membersRes, projectRes] = await Promise.all([
+            supabase.from('project_members').select('user_id').eq('project_id', task.project_id),
+            supabase.from('projects').select('owner_id').eq('id', task.project_id).single()
+          ]);
+          const memberIds = [...new Set([
+            ...(membersRes.data || []).map(m => m.user_id),
+            ...(projectRes.data?.owner_id ? [projectRes.data.owner_id] : [])
+          ])];
+          profilesQuery = Promise.resolve(
+            memberIds.length > 0
+              ? supabase.from('profiles').select('id, full_name, email').in('id', memberIds).order('full_name')
+              : supabase.from('profiles').select('id, full_name, email').order('full_name')
+          );
+        } else {
+          profilesQuery = Promise.resolve(supabase.from('profiles').select('id, full_name, email').order('full_name'));
+        }
+
         const queries: Promise<any>[] = [
-          Promise.resolve(supabase.from('profiles').select('id, full_name, email').order('full_name')),
+          profilesQuery,
           task.project_id && task.assignee_department_id
             ? Promise.resolve(supabase.from('elements').select('id, title').eq('project_id', task.project_id).eq('department_id', task.assignee_department_id).order('title'))
             : Promise.resolve({ data: [], error: null }),

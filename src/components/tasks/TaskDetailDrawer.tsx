@@ -98,8 +98,24 @@ export function TaskDetailDrawer({
     const loadData = async () => {
       setDataLoading(true);
       try {
+        // Fetch project members + owner to scope user list
+        const projectId = task.project_id;
+        let memberUserIds: string[] = [];
+        
+        if (projectId) {
+          const [membersRes, projectRes] = await Promise.all([
+            supabase.from('project_members').select('user_id').eq('project_id', projectId),
+            supabase.from('projects').select('owner_id').eq('id', projectId).single()
+          ]);
+          const memberIds = (membersRes.data || []).map(m => m.user_id);
+          if (projectRes.data?.owner_id) memberIds.push(projectRes.data.owner_id);
+          memberUserIds = [...new Set(memberIds)];
+        }
+
         const [usersResult, assignmentsResult] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, email').order('full_name'),
+          memberUserIds.length > 0
+            ? supabase.from('profiles').select('id, full_name, email').in('id', memberUserIds).order('full_name')
+            : supabase.from('profiles').select('id, full_name, email').order('full_name'),
           supabase.from('task_assignments').select('user_id').eq('task_id', task.id)
         ]);
 
