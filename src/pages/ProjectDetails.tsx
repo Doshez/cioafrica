@@ -12,6 +12,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
 import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { MessagingCenter } from '@/components/MessagingCenter';
+import { EditProjectDialog } from '@/components/EditProjectDialog';
 import { ChatSettingsDialog } from '@/components/ChatSettingsDialog';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import {
