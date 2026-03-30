@@ -328,6 +328,9 @@ export default function ProjectDetails() {
                     <Badge variant="outline" className={cn('text-[11px] font-medium flex-shrink-0 border', currentStatus.className)}>
                       {currentStatus.label}
                     </Badge>
+                    {(isAdmin || isProjectManager) && (
+                      <EditProjectDialog projectId={projectId!} currentName={project.name} currentDescription={project.description} onProjectUpdated={fetchProjectData} />
+                    )}
                   </div>
                   {project.description && (
                     <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
@@ -346,7 +349,6 @@ export default function ProjectDetails() {
                     Gantt Chart
                     <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                   </Button>
-                  <EditProjectDialog projectId={projectId!} currentName={project.name} currentDescription={project.description} onProjectUpdated={fetchProjectData} />
                   <UpdateProjectLogoDialog projectId={projectId!} currentLogoUrl={project.logo_url} onLogoUpdated={fetchProjectData} />
                   <CreateTaskDialog projectId={projectId} onTaskCreated={fetchProjectData} showTrigger={false} />
                   <ChatSettingsDialog projectId={projectId!} />
