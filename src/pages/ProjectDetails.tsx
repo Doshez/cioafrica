@@ -328,6 +328,9 @@ export default function ProjectDetails() {
                     <Badge variant="outline" className={cn('text-[11px] font-medium flex-shrink-0 border', currentStatus.className)}>
                       {currentStatus.label}
                     </Badge>
+                    {(isAdmin || isProjectManager) && (
+                      <EditProjectDialog projectId={projectId!} currentName={project.name} currentDescription={project.description} onProjectUpdated={fetchProjectData} />
+                    )}
                   </div>
                   {project.description && (
                     <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
