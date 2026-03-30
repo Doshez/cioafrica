@@ -12,6 +12,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { UpdateProjectLogoDialog } from '@/components/UpdateProjectLogoDialog';
 import { ProjectLoadingScreen } from '@/components/ProjectLoadingScreen';
 import { MessagingCenter } from '@/components/MessagingCenter';
+import { EditProjectDialog } from '@/components/EditProjectDialog';
 import { ChatSettingsDialog } from '@/components/ChatSettingsDialog';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import {
@@ -345,6 +346,7 @@ export default function ProjectDetails() {
                     Gantt Chart
                     <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
                   </Button>
+                  <EditProjectDialog projectId={projectId!} currentName={project.name} currentDescription={project.description} onProjectUpdated={fetchProjectData} />
                   <UpdateProjectLogoDialog projectId={projectId!} currentLogoUrl={project.logo_url} onLogoUpdated={fetchProjectData} />
                   <CreateTaskDialog projectId={projectId} onTaskCreated={fetchProjectData} showTrigger={false} />
                   <ChatSettingsDialog projectId={projectId!} />
