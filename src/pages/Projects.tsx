@@ -376,8 +376,14 @@ export default function Projects() {
                   </div>
                 </div>
 
-                {/* Status & Date */}
-                <div className="flex items-center gap-2 mb-4">
+                {/* Category, Status & Date */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <Badge variant="secondary" className="text-[10px]">
+                    {project.project_category === 'client' ? 'Client' : 'CIO Africa'}
+                  </Badge>
+                  {project.client_name && (
+                    <Badge variant="outline" className="text-[10px]">{project.client_name}</Badge>
+                  )}
                   <Badge variant="outline" className={`text-[10px] ${getStatusStyles(project.status)}`}>
                     {project.status}
                   </Badge>
