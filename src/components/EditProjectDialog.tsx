@@ -135,13 +135,12 @@ export function EditProjectDialog({
             </div>
             {category === 'client' && (
               <div className="grid gap-2">
-                <Label>Client Name *</Label>
-                <Input
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="e.g., Safaricom, KCB Group"
-                  required
-                />
+              <Label>Client Name *</Label>
+              <ClientNameInput
+                value={clientName}
+                onChange={setClientName}
+                required
+              />
               </div>
             )}
             <div className="grid gap-2">
