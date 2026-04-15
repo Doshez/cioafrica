@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Pencil, Loader2 } from 'lucide-react';
+import { ClientNameInput } from '@/components/ClientNameInput';
 
 interface EditProjectDialogProps {
   projectId: string;
@@ -122,26 +123,39 @@ export function EditProjectDialog({
             <DialogDescription>Update project details</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Project Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cio_africa">CIO Africa Project</SelectItem>
-                  <SelectItem value="client">Client Project</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {category === 'client' && (
+            {(isAdmin || isProjectManager) ? (
               <div className="grid gap-2">
-                <Label>Client Name *</Label>
-                <Input
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="e.g., Safaricom, KCB Group"
-                  required
-                />
+                <Label>Project Type</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cio_africa">CIO Africa Project</SelectItem>
+                    <SelectItem value="client">Client Project</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            ) : (
+              <div className="grid gap-2">
+                <Label>Project Type (view only)</Label>
+                <Input value={category === 'cio_africa' ? 'CIO Africa Project' : 'Client Project'} disabled className="opacity-60" />
+              </div>
+            )}
+            {category === 'client' && (
+              (isAdmin || isProjectManager) ? (
+                <div className="grid gap-2">
+                  <Label>Client Name *</Label>
+                  <ClientNameInput
+                    value={clientName}
+                    onChange={setClientName}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <Label>Client Name (view only)</Label>
+                  <Input value={clientName} disabled className="opacity-60" />
+                </div>
+              )
             )}
             <div className="grid gap-2">
               <Label>Project Name *</Label>
