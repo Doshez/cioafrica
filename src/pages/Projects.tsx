@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Calendar, Loader2, ArrowRight, Trash2, FolderKanban, Plus, MoreHorizontal, Power } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +39,8 @@ interface Project {
   end_date: string | null;
   logo_url?: string | null;
   owner_id?: string | null;
+  project_category?: string;
+  client_name?: string | null;
 }
 
 interface ProjectWithStats extends Project {
@@ -57,6 +60,8 @@ export default function Projects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
 
   useEffect(() => {
     if (user && (isAdmin !== undefined && isProjectManager !== undefined)) {
@@ -68,7 +73,7 @@ export default function Projects() {
     try {
       let projectsQuery = supabase
         .from('projects')
-        .select('id, name, description, status, start_date, end_date, logo_url, owner_id')
+        .select('id, name, description, status, start_date, end_date, logo_url, owner_id, project_category, client_name')
         .order('created_at', { ascending: false });
 
       // Admin sees all projects; PM and regular users see only projects they own or are members of
@@ -174,11 +179,17 @@ export default function Projects() {
     return false;
   };
 
+  // Get unique client names for filter
+  const clientNames = [...new Set(projects.filter(p => p.client_name).map(p => p.client_name!))].sort();
+
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.client_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'all' || project.project_category === categoryFilter;
+    const matchesClient = clientFilter === 'all' || project.client_name === clientFilter;
+    return matchesSearch && matchesStatus && matchesCategory && matchesClient;
   });
 
   const getStatusStyles = (status: string) => {
@@ -220,28 +231,61 @@ export default function Projects() {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search projects or clients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-card"
+            />
+          </div>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto">
-          {statuses.map(status => (
-            <Button
-              key={status}
-              variant={statusFilter === status ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter(status)}
-              className="capitalize text-xs whitespace-nowrap"
-            >
-              {status === 'all' ? 'All' : status}
-            </Button>
-          ))}
+        <div className="flex flex-wrap gap-3">
+          {/* Category filter */}
+          <div className="flex gap-1.5">
+            {['all', 'cio_africa', 'client'].map(cat => (
+              <Button
+                key={cat}
+                variant={categoryFilter === cat ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setCategoryFilter(cat); if (cat !== 'client') setClientFilter('all'); }}
+                className="text-xs whitespace-nowrap"
+              >
+                {cat === 'all' ? 'All' : cat === 'cio_africa' ? 'CIO Africa' : 'Client'}
+              </Button>
+            ))}
+          </div>
+          {/* Client filter - shown when category is 'client' or 'all' and there are client projects */}
+          {clientNames.length > 0 && categoryFilter !== 'cio_africa' && (
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <SelectTrigger className="w-[180px] h-8 text-xs">
+                <SelectValue placeholder="All Clients" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {clientNames.map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Status filter */}
+          <div className="flex gap-1.5">
+            {statuses.map(status => (
+              <Button
+                key={status}
+                variant={statusFilter === status ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter(status)}
+                className="capitalize text-xs whitespace-nowrap"
+              >
+                {status === 'all' ? 'All Status' : status}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -332,8 +376,14 @@ export default function Projects() {
                   </div>
                 </div>
 
-                {/* Status & Date */}
-                <div className="flex items-center gap-2 mb-4">
+                {/* Category, Status & Date */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <Badge variant="secondary" className="text-[10px]">
+                    {project.project_category === 'client' ? 'Client' : 'CIO Africa'}
+                  </Badge>
+                  {project.client_name && (
+                    <Badge variant="outline" className="text-[10px]">{project.client_name}</Badge>
+                  )}
                   <Badge variant="outline" className={`text-[10px] ${getStatusStyles(project.status)}`}>
                     {project.status}
                   </Badge>
