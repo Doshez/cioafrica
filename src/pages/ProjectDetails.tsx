@@ -329,7 +329,16 @@ export default function ProjectDetails() {
                       {currentStatus.label}
                     </Badge>
                     {(isAdmin || isProjectManager) && (
-                      <EditProjectDialog projectId={projectId!} currentName={project.name} currentDescription={project.description} onProjectUpdated={fetchProjectData} />
+                      <EditProjectDialog 
+                        projectId={projectId!} 
+                        currentName={project.name} 
+                        currentDescription={project.description}
+                        currentStartDate={project.start_date}
+                        currentEndDate={project.end_date}
+                        currentCategory={(project as any).project_category}
+                        currentClientName={(project as any).client_name}
+                        onProjectUpdated={fetchProjectData} 
+                      />
                     )}
                   </div>
                   {project.description && (
