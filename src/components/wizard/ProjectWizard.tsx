@@ -66,6 +66,8 @@ export default function ProjectWizard() {
     status: 'active',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
+    project_category: 'cio_africa' as 'cio_africa' | 'client',
+    client_name: '',
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export default function ProjectWizard() {
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0: return projectData.name.trim() && projectData.start_date;
+      case 0: return projectData.name.trim() && projectData.start_date && (projectData.project_category === 'cio_africa' || projectData.client_name.trim());
       case 1: return true; // departments optional
       case 2: return true; // elements optional
       case 3: return true;
@@ -163,7 +165,9 @@ export default function ProjectWizard() {
           end_date: projectData.end_date || null,
           owner_id: user.id,
           logo_url: logoUrl,
-        })
+          project_category: projectData.project_category,
+          client_name: projectData.project_category === 'client' ? projectData.client_name : null,
+        } as any)
         .select('id')
         .single();
       if (projectError) throw projectError;
@@ -271,6 +275,29 @@ export default function ProjectWizard() {
               <p className="text-sm text-muted-foreground mt-1">Set up the basics for your new project.</p>
             </div>
             <div className="space-y-4">
+              {/* Project Category */}
+              <div className="space-y-2">
+                <Label>Project Category *</Label>
+                <Select value={projectData.project_category} onValueChange={(v: 'cio_africa' | 'client') => setProjectData({ ...projectData, project_category: v, client_name: v === 'cio_africa' ? '' : projectData.client_name })}>
+                  <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cio_africa">CIO Africa Project</SelectItem>
+                    <SelectItem value="client">Client Project</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {projectData.project_category === 'client' && (
+                <div className="space-y-2">
+                  <Label>Client Name *</Label>
+                  <Input
+                    value={projectData.client_name}
+                    onChange={e => setProjectData({ ...projectData, client_name: e.target.value })}
+                    placeholder="e.g., Safaricom, KCB Group"
+                    className="bg-card"
+                    required
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Project Name *</Label>
                 <Input
@@ -500,7 +527,15 @@ export default function ProjectWizard() {
                     <h3 className="font-bold">{projectData.name}</h3>
                     <p className="text-xs text-muted-foreground">{projectData.description || 'No description'}</p>
                   </div>
-                  <Badge variant="outline" className="ml-auto capitalize text-xs">{projectData.status}</Badge>
+                  <div className="ml-auto flex gap-1.5">
+                    <Badge variant="secondary" className="text-xs">
+                      {projectData.project_category === 'cio_africa' ? 'CIO Africa' : 'Client'}
+                    </Badge>
+                    {projectData.client_name && (
+                      <Badge variant="outline" className="text-xs">{projectData.client_name}</Badge>
+                    )}
+                    <Badge variant="outline" className="capitalize text-xs">{projectData.status}</Badge>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 pt-2 border-t">
                   <div>
