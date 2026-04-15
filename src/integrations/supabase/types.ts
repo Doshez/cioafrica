@@ -1271,6 +1271,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          client_name: string | null
           created_at: string | null
           department_id: string | null
           description: string | null
@@ -1279,12 +1280,14 @@ export type Database = {
           logo_url: string | null
           name: string
           owner_id: string | null
+          project_category: Database["public"]["Enums"]["project_category"]
           start_date: string
           status: string | null
           theme_colors: Json | null
           updated_at: string | null
         }
         Insert: {
+          client_name?: string | null
           created_at?: string | null
           department_id?: string | null
           description?: string | null
@@ -1293,12 +1296,14 @@ export type Database = {
           logo_url?: string | null
           name: string
           owner_id?: string | null
+          project_category?: Database["public"]["Enums"]["project_category"]
           start_date: string
           status?: string | null
           theme_colors?: Json | null
           updated_at?: string | null
         }
         Update: {
+          client_name?: string | null
           created_at?: string | null
           department_id?: string | null
           description?: string | null
@@ -1307,6 +1312,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           owner_id?: string | null
+          project_category?: Database["public"]["Enums"]["project_category"]
           start_date?: string
           status?: string | null
           theme_colors?: Json | null
@@ -1819,6 +1825,7 @@ export type Database = {
       chat_room_type: "public" | "private" | "department" | "group"
       document_permission: "view_only" | "download" | "edit"
       external_access_level: "view_only" | "upload_edit" | "edit_download"
+      project_category: "cio_africa" | "client"
       project_role: "owner" | "manager" | "member" | "viewer"
       user_status: "online" | "away" | "busy" | "offline"
     }
@@ -1952,6 +1959,7 @@ export const Constants = {
       chat_room_type: ["public", "private", "department", "group"],
       document_permission: ["view_only", "download", "edit"],
       external_access_level: ["view_only", "upload_edit", "edit_download"],
+      project_category: ["cio_africa", "client"],
       project_role: ["owner", "manager", "member", "viewer"],
       user_status: ["online", "away", "busy", "offline"],
     },
