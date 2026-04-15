@@ -16,6 +16,7 @@ import {
   Plus, Trash2, FileText, Folder, ListTodo, Users, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ClientNameInput } from '@/components/ClientNameInput';
 
 interface WizardDepartment {
   tempId: string;
@@ -289,10 +290,9 @@ export default function ProjectWizard() {
               {projectData.project_category === 'client' && (
                 <div className="space-y-2">
                   <Label>Client Name *</Label>
-                  <Input
+                  <ClientNameInput
                     value={projectData.client_name}
-                    onChange={e => setProjectData({ ...projectData, client_name: e.target.value })}
-                    placeholder="e.g., Safaricom, KCB Group"
+                    onChange={(v) => setProjectData({ ...projectData, client_name: v })}
                     className="bg-card"
                     required
                   />
