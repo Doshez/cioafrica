@@ -71,49 +71,24 @@ export default function Projects() {
 
   const fetchProjects = async () => {
     try {
-      let projectsQuery = supabase
+      // Admins and Project Managers see all projects (RLS allows this).
+      // Regular users only see projects they own or are members of.
+      // RLS handles the filtering — we just rely on it instead of pre-filtering client-side.
+      const { data, error } = await supabase
         .from('projects')
         .select('id, name, description, status, start_date, end_date, logo_url, owner_id, project_category, client_name')
         .order('created_at', { ascending: false });
 
-      // Admin sees all projects; PM and regular users see only projects they own or are members of
-      if (!isAdmin) {
-        // Get projects where user is owner
-        const { data: ownedProjects } = await supabase
-          .from('projects')
-          .select('id')
-          .eq('owner_id', user?.id);
-
-        // Get projects where user is a member
-        const { data: memberProjects } = await supabase
-          .from('project_members')
-          .select('project_id')
-          .eq('user_id', user?.id);
-
-        const ownedIds = (ownedProjects || []).map(p => p.id);
-        const memberIds = (memberProjects || []).map(p => p.project_id);
-        const allIds = [...new Set([...ownedIds, ...memberIds])];
-
-        if (allIds.length > 0) {
-          projectsQuery = projectsQuery.in('id', allIds);
-        } else {
-          setProjects([]);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const { data, error } = await projectsQuery;
       if (error) throw error;
 
-      // Fetch task stats for all projects
+      // Fetch task stats for all projects in a single query
       const projectIds = (data || []).map(p => p.id);
       let taskStats: Record<string, { total: number; completed: number }> = {};
       
       if (projectIds.length > 0) {
         const { data: tasks } = await supabase
           .from('tasks')
-          .select('id, status, project_id')
+          .select('status, project_id')
           .in('project_id', projectIds);
 
         (tasks || []).forEach(t => {
